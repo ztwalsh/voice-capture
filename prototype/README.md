@@ -7,6 +7,7 @@ not a foundation for the app.
 | --- | --- |
 | `index.html` | The adopted direction, full loop: capture, insert, history |
 | `versions.html` | Three directions for the capsule side by side, live on the same audio |
+| `dim.html` | What happens to everything else while you dictate — five background treatments |
 
 ## Run it
 
@@ -15,7 +16,8 @@ python3 -m http.server 8000
 ```
 
 Then open <http://127.0.0.1:8000/> for the full prototype, or
-<http://127.0.0.1:8000/versions.html> to compare directions.
+<http://127.0.0.1:8000/versions.html> to compare directions, or
+<http://127.0.0.1:8000/dim.html> to compare background treatments.
 
 **Serve it — do not open the file directly.** `getUserMedia` requires a secure
 context, and `file://` is not one, so opening `index.html` from Finder silently
@@ -60,6 +62,58 @@ on the same audio at the same moment rather than from memory.
 Mono is deliberately the same in light and dark, which `design.md` allows for a
 design that commits to one look. Its distinctness is strongest in light mode; in
 dark it converges with the other two.
+
+## Background treatments
+
+`dim.html` asks what the rest of the screen does while you are capturing. Five
+treatments, one intensity control mapped so the same number means a comparable
+amount of interference across all of them, and a **Pin listening** toggle so a
+state can be held still and compared.
+
+| | What it does |
+| --- | --- |
+| **None** | Control |
+| **Scrim** | A flat dark veil. Reads as modal — the app is busy |
+| **Fade** | The UI drops its own opacity toward the desktop |
+| **Blur** | Background blurs and desaturates. Depth-of-field, not a curtain |
+| **Vignette** | Dark at the edges, clear around the capsule |
+
+The treatment runs on the same toast clock as the capsule, 350ms in and 250ms
+out, so the two arrive and leave together. A background that lags the capsule
+reads as broken.
+
+Three things this exercise settled:
+
+**Fade keeps colour, scrim destroys it.** A black veil greys the whole desktop;
+dropping the windows' own opacity lets the wallpaper through, so the UI reads as
+receding rather than as covered. They are not the same effect at different
+strengths, they are different effects.
+
+**Blur breaks the one thing you need to see.** You are dictating into a text
+field and want to watch the insertion point. At any blur strong enough to read
+as a treatment, that field is illegible.
+
+**Every treatment dims the field you are dictating into.** That is the core
+tension, and it is not solvable by tuning. Vignette is the only one that can
+protect a region, and even it protects the area around the capsule rather than
+around the caret, which are rarely the same place.
+
+Animate the scrim's **opacity**, never its blur radius. `motion.md`'s rule about
+never transitioning `backdrop-filter` applies with more force at full-screen
+size, and fading a layer that already carries a static blur gets the same result
+for almost nothing.
+
+### What this would cost in the app
+
+Worth weighing before adopting any of these. The current design is one small
+panel. A background treatment means a full-screen transparent window per display
+that must be click-through, must never take focus, must follow display
+configuration changes, and will dim other applications' menu bars along with
+everything else.
+
+It also sits in real tension with the app's own first principle, that it is
+invisible until invoked and leaves quickly. Taking over the whole screen for the
+duration of a two-second utterance is the opposite of getting out of the way.
 
 ## Type
 

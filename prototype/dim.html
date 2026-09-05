@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Capture — background treatments while capturing</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   What happens to everything ELSE while you are dictating.
+
+   Five treatments, switchable live, with one intensity control so the
+   amount can be dialled rather than argued about. The capsule itself is
+   the adopted Pill direction, unchanged.
+
+   Motion is transitions.dev: the treatment runs on the same toast clock
+   as the capsule (350ms in, 250ms out) so the two arrive and leave
+   together. A background that lags the capsule reads as broken.
+   ══════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Geist'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('./fonts/geist.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('./fonts/geist-mono.woff2') format('woff2');
+}
+
+:root {
+  color-scheme: light;
+
+  --duration-quick: 150ms;
+  --ease-in-out: ease-in-out;
+  --toast-open: 350ms; --toast-close: 250ms;
+  --toast-distance: 16px; --toast-blur: 2px; --toast-scale: 0.97;
+  --toast-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --resize-dur: 300ms; --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --text-swap-dur: 150ms; --text-swap-translate-y: 4px; --text-swap-blur: 2px;
+  --text-swap-ease: ease-in-out;
+  --shake-distance: 6px; --shake-overshoot: 4px;
+  --shake-dur-a: 80ms; --shake-dur-b: 60ms;
+  --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --think-shimmer: 2000ms;
+
+  --surface: rgba(255,255,255,0.86);
+  --surface-solid: #ffffff;
+  --trough: #f9f9f9;
+  --hairline: rgba(0,0,0,0.06);
+  --text: #0d0d0d;
+  --text-subtle: #767676;
+  --text-faint: #8f8f8f;
+  --label-mono: #5e6073;
+  --live: #E5484D;
+  --elev-capsule:
+    0 8px 48px 0 rgba(0,0,0,0.12), 0 2px 8px 0 rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.06);
+  --elev-card:
+    0 4px 42px 0 rgba(0,0,0,0.06), 0 2px 6px 0 rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.06);
+
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --desk-a: #c3cddb; --desk-b: #e7eaef; --desk-c: #9fb0c6; --desk-d: #d9c9c0;
+
+  /* driven by the intensity control */
+  --dim-scrim: 0;      /* scrim alpha            */
+  --dim-fade: 1;       /* app-window opacity     */
+  --dim-blur: 0px;     /* backdrop blur          */
+  --dim-vignette: 0;   /* vignette edge alpha    */
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --surface: rgba(28,28,30,0.82); --surface-solid: #1c1c1e;
+  --trough: rgba(255,255,255,0.04); --hairline: rgba(255,255,255,0.08);
+  --text: #fbfbfb; --text-subtle: rgba(255,255,255,0.48);
+  --text-faint: rgba(255,255,255,0.34); --label-mono: rgba(255,255,255,0.52);
+  --live: #FF6369;
+  --elev-capsule: 0 8px 48px 0 rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.08);
+  --elev-card: 0 4px 24px 0 rgba(0,0,0,0.36), 0 0 0 1px rgba(255,255,255,0.08);
+  --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: rgba(28,28,30,0.82); --surface-solid: #1c1c1e;
+  --trough: rgba(255,255,255,0.04); --hairline: rgba(255,255,255,0.08);
+  --text: #fbfbfb; --text-subtle: rgba(255,255,255,0.48);
+  --text-faint: rgba(255,255,255,0.34); --label-mono: rgba(255,255,255,0.52);
+  --live: #FF6369;
+  --elev-capsule: 0 8px 48px 0 rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.08);
+  --elev-card: 0 4px 24px 0 rgba(0,0,0,0.36), 0 0 0 1px rgba(255,255,255,0.08);
+  --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; font-family: var(--font-sans); color: var(--text);
+  overflow: hidden; -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(900px 620px at 14% 10%,  var(--desk-c), transparent 62%),
+    radial-gradient(760px 520px at 88% 22%,  var(--desk-d), transparent 58%),
+    radial-gradient(1000px 700px at 62% 96%, var(--desk-a), transparent 60%),
+    var(--desk-b);
+}
+
+/* ── the background UI ── */
+/* Everything the treatment acts on lives in here, so "fade" is one
+   opacity on one element rather than a rule per window. */
+.apps {
+  position: absolute; inset: 0;
+  opacity: var(--dim-fade);
+  transition: opacity var(--toast-close) var(--toast-ease);
+}
+body.is-capturing .apps { transition: opacity var(--toast-open) var(--toast-ease); }
+
+.win {
+  position: absolute; background: var(--surface-solid);
+  border-radius: 12px; box-shadow: var(--elev-card);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.win-bar {
+  height: 36px; flex: none; display: flex; align-items: center; gap: 7px;
+  padding: 0 13px; border-bottom: 1px solid var(--hairline);
+}
+.tl { width: 11px; height: 11px; border-radius: 50%; background: var(--text-faint); opacity: .45; }
+.win-title { font-size: 12px; font-weight: 500; color: var(--text-subtle); margin-left: 6px; letter-spacing: -0.01em; }
+
+.win-back { top: 5vh; left: 7%; width: 380px; height: 300px; }
+.win-back .body { padding: 16px 18px; font-size: 12px; line-height: 20px; color: var(--text-subtle); }
+.win-back .rowline { height: 8px; border-radius: 4px; background: var(--trough); margin-bottom: 10px; }
+.win-back .rowline:nth-child(2n) { width: 74%; }
+.win-back .rowline:nth-child(3n) { width: 88%; }
+
+.win-front { top: 15vh; left: 50%; transform: translateX(-46%); width: min(620px, 62vw); height: min(400px, 46vh); }
+#field {
+  flex: 1; width: 100%; border: 0; resize: none; outline: none;
+  padding: 20px 24px; font-family: var(--font-sans); font-size: 14px;
+  line-height: 23px; color: var(--text); background: transparent;
+}
+#field::placeholder { color: var(--text-faint); }
+
+/* ── the treatment layer ── */
+.scrim {
+  position: fixed; inset: 0; z-index: 40;
+  pointer-events: none;              /* click-through, always */
+  opacity: 0;
+  transition: opacity var(--toast-close) var(--toast-ease);
+}
+body.is-capturing .scrim {
+  opacity: 1;
+  transition: opacity var(--toast-open) var(--toast-ease);
+}
+body[data-treatment="scrim"] .scrim { background: rgba(0,0,0,var(--dim-scrim)); }
+body[data-treatment="blur"] .scrim {
+  -webkit-backdrop-filter: blur(var(--dim-blur)) saturate(0.82);
+  backdrop-filter: blur(var(--dim-blur)) saturate(0.82);
+  background: rgba(0,0,0,calc(var(--dim-scrim) * 0.35));
+}
+/* Clear where you are looking, dark at the edges. The focal point sits
+   over the capsule, not the screen centre. */
+body[data-treatment="vignette"] .scrim {
+  background: radial-gradient(120% 90% at 50% 88%,
+    transparent 0%, transparent 26%, rgba(0,0,0,var(--dim-vignette)) 100%);
+}
+
+/* ── the capsule (Pill, unchanged) ── */
+.anchor { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 50; pointer-events: none; }
+.capsule {
+  --w: 248px;
+  position: relative; width: var(--w); height: 44px; border-radius: 22px;
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  backdrop-filter: blur(32px) saturate(180%);
+  box-shadow: var(--elev-capsule);
+  display: flex; align-items: center; padding: 0 20px; gap: 12px;
+  opacity: 0;
+  transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
+  filter: blur(var(--toast-blur));
+  will-change: transform, opacity, filter, width;
+  transition:
+    opacity var(--toast-close) var(--toast-ease),
+    transform var(--toast-close) var(--toast-ease),
+    filter var(--toast-close) var(--toast-ease),
+    width var(--resize-dur) var(--resize-ease);
+}
+.capsule.is-open {
+  opacity: 1; transform: translateY(0) scale(1); filter: blur(0);
+  transition:
+    opacity var(--toast-open) var(--toast-ease),
+    transform var(--toast-open) var(--toast-ease),
+    filter var(--toast-open) var(--toast-ease),
+    width var(--resize-dur) var(--resize-ease);
+}
+.dot {
+  flex: none; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-faint);
+  transition: background-color var(--duration-quick) ease-out;
+}
+.capsule[data-state="listening"] .dot { background: var(--live); }
+.center { position: relative; flex: 1; height: 100%; min-width: 0; }
+.capsule[data-state="transcribing"] .center,
+.capsule[data-state="error"] .center { margin-right: 18px; }
+.c-item {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  transform: translateY(0); filter: blur(0); opacity: 1;
+  transition:
+    transform var(--text-swap-dur) var(--text-swap-ease),
+    filter    var(--text-swap-dur) var(--text-swap-ease),
+    opacity   var(--text-swap-dur) var(--text-swap-ease);
+}
+.c-item.is-exit { transform: translateY(-4px); filter: blur(2px); opacity: 0; }
+.c-item.is-enter-start { transform: translateY(4px); filter: blur(2px); opacity: 0; transition: none; }
+.c-item[hidden] { display: none; }
+#wave { display: block; width: 100%; height: 24px; }
+.t-think { position: relative; display: inline-block; text-align: center; }
+.t-think-text {
+  display: block; color: var(--text-subtle); white-space: nowrap;
+  font-size: 11px; font-weight: 500; letter-spacing: 0.01em;
+}
+.t-think-text::before {
+  content: attr(data-text); position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(90deg, transparent 0%, transparent 40%,
+    var(--text) 50%, transparent 60%, transparent 100%);
+  background-size: 400% 100%; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  animation: shimmer var(--think-shimmer) linear infinite;
+}
+@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0% 0; } }
+.errmsg { font-size: 11px; font-weight: 500; letter-spacing: 0.01em; color: var(--text); white-space: nowrap; }
+.timer {
+  flex: none; width: 30px; text-align: right; font-family: var(--font-mono);
+  font-size: 11px; line-height: 14px; color: var(--label-mono);
+  font-variant-numeric: tabular-nums;
+  opacity: 0; transition: opacity var(--duration-quick) var(--ease-in-out);
+}
+.timer.is-shown { opacity: 1; }
+.capsule:not([data-state="listening"]) .timer { display: none; }
+.shaker.is-shaking { animation: shake calc(var(--shake-dur-a)*2 + var(--shake-dur-b)*2) linear; }
+@keyframes shake {
+  0%     { transform: translateX(0);                                animation-timing-function: var(--shake-ease); }
+  28.57% { transform: translateX(var(--shake-distance));            animation-timing-function: var(--shake-ease); }
+  57.14% { transform: translateX(calc(var(--shake-distance) * -1)); animation-timing-function: var(--shake-ease); }
+  78.57% { transform: translateX(var(--shake-overshoot));           animation-timing-function: var(--shake-ease); }
+  100%   { transform: translateX(0); }
+}
+
+/* ── prototype chrome ── */
+.panel {
+  position: fixed; top: 20px; right: 20px; width: 262px; z-index: 60;
+  background: var(--surface-solid); border-radius: 12px;
+  box-shadow: var(--elev-card); padding: 14px; font-size: 12px;
+}
+.panel h2 { margin: 0 0 2px; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
+.panel p { margin: 0 0 10px; color: var(--text-subtle); font-size: 11px; line-height: 16px; }
+.panel hr { border: 0; border-top: 1px solid var(--hairline); margin: 10px 0; }
+.grp { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.lbl {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-faint); margin-bottom: 5px; font-family: var(--font-mono);
+  display: flex; justify-content: space-between;
+}
+button {
+  font-family: var(--font-sans); font-size: 11px; font-weight: 500;
+  color: var(--text); background: var(--trough);
+  border: 1px solid var(--hairline); border-radius: 7px;
+  padding: 5px 9px; cursor: pointer;
+  transition: background-color var(--duration-quick) ease-out;
+}
+button:hover { background: var(--hairline); }
+button[aria-pressed="true"] { background: var(--text); color: var(--surface-solid); border-color: var(--text); }
+.ptt { width: 100%; padding: 9px; border-radius: 9px; font-size: 12px; margin-top: 2px; }
+.ptt.is-down { background: var(--live); border-color: var(--live); color: #fff; }
+input[type=range] { width: 100%; accent-color: var(--text); margin: 2px 0 10px; }
+.mic { font-size: 10px; color: var(--text-faint); margin-top: 8px; line-height: 15px; }
+.why { font-size: 10px; line-height: 15px; color: var(--text-faint); margin-top: -2px; }
+kbd {
+  font-family: var(--font-mono); font-size: 10px; background: var(--trough);
+  border: 1px solid var(--hairline); border-radius: 4px; padding: 1px 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capsule, .c-item, .scrim, .apps { transition: none !important; filter: none !important; }
+  .t-think-text::before { display: none !important; }
+  .shaker { animation: none !important; transform: none !important; }
+}
+html.force-reduce .capsule,
+html.force-reduce .c-item,
+html.force-reduce .scrim,
+html.force-reduce .apps { transition: none !important; filter: none !important; }
+html.force-reduce .t-think-text::before { display: none !important; }
+html.force-reduce .shaker { animation: none !important; transform: none !important; }
+</style>
+</head>
+<body data-treatment="scrim">
+
+<div class="apps">
+  <div class="win win-back">
+    <div class="win-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="win-title">Inbox</span></div>
+    <div class="body">
+      <div class="rowline"></div><div class="rowline"></div><div class="rowline"></div>
+      <div class="rowline"></div><div class="rowline"></div><div class="rowline"></div>
+      <div class="rowline"></div><div class="rowline"></div>
+    </div>
+  </div>
+  <div class="win win-front">
+    <div class="win-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="win-title">Untitled note</span></div>
+    <textarea id="field" placeholder="Put the cursor here, then hold the key and talk. Watch what happens to everything else while you do."></textarea>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<div class="anchor">
+  <div class="shaker" id="shaker">
+    <div class="capsule" id="capsule" data-state="dormant" role="status" aria-live="polite">
+      <span class="dot"></span>
+      <div class="center">
+        <div class="c-item" id="i-wave"><canvas id="wave"></canvas></div>
+        <div class="c-item" id="i-think" hidden>
+          <span class="t-think"><span class="t-think-text" data-text="Transcribing">Transcribing</span></span>
+        </div>
+        <div class="c-item" id="i-err" hidden><span class="errmsg" id="errText"></span></div>
+      </div>
+      <span class="timer" id="timer">0:00</span>
+    </div>
+  </div>
+</div>
+
+<aside class="panel">
+  <h2>Background while capturing</h2>
+  <p>Hold <kbd>Right&nbsp;Option</kbd> or the button. <kbd>Esc</kbd> cancels.</p>
+  <button class="ptt" id="ptt">Hold to talk</button>
+  <div class="mic" id="micState">Microphone: not requested</div>
+  <hr>
+  <div class="lbl"><span>Treatment</span></div>
+  <div class="grp" id="treatBtns"></div>
+  <div class="why" id="why"></div>
+  <hr>
+  <div class="lbl"><span>Intensity</span><span id="amtOut">45</span></div>
+  <input type="range" id="amt" min="0" max="100" value="45">
+  <div class="lbl"><span>Appearance</span></div>
+  <div class="grp">
+    <button data-theme-set="auto" aria-pressed="true">Auto</button>
+    <button data-theme-set="light" aria-pressed="false">Light</button>
+    <button data-theme-set="dark" aria-pressed="false">Dark</button>
+  </div>
+  <div class="lbl"><span>Motion</span></div>
+  <div class="grp"><button id="reduceBtn" aria-pressed="false">Reduce motion</button></div>
+  <div class="lbl"><span>Hold state</span></div>
+  <div class="grp"><button id="pin" aria-pressed="false">Pin listening</button></div>
+</aside>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const capsule = $('capsule'), shaker = $('shaker'), field = $('field');
+  const timer = $('timer'), canvas = $('wave'), ctx = canvas.getContext('2d');
+  const iWave = $('i-wave'), iThink = $('i-think'), iErr = $('i-err');
+
+  const TREATMENTS = [
+    ['none',     'None',     'Control. The capsule floats and nothing else changes.'],
+    ['scrim',    'Scrim',    'A flat dark veil over everything. Reads as modal — the app is busy.'],
+    ['fade',     'Fade',     'The UI drops its own opacity toward the desktop. Recedes rather than darkens.'],
+    ['blur',     'Blur',     'Background blurs and desaturates. Depth-of-field, not a curtain.'],
+    ['vignette', 'Vignette', 'Dark at the edges, clear around the capsule and the caret above it.']
+  ];
+  const SENTENCES = [
+    "Let's push the launch to the week after next so the docs land first.",
+    "Reminder to follow up with the design team about the motion spec.",
+    "Ship the walking skeleton before touching any of the visual design."
+  ];
+
+  /* ── intensity ─────────────────────────────────────────────
+     One control, mapped per treatment so the same number means a
+     comparable amount of interference across all of them. */
+  function applyAmount() {
+    const a = Number($('amt').value) / 100;
+    const root = document.documentElement.style;
+    root.setProperty('--dim-scrim', (a * 0.62).toFixed(3));
+    root.setProperty('--dim-fade', (1 - a * 0.78).toFixed(3));
+    root.setProperty('--dim-blur', (a * 14).toFixed(1) + 'px');
+    root.setProperty('--dim-vignette', (a * 0.78).toFixed(3));
+    $('amtOut').textContent = $('amt').value;
+  }
+  // "fade" is the only treatment that acts on the windows themselves;
+  // every other one leaves them alone and works in the scrim layer.
+  function syncFade() {
+    const on = document.body.dataset.treatment === 'fade';
+    document.querySelector('.apps').style.setProperty(
+      'opacity', on ? '' : '1');
+  }
+
+  /* ── capsule ───────────────────────────────────────────────── */
+  let state = 'dormant', visible = false, pinned = false;
+  let startedAt = 0, timerTick = 0, holdTimer = 0, sentenceIdx = 0;
+
+  function swapCenter(next) {
+    const cur = [iWave, iThink, iErr].find(el => !el.hidden && el !== next);
+    if (cur === next) return;
+    if (cur) {
+      cur.classList.add('is-exit');
+      setTimeout(() => { cur.hidden = true; cur.classList.remove('is-exit'); }, 150);
+    }
+    next.hidden = false;
+    next.classList.add('is-enter-start');
+    void next.offsetWidth;
+    next.classList.remove('is-enter-start');
+  }
+  function show() {
+    if (visible) return;
+    visible = true;
+    capsule.classList.add('is-open');
+    document.body.classList.add('is-capturing');
+  }
+  function hide() {
+    if (!visible || pinned) return;
+    visible = false;
+    capsule.classList.remove('is-open');
+    document.body.classList.remove('is-capturing');
+    setTimeout(() => { if (!visible) { state = 'dormant'; capsule.dataset.state = 'dormant'; } }, 250);
+  }
+
+  function startCapture() {
+    if (state === 'listening' || state === 'transcribing') return;
+    clearTimeout(holdTimer);
+    state = 'listening';
+    capsule.dataset.state = 'listening';
+    capsule.style.setProperty('--w', '248px');
+    swapCenter(iWave);
+    bars.fill(0); level = 0;
+    startedAt = performance.now();
+    timer.textContent = '0:00';
+    timer.classList.remove('is-shown');
+    clearInterval(timerTick);
+    timerTick = setInterval(() => {
+      if (state !== 'listening') return;
+      const s = Math.floor((performance.now() - startedAt) / 1000);
+      timer.textContent = '0:' + String(s).padStart(2, '0');
+      if (s >= 3) timer.classList.add('is-shown');
+    }, 200);
+    show();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function endCapture(cancelled) {
+    if (state !== 'listening' || pinned) return;
+    clearInterval(timerTick);
+    const held = performance.now() - startedAt;
+    if (cancelled) { hide(); return; }
+    if (held < 350) { showError("Didn't catch anything"); return; }
+    state = 'transcribing';
+    capsule.dataset.state = 'transcribing';
+    capsule.style.setProperty('--w', '176px');
+    swapCenter(iThink);
+    timer.classList.remove('is-shown');
+    holdTimer = setTimeout(() => {
+      if (state !== 'transcribing') return;
+      insert(SENTENCES[sentenceIdx++ % SENTENCES.length]);
+      hide();
+    }, 900);
+  }
+  function insert(text) {
+    const start = field.selectionStart ?? field.value.length;
+    const before = field.value.slice(0, start);
+    const pad = before && !/\s$/.test(before) ? ' ' : '';
+    field.value = before + pad + text + field.value.slice(field.selectionEnd ?? start);
+    const caret = start + pad.length + text.length;
+    field.setSelectionRange(caret, caret);
+    field.focus();
+  }
+  function showError(message) {
+    clearTimeout(holdTimer); clearInterval(timerTick);
+    state = 'error';
+    capsule.dataset.state = 'error';
+    $('errText').textContent = message;
+    const probe = document.createElement('span');
+    probe.className = 'errmsg';
+    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap';
+    document.body.appendChild(probe); probe.textContent = message;
+    const w = Math.min(320, Math.max(200, Math.ceil(probe.getBoundingClientRect().width) + 76));
+    probe.remove();
+    capsule.style.setProperty('--w', w + 'px');
+    swapCenter(iErr);
+    show();
+    shaker.classList.remove('is-shaking'); void shaker.offsetWidth;
+    shaker.classList.add('is-shaking');
+    holdTimer = setTimeout(hide, 3000);
+  }
+  shaker.addEventListener('animationend', () => shaker.classList.remove('is-shaking'));
+
+  /* ── waveform ──────────────────────────────────────────────── */
+  const BARS = 30, BAR_W = 3, GAP = 2, H_MIN = 2, H_MAX = 24;
+  const DB_FLOOR = -50, DB_CEIL = -6;
+  let bars = new Array(BARS).fill(0), level = 0, lastShift = 0, synthPhase = 0;
+  let audioCtx = null, analyser = null, buf = null, synthetic = true;
+  let cFrom = [143,143,143,1], cTo = [13,13,13,1];
+
+  function sizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const r = canvas.getBoundingClientRect();
+    if (!r.width) return;
+    canvas.width = Math.round(r.width * dpr);
+    canvas.height = Math.round(H_MAX * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  new ResizeObserver(sizeCanvas).observe(canvas);
+
+  function parseColor(v) {
+    const el = document.createElement('div');
+    el.style.color = v; document.body.appendChild(el);
+    const m = getComputedStyle(el).color.match(/[\d.]+/g);
+    el.remove();
+    if (!m) return [128,128,128,1];
+    return [Number(m[0]), Number(m[1]), Number(m[2]), m[3] === undefined ? 1 : Number(m[3])];
+  }
+  function lerpColor(a, b, t) {
+    return 'rgba(' + Math.round(a[0]+(b[0]-a[0])*t) + ',' + Math.round(a[1]+(b[1]-a[1])*t) + ','
+                   + Math.round(a[2]+(b[2]-a[2])*t) + ',' + (a[3]+(b[3]-a[3])*t).toFixed(3) + ')';
+  }
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    cFrom = parseColor(cs.getPropertyValue('--text-faint').trim());
+    cTo   = parseColor(cs.getPropertyValue('--text').trim());
+  }
+  function currentLevel() {
+    if (!synthetic && analyser) {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      const rms = Math.sqrt(sum / buf.length);
+      if (rms <= 1e-7) return 0;
+      return Math.max(0, Math.min(1, (20 * Math.log10(rms) - DB_FLOOR) / (DB_CEIL - DB_FLOOR)));
+    }
+    synthPhase += 0.055;
+    const syl = Math.pow(Math.max(0, Math.sin(synthPhase * 3.1)), 1.6);
+    const phr = 0.55 + 0.45 * Math.sin(synthPhase * 0.42);
+    return Math.max(0, Math.min(1, syl * phr * (0.86 + Math.random() * 0.28) * 0.82));
+  }
+  function frame(t) {
+    requestAnimationFrame(frame);
+    if (state !== 'listening') return;
+    const target = currentLevel();
+    level += (target - level) * (target > level ? 0.60 : 0.12);
+    if (t - lastShift >= 20) {
+      lastShift = t;
+      bars.push(level); if (bars.length > BARS) bars.shift();
+    }
+    const w = canvas.clientWidth, mid = H_MAX / 2, step = BAR_W + GAP;
+    ctx.clearRect(0, 0, w, H_MAX);
+    const n = Math.max(1, Math.min(BARS, Math.floor((w + GAP) / step)));
+    let x = Math.max(0, (w - (n * step - GAP)) / 2);
+    for (let i = BARS - n; i < BARS; i++) {
+      const v = bars[i] || 0;
+      const h = H_MIN + Math.pow(v, 0.7) * (H_MAX - H_MIN);
+      ctx.fillStyle = lerpColor(cFrom, cTo, v);
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, mid - h/2, BAR_W, h, 1.5);
+      else ctx.rect(x, mid - h/2, BAR_W, h);
+      ctx.fill();
+      x += step;
+    }
+  }
+  async function requestMic() {
+    const el = $('micState');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      el.textContent = 'Microphone: unavailable (needs http://localhost, not file://)'; return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } });
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024;
+      buf = new Float32Array(analyser.fftSize);
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+      synthetic = false; el.textContent = 'Microphone: live';
+    } catch (e) {
+      synthetic = true; el.textContent = 'Microphone: denied — using a synthetic envelope';
+    }
+  }
+
+  /* ── controls ──────────────────────────────────────────────── */
+  let down = false;
+  const ptt = $('ptt');
+  function press() { if (down) return; down = true; ptt.classList.add('is-down'); startCapture(); }
+  function release() { if (!down) return; down = false; ptt.classList.remove('is-down'); endCapture(false); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'AltRight') { e.preventDefault(); if (!e.repeat) press(); }
+    else if (e.key === 'Escape') { down = false; ptt.classList.remove('is-down'); pinned = false; $('pin').setAttribute('aria-pressed','false'); endCapture(true); hide(); }
+  });
+  document.addEventListener('keyup', (e) => { if (e.code === 'AltRight') { e.preventDefault(); release(); } });
+  window.addEventListener('blur', () => { if (down) release(); });
+  ptt.addEventListener('pointerdown', (e) => { e.preventDefault(); press(); });
+  window.addEventListener('pointerup', () => release());
+  ptt.addEventListener('click', () => { if (synthetic && !audioCtx) requestMic(); });
+
+  TREATMENTS.forEach(([key, label, why], i) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.setAttribute('aria-pressed', String(key === 'scrim'));
+    b.addEventListener('click', () => {
+      document.body.dataset.treatment = key;
+      $('treatBtns').querySelectorAll('button').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+      $('why').textContent = why;
+      syncFade();
+    });
+    $('treatBtns').appendChild(b);
+    if (key === 'scrim') $('why').textContent = why;
+  });
+
+  $('amt').addEventListener('input', applyAmount);
+  $('pin').addEventListener('click', (e) => {
+    pinned = !pinned;
+    e.currentTarget.setAttribute('aria-pressed', String(pinned));
+    if (pinned) { startCapture(); } else { state = 'listening'; endCapture(true); }
+  });
+  document.querySelectorAll('[data-theme-set]').forEach(b => {
+    b.addEventListener('click', () => {
+      const v = b.dataset.themeSet;
+      if (v === 'auto') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', v);
+      document.querySelectorAll('[data-theme-set]').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+      readColors();
+    });
+  });
+  $('reduceBtn').addEventListener('click', (e) => {
+    const on = document.documentElement.classList.toggle('force-reduce');
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+  });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+
+  readColors(); sizeCanvas(); applyAmount(); syncFade();
+  requestAnimationFrame(frame);
+  requestMic();
+  field.focus();
+})();
+</script>
+</body>
+</html>
