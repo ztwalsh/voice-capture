@@ -209,17 +209,30 @@ Apple's on-device speech APIs, and that decision happens here rather than late.
 ### Phase 1 — HTML prototype
 
 A single self-contained HTML file that runs the visual and motion design of the
-heads-up display through every state, driven by keyboard, with fake transcripts
-and synthetic audio levels. It is a design artifact, not a foundation.
+heads-up display through every state, driven by keyboard, with fake transcripts.
+It is a design artifact, not a foundation.
 
-The point is to settle how the thing *feels* — the emergence, the waveform
-response, the state transitions, the exit — before any of it is expensive to
+The point is to settle how the thing feels before any of it is expensive to
 change in Swift. Motion decided here becomes the spec the app implements.
 
-Scope: the display's idle, listening, transcribing, inserted, and error states,
-the transitions between them, and a rough pass at the history window. Real
-microphone input through the Web Audio API is a worthwhile addition, since it
-makes the waveform response honest rather than simulated.
+This phase builds directly on [transitions.dev](https://transitions.dev), the
+reference behind `design.md` and `motion.md`. Install the library first so the
+prototype uses the real snippets rather than approximations:
+
+```bash
+npx skills add Jakubantalik/transitions.dev
+```
+
+The transitions this app needs are card-resize, text-states-swap, toast,
+error-state-shake, thinking-states, texts-reveal, and streaming-text. Paste
+`_root.css` once for the shared token scale, then wire each state to its mapped
+transition from the table in `motion.md`.
+
+Scope: the capsule's listening, transcribing, and error states, the transitions
+between them, entry and exit, and a rough pass at the history window. Drive the
+waveform from a real microphone through the Web Audio API rather than synthetic
+levels — the amplitude smoothing coefficients are the one thing that cannot be
+tuned against fake data, and they are what make it feel alive.
 
 **Exit criteria:** you look at it and want to use it.
 

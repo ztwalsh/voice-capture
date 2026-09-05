@@ -1,135 +1,187 @@
 # Voice Capture — Design
 
-> **Note on the reference.** The Threads link you shared
-> (`threads.com/share/BABG2xtgV8`) is blocked by this environment's network
-> proxy, and I could not reach it through any mirror. So this document is **not**
-> derived from that reference. It is a direction reasoned from the product's own
-> constraints, written to be concrete enough to build and specific enough to
-> argue with. Send me a screenshot, a paste of the post, or a description of what
-> caught your eye and I will reconcile this against it. The token layer is
-> structured so a change of aesthetic is a change of values, not a rewrite.
+**Reference:** [transitions.dev](https://transitions.dev) by Jakub Antalík
+([source](https://github.com/Jakubantalik/transitions.dev)). The site was
+blocked by this environment's proxy, so this is drawn from the repository behind
+it: the showcase page's own visual tokens, and the thirty-two transition
+specifications it publishes as an installable agent skill.
+
+Two things were taken. The **visual language** — light-first, near-neutral, soft
+layered shadows, hairline borders, Inter with a mono companion — informs this
+document. The **motion system** informs `motion.md`, which uses its tokens
+directly rather than inventing a parallel scale.
+
+> This revises an earlier draft that proposed a dark heads-up display with a warm
+> coral accent. The reference is light-first and almost entirely without chroma,
+> so the palette, the appearance behavior, and the role of color have all
+> changed. What survives is the premise below, which comes from the product
+> rather than from any reference.
 
 ---
 
 ## 1. The premise
 
-Almost every design decision here follows from one fact:
+**This interface appears on top of someone else's app, in the middle of
+someone's sentence, and its job is to leave.**
 
-**This interface appears on top of someone else's app, in the middle of someone's
-sentence, and its job is to leave.**
+Most software wants attention. This wants the opposite. It is closer to the
+macOS volume overlay than to an app — a momentary confirmation that the system
+heard you, floating over work that continues underneath.
 
-That is unusual. Most software wants attention. This wants the opposite. It is
-closer to the macOS volume overlay than to an app — a momentary confirmation that
-the system heard you, floating over work that continues underneath.
+So it is not asked to be memorable. It is asked to be legible in peripheral
+vision, at a glance, while your attention is on a sentence you are composing.
 
-Which means the design is not asked to be memorable. It is asked to be *legible
-in peripheral vision, at a glance, while your attention is on a sentence you are
-composing*. Anything that requires you to look directly at it has failed.
+The reference turns out to suit this unusually well. A library of small,
+self-contained transitions for surfaces that appear, do one thing, and dismiss
+is a close match for an app that is a single surface appearing, doing one thing,
+and dismissing.
 
 ## 2. Principles
 
-**Invisible until invoked.** There is no idle window, no persistent overlay, no
-resting state on screen. Before you press the key there is nothing. The menu bar
-item is the only permanent surface, and it is a template glyph that disappears
-into the bar.
+**Invisible until invoked.** No idle window, no persistent overlay, no resting
+state on screen. Before you press the key there is nothing. The menu bar item is
+the only permanent surface.
 
-**One object, not a screen.** The whole interface is a single capsule that
-changes shape. It does not navigate, stack, or open panels. Every state is a
-transformation of the same object, which is what lets it be read peripherally —
-you learn one silhouette, and its shape tells you the state.
+**One object, resized.** The whole interface is a single capsule that changes
+width. It does not navigate, stack, or open panels. Every state is the same
+object at a different size, which is what makes it readable peripherally: you
+learn one silhouette and its proportions tell you the state.
 
-**The voice is the only ornament.** There is exactly one thing moving, and it is
-driven by your actual audio. No spinners, no gradients breathing on a timer, no
-decorative motion. If something is animating, it means something.
+**Motion carries the state, not color.** This is the reference's central lesson
+and the biggest change from the earlier draft. The palette is neutral to the
+point of being nearly monochrome. What tells you the app is listening is that
+the waveform is moving; what tells you it is working is that the status line is
+shimmering. Where an earlier version reached for a saturated accent, motion now
+does that job. Details are in `motion.md`.
 
-**Status has one color.** The accent exists to say "you are live" and says
-nothing else. Borrowed from the tally light on a camera: a single warm point
-that means recording, understood instantly, used nowhere else in the app.
+**Soft materials, hairline edges.** Surfaces are defined by layered low-opacity
+shadows and a one-pixel border at six percent black, never by heavy strokes or
+strong fills. Nothing in the reference has a hard edge, and nothing here should.
+
+**The voice is the only ornament.** Exactly one thing is driven by live data,
+and it is your audio. No decorative motion, no gradients breathing on a timer.
 
 **Confidence over reassurance.** Success is not celebrated. When it works, the
-text appears and the capsule leaves. A checkmark would be the app congratulating
-itself for doing its job. The interface only speaks up when something is wrong.
+text appears and the capsule leaves. The reference ships a success-check
+animation and we deliberately do not use it, because a checkmark here would be
+the app congratulating itself for doing its job.
 
-**The history is a document, not a feed.** The second surface, where you go back
-through what you said, follows the opposite rules: system-native, calm, dense,
-comfortable to sit in. It is a text app. It should feel like Notes, not like the
-capsule.
+**The history is a document, not a feed.** The second surface follows the
+opposite rules: native, calm, dense, comfortable to sit in. It is a text app.
 
 ---
 
 ## 3. Tokens
 
+Values are inherited from the reference where it defines them and marked where
+they are adapted.
+
 ### Color
 
-The capsule is dark in both light and dark system appearance. This is deliberate
-and matches macOS convention for heads-up overlays — a HUD that inverts with the
-system reads as a window, and this is not a window.
+Both appearances are defined, and the capsule follows the system. The reference
+is light-first with a dark theme, and following it here also means the overlay
+matches whatever the user's Mac is already doing.
 
 ```
-/* Capsule surface — always dark */
---surface            rgba(22, 22, 24, 0.72)   /* over a blurred backdrop */
---surface-solid      #1C1C1E                  /* Reduce Transparency fallback */
---hairline-top       rgba(255, 255, 255, 0.14) /* 0.5px inner top edge */
---hairline-edge      rgba(255, 255, 255, 0.08) /* 0.5px inner full border */
---shadow             0 10px 36px rgba(0, 0, 0, 0.46)
+/* ── Light ─────────────────────────────────────────── */
+--surface          rgba(255, 255, 255, 0.86)  /* over a 32px backdrop blur */
+--surface-solid    #ffffff                    /* Reduce Transparency fallback */
+--trough           #f9f9f9                    /* waveform bed — their stage-bg */
+--hairline         rgba(0, 0, 0, 0.06)
+--text             #0d0d0d
+--text-muted       #6c6c6c
+--text-subtle      #767676
+--text-faint       #8f8f8f
+--label-mono       #5e6073
 
-/* Content on the capsule */
---text-primary       rgba(255, 255, 255, 0.95)
---text-secondary     rgba(255, 255, 255, 0.56)
---text-tertiary      rgba(255, 255, 255, 0.32)
+/* ── Dark ──────────────────────────────────────────── */
+--surface          rgba(28, 28, 30, 0.82)
+--surface-solid    #1c1c1e
+--trough           rgba(255, 255, 255, 0.04)
+--hairline         rgba(255, 255, 255, 0.08)
+--text             #fbfbfb
+--text-muted       rgba(255, 255, 255, 0.62)
+--text-subtle      rgba(255, 255, 255, 0.48)
+--text-faint       rgba(255, 255, 255, 0.34)
+--label-mono       rgba(255, 255, 255, 0.52)
 
-/* The one accent — live only */
---accent             #FF6B4A   /* signal coral, the tally light */
---accent-dim         #B84A33   /* accent at rest inside the waveform floor */
-
-/* The one negative */
---negative           #FF8A80   /* error text, muted for a dark surface */
+/* ── The one chromatic value, both appearances ─────── */
+--live             #E5484D   /* light */
+--live             #FF6369   /* dark */
 ```
 
-The waveform interpolates from `--text-secondary` at silence to `--accent` at
-peak. Loudness becomes warmth. That single mapping is the app's whole visual
-signature, and it costs nothing because it is data you already have.
+`--live` is the single deliberate departure from the reference's chroma-free
+palette, and it is justified on safety rather than style: you must never be
+uncertain whether the microphone is hot. It appears on one six-pixel dot and
+nowhere else in the app. Everything else is neutral.
 
-Backdrop for the capsule: 32px blur with saturation pushed to 180%, so the
-colors of the app underneath bleed through faintly. The capsule should feel like
-it is made of the desktop behind it, not pasted on top.
+### Elevation
+
+The reference's material shadow, used for cards sitting on a near-white page:
+
+```
+0 4px 42px 0 rgba(0, 0, 0, 0.06),
+0 2px  6px 0 rgba(0, 0, 0, 0.05),
+0 0 0 1px   rgba(0, 0, 0, 0.06)
+```
+
+**Adapted** for the capsule, which floats over unknown content rather than a
+known page, and needs more separation to stay readable over a photograph or a
+dark editor:
+
+```
+/* light */
+0 8px 48px 0 rgba(0, 0, 0, 0.12),
+0 2px  8px 0 rgba(0, 0, 0, 0.08),
+0 0 0 1px   rgba(0, 0, 0, 0.06)
+
+/* dark */
+0 8px 48px 0 rgba(0, 0, 0, 0.50),
+0 0 0 1px   rgba(255, 255, 255, 0.08)
+```
+
+The three-layer structure is kept: a wide soft ambient, a tight contact shadow,
+and a hairline ring standing in for a border. That layering is what makes the
+reference's surfaces feel like material rather than boxes.
 
 ### Type
 
-SF Pro throughout, which is free, native, and already tuned for exactly this
-size range.
+The reference pairs Inter with Roboto Mono. **Use Inter in the HTML prototype**
+so it matches exactly. **Use SF Pro in the shipped app**, because it is the
+system font with native metrics and is close enough to Inter that the design is
+unaffected. Mono stays for one job: the elapsed timer, where tabular digits keep
+the readout from jittering as it counts.
 
 | Role | Size / line | Weight | Tracking | Used for |
 | --- | --- | --- | --- | --- |
-| Label | 11 / 14 | Medium | +0.02em | Capsule status, timers, timestamps |
+| Label | 11 / 14 | Medium | +0.01em | Capsule status |
+| Timer | 11 / 14 | Regular, mono | 0 | Elapsed time, in `--label-mono` |
 | Body | 13 / 19 | Regular | 0 | Transcript text |
-| Title | 15 / 20 | Semibold | 0 | History row headers |
-| Display | 22 / 26 | Semibold | -0.01em | History window header |
-| Mono | 12 / 18 | Regular | 0 | Raw log view, SF Mono |
+| Title | 15 / 20 | Semibold | −0.01em | History row headers |
+| Display | 22 / 26 | Semibold | −0.01em | History window header |
 
-The capsule uses Label and nothing else. If a state needs Body on the capsule,
-that state is saying too much.
+The negative tracking on the two larger sizes is the reference's, and it is what
+keeps larger text from looking loose.
 
-### Space
+### Space and radius
 
-4pt base unit. Permitted values: 4, 8, 12, 16, 24, 32, 48. Nothing between them.
-
-### Radius
+4pt base. Permitted: 4, 8, 12, 16, 20, 24, 32, 48. The 20 is the reference's own
+card inset.
 
 | Token | Value |
 | --- | --- |
 | `--r-capsule` | fully rounded, height ÷ 2 |
-| `--r-card` | 10 |
+| `--r-card` | 12 |
 | `--r-window` | 12 |
-| `--r-bar` | 1.5 (waveform bars) |
+| `--r-bar` | 1.5 |
 
 ---
 
 ## 4. The capsule
 
-Horizontally centered on the screen containing the cursor, with its bottom edge
-96px above the screen bottom. That clears the Dock in its default size and sits
-below the natural center of attention, which is where a status readout belongs.
+Horizontally centered on the screen containing the cursor, bottom edge 96px
+above the screen bottom. That clears the Dock and sits below the natural center
+of attention, which is where a status readout belongs.
 
 Fixed placement rather than following the caret. Caret position is not reliably
 available across apps, and a capsule that lands in the wrong place is worse than
@@ -137,40 +189,38 @@ one that lands consistently.
 
 ### States
 
-There are five, and each has a distinct silhouette.
+Four, each with a distinct width. Transitions between them are specified in
+`motion.md`.
 
 **Dormant.** Nothing on screen. The menu bar glyph is a thin waveform in
 template style, following the menu bar's own color.
 
-**Listening** — the primary state.
+**Listening** — 240 × 44.
 
 ```
 ┌──────────────────────────────────────────┐
-│  ●   ▁▃▅█▆▃▂▁▂▄▆█▅▃▁▂▃▅▄▂▁▂▃▁      0:04  │   240 × 44
+│  ●   ▁▃▅█▆▃▂▁▂▄▆█▅▃▁▂▃▅▄▂▁▂▃▁      0:04  │
 └──────────────────────────────────────────┘
 ```
 
-- Height 44, width 240, fully rounded.
-- Tally dot, 6px, `--accent`, at 16px from the left edge. Solid, not pulsing —
-  it is a state indicator, and a pulse would be decoration competing with the
-  waveform.
-- Waveform occupies the center, 148px wide. 32 bars, 3px wide, 2px gap,
-  center-mirrored vertically, 3px minimum height, 24px maximum.
-- Elapsed timer in Label, `--text-secondary`, right-aligned at 16px inset.
-  Appears only after 3 seconds, so short captures stay clean.
+- Record dot, 6px, `--live`, 20px from the left edge. Solid, not pulsing. It is
+  a state indicator, and a pulse would be decoration competing with the waveform.
+- Waveform centered, 148px wide. 32 bars, 3px wide, 2px gap, mirrored
+  vertically, 3px to 24px tall.
+- Elapsed timer in Timer type, right-aligned at 20px inset, appearing only after
+  three seconds so short captures stay clean.
 
-**Transcribing.** The capsule contracts to 132 × 44. The waveform is replaced by
-the last-captured waveform frozen and desaturated to `--text-tertiary`, with a
-narrow highlight sweeping left to right across it. The tally dot goes dark. The
-frozen waveform matters: it shows you *what it is working on*, which is more
-informative and more honest than a spinner.
+**Transcribing** — 132 × 44. The record dot goes dark and the waveform is
+replaced by a shimmering status line reading `Transcribing`. Using the
+reference's thinking-states pattern here means the app can narrate honestly if
+the work has phases, rather than showing an indeterminate spinner.
 
 **Inserted.** No visual state. The capsule leaves. The text appearing in your
 app is the confirmation.
 
-**Error.** The capsule expands to fit one line of Label text in `--negative`,
-maximum 320px wide, and stays for 4 seconds or until the hotkey is pressed
-again. The tally dot becomes a 6px `--negative` dot.
+**Error** — sized to the message, maximum 320px. The dot goes dark, the message
+appears in `--text`, and the capsule shakes once. It holds for three seconds and
+then dismisses.
 
 The error messages are part of the design, because they are the only sentences
 this interface ever writes:
@@ -184,55 +234,55 @@ this interface ever writes:
 | Transcription failed | `Couldn't transcribe that` |
 | Insertion failed | `Copied to clipboard instead` |
 
-Each is lowercase-bodied, under six words, and describes the situation rather
-than blaming. The last one is the important one: when insertion fails, the text
-is never lost, it goes to the clipboard, and the message says so.
+Each is under six words and describes the situation rather than assigning blame.
+The last one matters most: when insertion fails the text is never lost, it goes
+to the clipboard, and the message says so.
 
 ---
 
 ## 5. The history window
 
-A standard macOS window, following system appearance in both light and dark. It
-is the opposite of the capsule on purpose: this is where you sit and read.
+A standard macOS window following system appearance. Deliberately the opposite
+of the capsule: this is where you sit and read.
 
-- Minimum 720 × 520, remembers its size and position.
-- Single column, reverse chronological. No sidebar. "Basic" means one list.
-- Search field in the toolbar, focused by Command-F, filtering live as you type.
-- Rows are 
-  a relative timestamp in Label `--text-secondary`,
-  the transcript in Body clamped to three lines,
-  and the icon of the app it was inserted into at 16px, right-aligned.
-- Clicking a row expands it in place to full text. No detail pane, no modal.
-- Row actions on hover: copy, delete. Both also on the context menu.
-- Day separators as sticky Label headers: `Today`, `Yesterday`, then dates.
-- Empty state: one line of Body in `--text-secondary` naming the hotkey. It is
-  the only place in the app that teaches, and it is where a new user will look.
-- A footer link reveals `transcripts.jsonl` in Finder. Say plainly where the
+- Minimum 720 × 520, remembers size and position.
+- Single reverse-chronological column. No sidebar. "Basic" means one list.
+- Search in the toolbar, focused by Command-F, filtering live.
+- Rows carry a relative timestamp in `--text-subtle`, the transcript in Body
+  clamped to three lines, and the 16px icon of the destination app right-aligned.
+- Rows sit on `--surface-solid` with the reference's original card shadow, not
+  the heavier capsule one. These are cards on a page, which is exactly the case
+  that shadow was tuned for.
+- Clicking a row expands it in place. No detail pane, no modal.
+- Hover actions: copy and delete. Both also on the context menu.
+- Sticky day separators: `Today`, `Yesterday`, then dates.
+- Empty state: one line naming the hotkey. The only place the app teaches, and
+  where a new user will look.
+- A footer control reveals `transcripts.jsonl` in Finder. Say plainly where the
   data lives; that is the whole promise of a local-first tool.
 
 ---
 
 ## 6. Accessibility
 
-Not a checklist item here. A dark translucent overlay is exactly the pattern
-that breaks for people, so it gets handled explicitly.
+A translucent floating overlay is exactly the pattern that breaks for people, so
+it is handled explicitly.
 
-- **Reduce Transparency.** Swap `--surface` for `--surface-solid` and drop the
-  backdrop blur. Strengthen `--hairline-edge` to 0.16 so the shape stays defined
-  against a busy desktop.
-- **Increase Contrast.** Raise `--text-secondary` to 0.72, `--text-tertiary` to
-  0.5, and give the capsule a full 1px `--hairline-edge` border.
-- **Reduce Motion.** Covered in `motion.md`, with full functional parity.
-- **Contrast ratios.** `--text-primary` and `--text-secondary` clear 4.5:1
-  against `--surface-solid`. `--text-tertiary` is decorative only and never
-  carries meaning alone. `--accent` on `--surface-solid` clears 3:1, which is
-  the bar for a non-text indicator.
-- **Color is never the only signal.** The tally dot is reinforced by the
-  waveform being live and by the capsule's shape. Listening and transcribing
-  differ in silhouette, not just color.
-- **VoiceOver.** The capsule announces its state changes through a live region:
-  "Listening", "Transcribing", "Inserted", or the error text. The history window
-  is a standard accessible list.
+- **Reduce Transparency.** Swap in `--surface-solid`, drop the backdrop blur,
+  raise `--hairline` to 12% so the shape stays defined over a busy desktop.
+- **Increase Contrast.** `--text-muted` to `--text`, `--text-subtle` up one step,
+  and a full 1px `--hairline` border on the capsule.
+- **Reduce Motion.** Covered in `motion.md`. The reference ships a
+  `prefers-reduced-motion` guard with every transition, so this is inherited
+  rather than invented.
+- **Contrast.** `--text` and `--text-muted` clear 4.5:1 against `--surface-solid`
+  in both appearances. `--text-faint` is decorative only and never carries
+  meaning alone. `--live` clears 3:1, the bar for a non-text indicator.
+- **Color is never the only signal.** Because motion carries state here, this is
+  mostly free: listening and transcribing differ in width, in what occupies the
+  center, and in whether the waveform is live.
+- **VoiceOver.** The capsule announces state changes through a live region. The
+  status line already carries `role="status"` in the reference's markup.
 - **Keyboard.** The history window is fully operable without a mouse. The
   capsule has no controls by design.
 
@@ -242,10 +292,10 @@ that breaks for people, so it gets handled explicitly.
 
 Stated so it stays absent.
 
-No logo or wordmark in the capsule. No settings gear on the overlay. No
-waveform when there is no audio. No progress bar with a fake percentage. No
-onboarding tooltips over other people's apps. No sound. No badge counts. No
-theme options.
+No logo in the capsule. No settings gear on the overlay. No waveform when there
+is no audio. No progress bar with a fake percentage. No success checkmark, even
+though the reference ships a good one. No onboarding tooltips over other
+people's apps. No sound. No badge counts. No theme picker.
 
-Every one of these is a thing this category of app commonly adds, and every one
-of them makes the object heavier than what it does.
+Every one of these is common in this category, and every one makes the object
+heavier than what it does.
