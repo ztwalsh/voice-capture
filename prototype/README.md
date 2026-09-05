@@ -1,7 +1,12 @@
 # Capsule prototype
 
-Phase 1 of `../PLAN.md`. A design artifact for settling how the capsule feels,
+Phase 1 of `../PLAN.md`. Design artifacts for settling how the capsule feels,
 not a foundation for the app.
+
+| File | What it is |
+| --- | --- |
+| `index.html` | The adopted direction, full loop: capture, insert, history |
+| `versions.html` | Three directions for the capsule side by side, live on the same audio |
 
 ## Run it
 
@@ -9,7 +14,8 @@ not a foundation for the app.
 python3 -m http.server 8000
 ```
 
-Then open <http://127.0.0.1:8000/>.
+Then open <http://127.0.0.1:8000/> for the full prototype, or
+<http://127.0.0.1:8000/versions.html> to compare directions.
 
 **Serve it — do not open the file directly.** `getUserMedia` requires a secure
 context, and `file://` is not one, so opening `index.html` from Finder silently
@@ -39,6 +45,27 @@ attack and 0.12 release, and the 0.7 exponent on bar height.
 
 **Faked:** transcription. Releasing the key waits 900ms and inserts a canned
 sentence. Nothing is sent anywhere and nothing is stored.
+
+## The three directions
+
+`versions.html` runs all three at once off one microphone, so they can be judged
+on the same audio at the same moment rather than from memory.
+
+| | Geometry | The question it asks |
+| --- | --- | --- |
+| **Pill** | 248 × 44, fully rounded, dot + waveform + timer | The current spec, as the control |
+| **Bar** | 320 × 40, radius 10, no indicator at all | Can motion alone carry "you are live", with the red dot gone and the timer as the only left anchor? |
+| **Mono** | 208 × 36, radius 8, committed dark, all Geist Mono | Does a technical instrument beat soft OS chrome? `REC` replaces the dot, and leaves entirely once recording stops |
+
+Mono is deliberately the same in light and dark, which `design.md` allows for a
+design that commits to one look. Its distinctness is strongest in light mode; in
+dark it converges with the other two.
+
+## Type
+
+Geist and Geist Mono, from <https://vercel.com/font>, self-hosted in `fonts/` so
+the prototype needs no network. Both are SIL Open Font License, so the same files
+can be bundled in the shipped app.
 
 ## Motion
 

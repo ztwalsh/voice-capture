@@ -146,16 +146,22 @@ reference's surfaces feel like material rather than boxes.
 
 ### Type
 
-The reference pairs Inter with Roboto Mono. **Use Inter in the HTML prototype**
-so it matches exactly. **Use SF Pro in the shipped app**, because it is the
-system font with native metrics and is close enough to Inter that the design is
-unaffected. Mono stays for one job: the elapsed timer, where tabular digits keep
-the readout from jittering as it counts.
+**Geist and Geist Mono** ([vercel.com/font](https://vercel.com/font)), replacing
+the reference's own Inter and Roboto Mono pairing. Geist is a tighter, more
+geometric neo-grotesque with an unusually strong monospace companion, and the
+mono is what earns the choice here: the elapsed timer needs tabular digits so the
+readout does not jitter as it counts, and Geist Mono's slashed zero and wide
+counters stay legible at 10 and 11px, which is the whole size range this
+interface uses.
+
+Both are under the SIL Open Font License, so the same files can be self-hosted in
+the prototype and bundled in the shipped app. No system-font substitution, and no
+network dependency at runtime.
 
 | Role | Size / line | Weight | Tracking | Used for |
 | --- | --- | --- | --- | --- |
 | Label | 11 / 14 | Medium | +0.01em | Capsule status |
-| Timer | 11 / 14 | Regular, mono | 0 | Elapsed time, in `--label-mono` |
+| Timer | 11 / 14 | Regular, Geist Mono | 0 | Elapsed time, in `--label-mono` |
 | Body | 13 / 19 | Regular | 0 | Transcript text |
 | Title | 15 / 20 | Semibold | −0.01em | History row headers |
 | Display | 22 / 26 | Semibold | −0.01em | History window header |

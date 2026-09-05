@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Capture — three capsule directions</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   Three directions for the capsule, running side by side off one
+   microphone so they can be compared on the same audio, same moment.
+
+   Motion is transitions.dev, used as published:
+     toast (22) · card-resize (01) · text-states-swap (04)
+     error-state-shake (12) · thinking-states (28)
+   Type is Geist and Geist Mono (vercel.com/font), self-hosted.
+   ══════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Geist'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('./fonts/geist.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('./fonts/geist-mono.woff2') format('woff2');
+}
+
+:root {
+  color-scheme: light;
+
+  /* transitions.dev motion tokens */
+  --duration-quick: 150ms;
+  --ease-in-out: ease-in-out;
+  --toast-open: 350ms;  --toast-close: 250ms;
+  --toast-distance: 16px; --toast-blur: 2px; --toast-scale: 0.97;
+  --toast-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --resize-dur: 300ms; --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --text-swap-dur: 150ms; --text-swap-translate-y: 4px; --text-swap-blur: 2px;
+  --text-swap-ease: ease-in-out;
+  --shake-distance: 6px; --shake-overshoot: 4px;
+  --shake-dur-a: 80ms; --shake-dur-b: 60ms;
+  --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --revert-hold: 3000ms; --revert-dur: 280ms;
+  --think-swap: 150ms; --think-distance: 8px; --think-blur: 2px;
+  --think-shimmer: 2000ms; --think-ease: ease-in-out;
+
+  /* Voice Capture design tokens */
+  --surface: rgba(255,255,255,0.86);
+  --surface-solid: #ffffff;
+  --trough: #f9f9f9;
+  --hairline: rgba(0,0,0,0.06);
+  --text: #0d0d0d;
+  --text-muted: #6c6c6c;
+  --text-subtle: #767676;
+  --text-faint: #8f8f8f;
+  --label-mono: #5e6073;
+  --live: #E5484D;
+  --elev-capsule:
+    0 8px 48px 0 rgba(0,0,0,0.12),
+    0 2px  8px 0 rgba(0,0,0,0.08),
+    0 0 0 1px   rgba(0,0,0,0.06);
+  --elev-card:
+    0 4px 42px 0 rgba(0,0,0,0.06),
+    0 2px  6px 0 rgba(0,0,0,0.05),
+    0 0 0 1px   rgba(0,0,0,0.06);
+
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --desk-a: #dfe3ea; --desk-b: #eef0f3; --desk-c: #c9d2de;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --surface: rgba(28,28,30,0.82); --surface-solid: #1c1c1e;
+  --trough: rgba(255,255,255,0.04); --hairline: rgba(255,255,255,0.08);
+  --text: #fbfbfb; --text-muted: rgba(255,255,255,0.62);
+  --text-subtle: rgba(255,255,255,0.48); --text-faint: rgba(255,255,255,0.34);
+  --label-mono: rgba(255,255,255,0.52); --live: #FF6369;
+  --elev-capsule: 0 8px 48px 0 rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.08);
+  --elev-card: 0 4px 24px 0 rgba(0,0,0,0.36), 0 0 0 1px rgba(255,255,255,0.08);
+  --desk-a: #2a2f38; --desk-b: #1b1e24; --desk-c: #363d49;
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: rgba(28,28,30,0.82); --surface-solid: #1c1c1e;
+  --trough: rgba(255,255,255,0.04); --hairline: rgba(255,255,255,0.08);
+  --text: #fbfbfb; --text-muted: rgba(255,255,255,0.62);
+  --text-subtle: rgba(255,255,255,0.48); --text-faint: rgba(255,255,255,0.34);
+  --label-mono: rgba(255,255,255,0.52); --live: #FF6369;
+  --elev-capsule: 0 8px 48px 0 rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.08);
+  --elev-card: 0 4px 24px 0 rgba(0,0,0,0.36), 0 0 0 1px rgba(255,255,255,0.08);
+  --desk-a: #2a2f38; --desk-b: #1b1e24; --desk-c: #363d49;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; font-family: var(--font-sans); color: var(--text);
+  background:
+    radial-gradient(1200px 700px at 18% 12%, var(--desk-c), transparent 60%),
+    radial-gradient(900px 600px at 82% 78%, var(--desk-a), transparent 55%),
+    var(--desk-b);
+  overflow: hidden; -webkit-font-smoothing: antialiased;
+}
+
+/* mock host app */
+.host {
+  position: absolute; top: 6vh; left: 50%; transform: translateX(-50%);
+  width: min(680px, 82vw); height: min(300px, 34vh);
+  background: var(--surface-solid); border-radius: 12px;
+  box-shadow: var(--elev-card); display: flex; flex-direction: column; overflow: hidden;
+}
+.host-bar {
+  height: 38px; flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 0 14px; border-bottom: 1px solid var(--hairline);
+}
+.tl { width: 12px; height: 12px; border-radius: 50%; background: var(--text-faint); opacity: .5; }
+.host-title { font-size: 12px; font-weight: 500; color: var(--text-subtle); margin-left: 6px; letter-spacing: -0.01em; }
+#field {
+  flex: 1; width: 100%; border: 0; resize: none; outline: none;
+  padding: 20px 22px; font-family: var(--font-sans); font-size: 14px;
+  line-height: 22px; color: var(--text); background: transparent;
+}
+#field::placeholder { color: var(--text-faint); }
+
+/* ══════════ the three variants, stacked ══════════ */
+.stack {
+  position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 30px;
+  z-index: 50; pointer-events: none;
+}
+.vrow { position: relative; display: flex; align-items: center; justify-content: center; }
+.vlabel {
+  position: absolute; right: calc(100% + 22px); white-space: nowrap;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.vnote {
+  position: absolute; left: calc(100% + 22px); white-space: nowrap;
+  font-size: 11px; color: var(--text-faint);
+}
+
+.cap {
+  --w: 248px;
+  position: relative; width: var(--w);
+  display: flex; align-items: center;
+  box-shadow: var(--elev-capsule);
+}
+/* toast (22) + card resize (01), merged onto one element */
+.cap {
+  opacity: 0;
+  transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
+  filter: blur(var(--toast-blur));
+  will-change: transform, opacity, filter, width;
+  transition:
+    opacity var(--toast-close) var(--toast-ease),
+    transform var(--toast-close) var(--toast-ease),
+    filter var(--toast-close) var(--toast-ease),
+    width var(--resize-dur) var(--resize-ease);
+}
+.cap.is-open {
+  opacity: 1; transform: translateY(0) scale(1); filter: blur(0);
+  transition:
+    opacity var(--toast-open) var(--toast-ease),
+    transform var(--toast-open) var(--toast-ease),
+    filter var(--toast-open) var(--toast-ease),
+    width var(--resize-dur) var(--resize-ease);
+}
+
+/* ── A · Pill — the current direction ── */
+.v-pill {
+  height: 44px; border-radius: 22px; padding: 0 20px; gap: 12px;
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  backdrop-filter: blur(32px) saturate(180%);
+}
+.v-pill .rec { display: none; }
+.v-pill .dot {
+  flex: none; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-faint);
+  transition: background-color var(--duration-quick) ease-out;
+}
+.v-pill[data-state="listening"] .dot { background: var(--live); }
+.v-pill .timer { width: 30px; font-size: 11px; }
+.v-pill .label { font-family: var(--font-sans); font-size: 11px; font-weight: 500; letter-spacing: 0.01em; }
+
+/* ── B · Bar — no indicator at all, motion is the only signal ── */
+.v-bar {
+  height: 40px; border-radius: 10px; padding: 0 16px; gap: 12px;
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  backdrop-filter: blur(32px) saturate(180%);
+}
+.v-bar .dot, .v-bar .rec { display: none; }
+.v-bar .timer { width: 30px; font-size: 11px; order: -1; text-align: left; }
+.v-bar .label { font-family: var(--font-sans); font-size: 11px; font-weight: 500; letter-spacing: 0.01em; }
+
+/* ── C · Mono — committed dark instrument, Geist Mono throughout ── */
+.v-mono {
+  height: 36px; border-radius: 8px; padding: 0 12px; gap: 10px;
+  background: rgba(0, 0, 0, 0.88);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  box-shadow: 0 8px 40px 0 rgba(0,0,0,0.34), 0 0 0 1px rgba(255,255,255,0.14);
+}
+.v-mono .dot { display: none; }
+.v-mono .rec {
+  flex: none; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: .08em; color: rgba(255,255,255,0.30);
+  transition: color var(--duration-quick) ease-out;
+}
+.v-mono[data-state="listening"] .rec { color: var(--live); }
+.v-mono[data-state="transcribing"] .rec,
+.v-mono[data-state="error"] .rec { display: none; }
+.v-mono .timer { width: 26px; font-size: 10px; color: rgba(255,255,255,0.44); }
+.v-mono .label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.v-mono { --think-base: rgba(255,255,255,0.34); --think-highlight: #ffffff; }
+.v-mono .errmsg { color: rgba(255,255,255,0.92); }
+
+/* shared innards */
+.timer {
+  flex: none; text-align: right; font-family: var(--font-mono);
+  color: var(--label-mono); font-variant-numeric: tabular-nums;
+  opacity: 0; transition: opacity var(--duration-quick) var(--ease-in-out);
+}
+.timer.is-shown { opacity: 1; }
+.cap:not([data-state="listening"]) .timer { display: none; }
+.center { position: relative; flex: 1; height: 100%; min-width: 0; }
+/* With no timer on the right, the left indicator would push the centre
+   box off the capsule's true centre line. Mirror it back. */
+.cap[data-state="transcribing"] .center,
+.cap[data-state="error"] .center { margin-right: var(--mirror, 0px); }
+
+/* text states swap (04) */
+.c-item {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  transform: translateY(0); filter: blur(0); opacity: 1;
+  transition:
+    transform var(--text-swap-dur) var(--text-swap-ease),
+    filter    var(--text-swap-dur) var(--text-swap-ease),
+    opacity   var(--text-swap-dur) var(--text-swap-ease);
+  will-change: transform, filter, opacity;
+}
+.c-item.is-exit {
+  transform: translateY(calc(var(--text-swap-translate-y) * -1));
+  filter: blur(var(--text-swap-blur)); opacity: 0;
+}
+.c-item.is-enter-start {
+  transform: translateY(var(--text-swap-translate-y));
+  filter: blur(var(--text-swap-blur)); opacity: 0; transition: none;
+}
+.c-item[hidden] { display: none; }
+canvas { display: block; width: 100%; }
+
+/* thinking states (28) */
+.t-think { position: relative; display: inline-block; text-align: center; }
+.t-think-text {
+  display: block; color: var(--think-base, var(--text-subtle)); white-space: nowrap;
+}
+.t-think-text::before {
+  content: attr(data-text); position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(90deg,
+    transparent 0%, transparent 40%,
+    var(--think-highlight, var(--text)) 50%,
+    transparent 60%, transparent 100%);
+  background-size: 400% 100%; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  animation: t-think-shimmer var(--think-shimmer) linear infinite;
+}
+@keyframes t-think-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0% 0; }
+}
+.errmsg { white-space: nowrap; color: var(--text); }
+
+/* error state shake (12) */
+.shaker.is-shaking {
+  animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
+}
+@keyframes t-input-shake {
+  0%     { transform: translateX(0);                                animation-timing-function: var(--shake-ease); }
+  28.57% { transform: translateX(var(--shake-distance));            animation-timing-function: var(--shake-ease); }
+  57.14% { transform: translateX(calc(var(--shake-distance) * -1)); animation-timing-function: var(--shake-ease); }
+  78.57% { transform: translateX(var(--shake-overshoot));           animation-timing-function: var(--shake-ease); }
+  100%   { transform: translateX(0); }
+}
+
+/* prototype chrome */
+.panel {
+  position: fixed; top: 20px; right: 20px; width: 252px; z-index: 60;
+  background: var(--surface-solid); border-radius: 12px;
+  box-shadow: var(--elev-card); padding: 14px; font-size: 12px;
+}
+.panel h2 { margin: 0 0 2px; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
+.panel p { margin: 0 0 10px; color: var(--text-subtle); font-size: 11px; line-height: 16px; }
+.panel hr { border: 0; border-top: 1px solid var(--hairline); margin: 10px 0; }
+.grp { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); margin-bottom: 5px; font-family: var(--font-mono); }
+button {
+  font-family: var(--font-sans); font-size: 11px; font-weight: 500;
+  color: var(--text); background: var(--trough);
+  border: 1px solid var(--hairline); border-radius: 7px;
+  padding: 5px 9px; cursor: pointer;
+  transition: background-color var(--duration-quick) ease-out;
+}
+button:hover { background: var(--hairline); }
+button[aria-pressed="true"] { background: var(--text); color: var(--surface-solid); border-color: var(--text); }
+.ptt { width: 100%; padding: 9px; border-radius: 9px; font-size: 12px; margin-top: 2px; }
+.ptt.is-down { background: var(--live); border-color: var(--live); color: #fff; }
+.mic { font-size: 10px; color: var(--text-faint); margin-top: 8px; line-height: 15px; }
+kbd {
+  font-family: var(--font-mono); font-size: 10px; background: var(--trough);
+  border: 1px solid var(--hairline); border-radius: 4px; padding: 1px 4px;
+}
+
+/* reduced motion — guards from every snippet, plus motion.md's own rules */
+@media (prefers-reduced-motion: reduce) {
+  .cap, .c-item { transition: none !important; filter: none !important; }
+  .t-think-text { transition: none !important; transform: none !important; filter: none !important; }
+  .t-think-text::before { display: none !important; }
+  .shaker { animation: none !important; transform: none !important; }
+}
+html.force-reduce .cap,
+html.force-reduce .c-item { transition: none !important; filter: none !important; }
+html.force-reduce .t-think-text { transition: none !important; transform: none !important; filter: none !important; }
+html.force-reduce .t-think-text::before { display: none !important; }
+html.force-reduce .shaker { animation: none !important; transform: none !important; }
+</style>
+</head>
+<body>
+
+<div class="host">
+  <div class="host-bar">
+    <span class="tl"></span><span class="tl"></span><span class="tl"></span>
+    <span class="host-title">Untitled note</span>
+  </div>
+  <textarea id="field" placeholder="Put the cursor here, then hold the key and talk. All three run off the same microphone at the same moment."></textarea>
+</div>
+
+<div class="stack" id="stack"></div>
+
+<aside class="panel">
+  <h2>Three directions</h2>
+  <p>All three are live at once on the same audio. Hold <kbd>Right&nbsp;Option</kbd> or the button. <kbd>Esc</kbd> cancels.</p>
+  <button class="ptt" id="ptt">Hold to talk</button>
+  <div class="mic" id="micState">Microphone: not requested</div>
+  <hr>
+  <div class="lbl">Appearance</div>
+  <div class="grp">
+    <button data-theme-set="auto" aria-pressed="true">Auto</button>
+    <button data-theme-set="light" aria-pressed="false">Light</button>
+    <button data-theme-set="dark" aria-pressed="false">Dark</button>
+  </div>
+  <div class="lbl">Motion</div>
+  <div class="grp"><button id="reduceBtn" aria-pressed="false">Reduce motion</button></div>
+  <div class="lbl">Error states</div>
+  <div class="grp" id="errBtns"></div>
+</aside>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── the three directions ─────────────────────────────────────
+     Same state machine, same audio, same transitions. What differs
+     is geometry, whether there is an indicator at all, and type. */
+  const VARIANTS = [
+    {
+      key: 'pill', name: 'Pill', klass: 'v-pill',
+      note: 'the current spec',
+      wListen: 248, wWork: 176, errPad: 76, mirror: 18,
+      bars: 30, bw: 3, gap: 2, hMin: 2, hMax: 24, r: 1.5,
+      timerDelay: 3000, label: 'Transcribing',
+      from: '--text-faint', to: '--text'
+    },
+    {
+      key: 'bar', name: 'Bar', klass: 'v-bar',
+      note: 'no indicator at all',
+      wListen: 320, wWork: 200, errPad: 64, mirror: 0,
+      bars: 49, bw: 3, gap: 2, hMin: 2, hMax: 22, r: 1.5,
+      timerDelay: 0, label: 'Transcribing',
+      from: '--text-faint', to: '--text'
+    },
+    {
+      key: 'mono', name: 'Mono', klass: 'v-mono',
+      note: 'committed dark, all mono',
+      wListen: 208, wWork: 140, errPad: 34, mirror: 0,
+      bars: 28, bw: 2, gap: 2, hMin: 2, hMax: 18, r: 1,
+      timerDelay: 0, label: 'Transcribing',
+      fixed: [[255,255,255,0.26], [255,255,255,1]]
+    }
+  ];
+
+  const SENTENCES = [
+    "Let's push the launch to the week after next so the docs land first.",
+    "Reminder to follow up with the design team about the motion spec.",
+    "Ship the walking skeleton before touching any of the visual design.",
+    "Ask whether we need streaming results or whether batch on release is fine."
+  ];
+  const ERRORS = [
+    ["No speech",     "Didn't catch anything"],
+    ["Secure input",  "Can't type into a password field"],
+    ["No mic",        "No microphone"],
+    ["Insert failed", "Copied to clipboard instead"]
+  ];
+
+  /* ── build ────────────────────────────────────────────────── */
+  const stack = document.getElementById('stack');
+  const caps = VARIANTS.map(cfg => {
+    const row = document.createElement('div');
+    row.className = 'vrow';
+    row.innerHTML =
+      '<span class="vlabel">' + cfg.name + '</span>' +
+      '<div class="shaker">' +
+        '<div class="cap ' + cfg.klass + '" data-state="dormant" role="status" aria-live="polite">' +
+          '<i class="dot"></i><b class="rec">REC</b>' +
+          '<div class="center">' +
+            '<div class="c-item i-wave"><canvas></canvas></div>' +
+            '<div class="c-item i-think" hidden><span class="t-think">' +
+              '<span class="t-think-text label" data-text="' + cfg.label + '">' + cfg.label + '</span>' +
+            '</span></div>' +
+            '<div class="c-item i-err" hidden><span class="errmsg label"></span></div>' +
+          '</div>' +
+          '<span class="timer">0:00</span>' +
+        '</div>' +
+      '</div>' +
+      '<span class="vnote">' + cfg.note + '</span>';
+    stack.appendChild(row);
+
+    const el = row.querySelector('.cap');
+    el.style.setProperty('--mirror', cfg.mirror + 'px');
+    const canvas = row.querySelector('canvas');
+    canvas.style.height = cfg.hMax + 'px';
+
+    const v = {
+      cfg, el, canvas, ctx: canvas.getContext('2d'),
+      shaker: row.querySelector('.shaker'),
+      timer: row.querySelector('.timer'),
+      errmsg: row.querySelector('.errmsg'),
+      items: {
+        wave: row.querySelector('.i-wave'),
+        think: row.querySelector('.i-think'),
+        err: row.querySelector('.i-err')
+      },
+      bars: new Array(cfg.bars).fill(0),
+      from: [143,143,143,1], to: [13,13,13,1]
+    };
+    new ResizeObserver(() => sizeCanvas(v)).observe(canvas);
+    return v;
+  });
+
+  function sizeCanvas(v) {
+    const dpr = window.devicePixelRatio || 1;
+    const r = v.canvas.getBoundingClientRect();
+    if (!r.width) return;
+    v.canvas.width = Math.round(r.width * dpr);
+    v.canvas.height = Math.round(v.cfg.hMax * dpr);
+    v.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  /* ── colour ───────────────────────────────────────────────── */
+  // Alpha matters: the dark palette's --text-faint carries it, and
+  // dropping it would flatten the waveform to solid white.
+  function parseColor(value) {
+    const el = document.createElement('div');
+    el.style.color = value; document.body.appendChild(el);
+    const m = getComputedStyle(el).color.match(/[\d.]+/g);
+    el.remove();
+    if (!m) return [128,128,128,1];
+    return [Number(m[0]), Number(m[1]), Number(m[2]), m[3] === undefined ? 1 : Number(m[3])];
+  }
+  function lerpColor(a, b, t) {
+    return 'rgba(' + Math.round(a[0]+(b[0]-a[0])*t) + ',' +
+                     Math.round(a[1]+(b[1]-a[1])*t) + ',' +
+                     Math.round(a[2]+(b[2]-a[2])*t) + ',' +
+                     (a[3]+(b[3]-a[3])*t).toFixed(3) + ')';
+  }
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    caps.forEach(v => {
+      if (v.cfg.fixed) { v.from = v.cfg.fixed[0]; v.to = v.cfg.fixed[1]; return; }
+      v.from = parseColor(cs.getPropertyValue(v.cfg.from).trim());
+      v.to   = parseColor(cs.getPropertyValue(v.cfg.to).trim());
+    });
+  }
+
+  /* ── shared state machine ─────────────────────────────────── */
+  let state = 'dormant', visible = false;
+  let startedAt = 0, timerTick = 0, holdTimer = 0, sentenceIdx = 0;
+
+  function swapCenter(v, next) {
+    const list = [v.items.wave, v.items.think, v.items.err];
+    const current = list.find(el => !el.hidden && el !== next);
+    if (current === next) return;
+    if (current) {
+      current.classList.add('is-exit');
+      setTimeout(() => { current.hidden = true; current.classList.remove('is-exit'); }, 150);
+    }
+    next.hidden = false;
+    next.classList.add('is-enter-start');
+    void next.offsetWidth;
+    next.classList.remove('is-enter-start');
+  }
+
+  function show() { if (!visible) { visible = true; caps.forEach(v => v.el.classList.add('is-open')); } }
+  function hide() {
+    if (!visible) return;
+    visible = false;
+    caps.forEach(v => v.el.classList.remove('is-open'));
+    setTimeout(() => { if (!visible) { state = 'dormant'; caps.forEach(v => v.el.dataset.state = 'dormant'); } }, 250);
+  }
+
+  function startCapture() {
+    if (state === 'listening' || state === 'transcribing') return;
+    clearTimeout(holdTimer);
+    state = 'listening';
+    startedAt = performance.now();
+    caps.forEach(v => {
+      v.el.dataset.state = 'listening';
+      v.el.style.setProperty('--w', v.cfg.wListen + 'px');
+      v.bars.fill(0);
+      swapCenter(v, v.items.wave);
+      v.timer.textContent = '0:00';
+      v.timer.classList.toggle('is-shown', v.cfg.timerDelay === 0);
+    });
+    clearInterval(timerTick);
+    timerTick = setInterval(() => {
+      if (state !== 'listening') return;
+      const ms = performance.now() - startedAt;
+      const s = Math.floor(ms / 1000);
+      const text = '0:' + String(s).padStart(2, '0');
+      caps.forEach(v => {
+        v.timer.textContent = text;
+        if (ms >= v.cfg.timerDelay) v.timer.classList.add('is-shown');
+      });
+    }, 200);
+    show();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function endCapture(cancelled) {
+    if (state !== 'listening') return;
+    clearInterval(timerTick);
+    const held = performance.now() - startedAt;
+    if (cancelled) { hide(); return; }
+    if (held < 350) { showError("Didn't catch anything"); return; }
+
+    state = 'transcribing';
+    caps.forEach(v => {
+      v.el.dataset.state = 'transcribing';
+      v.el.style.setProperty('--w', v.cfg.wWork + 'px');
+      swapCenter(v, v.items.think);
+      v.timer.classList.remove('is-shown');
+    });
+
+    holdTimer = setTimeout(() => {
+      if (state !== 'transcribing') return;
+      insert(SENTENCES[sentenceIdx++ % SENTENCES.length]);
+      hide();
+    }, 900);
+  }
+
+  function insert(text) {
+    const field = document.getElementById('field');
+    const start = field.selectionStart ?? field.value.length;
+    const end = field.selectionEnd ?? field.value.length;
+    const before = field.value.slice(0, start);
+    const pad = before && !/\s$/.test(before) ? ' ' : '';
+    field.value = before + pad + text + field.value.slice(end);
+    const caret = start + pad.length + text.length;
+    field.setSelectionRange(caret, caret);
+    field.focus();
+  }
+
+  function showError(message) {
+    clearTimeout(holdTimer); clearInterval(timerTick);
+    state = 'error';
+    caps.forEach(v => {
+      v.el.dataset.state = 'error';
+      v.errmsg.textContent = message;
+      // Measure in this variant's own type so card-resize gets a real target.
+      const probe = document.createElement('span');
+      probe.className = 'errmsg label';
+      probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap';
+      v.el.appendChild(probe);
+      probe.textContent = message;
+      const w = Math.min(340, Math.max(v.cfg.wWork,
+        Math.ceil(probe.getBoundingClientRect().width) + v.cfg.errPad));
+      probe.remove();
+      v.el.style.setProperty('--w', w + 'px');
+      swapCenter(v, v.items.err);
+      v.shaker.classList.remove('is-shaking');
+      void v.shaker.offsetWidth;
+      v.shaker.classList.add('is-shaking');
+    });
+    show();
+    holdTimer = setTimeout(hide, 3000);
+  }
+  caps.forEach(v => v.shaker.addEventListener('animationend',
+    () => v.shaker.classList.remove('is-shaking')));
+
+  /* ── audio and waveform ───────────────────────────────────── */
+  const DB_FLOOR = -50, DB_CEIL = -6;
+  let level = 0, lastShift = 0, synthPhase = 0;
+  let audioCtx = null, analyser = null, buf = null, synthetic = true;
+
+  function currentLevel() {
+    if (!synthetic && analyser) {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      const rms = Math.sqrt(sum / buf.length);
+      if (rms <= 1e-7) return 0;
+      const db = 20 * Math.log10(rms);
+      return Math.max(0, Math.min(1, (db - DB_FLOOR) / (DB_CEIL - DB_FLOOR)));
+    }
+    synthPhase += 0.055;
+    const syllable = Math.pow(Math.max(0, Math.sin(synthPhase * 3.1)), 1.6);
+    const phrase = 0.55 + 0.45 * Math.sin(synthPhase * 0.42);
+    return Math.max(0, Math.min(1, syllable * phrase * (0.86 + Math.random() * 0.28) * 0.82));
+  }
+
+  function frame(t) {
+    requestAnimationFrame(frame);
+    if (state !== 'listening') return;
+
+    // Asymmetric smoothing — fast attack, slow release.
+    const target = currentLevel();
+    level += (target - level) * (target > level ? 0.60 : 0.12);
+
+    const shift = t - lastShift >= 20;   // 50 Hz
+    if (shift) lastShift = t;
+
+    caps.forEach(v => {
+      if (shift) { v.bars.push(level); if (v.bars.length > v.cfg.bars) v.bars.shift(); }
+      const { ctx, cfg } = v;
+      const w = v.canvas.clientWidth, mid = cfg.hMax / 2;
+      ctx.clearRect(0, 0, w, cfg.hMax);
+      const step = cfg.bw + cfg.gap;
+      const n = Math.max(1, Math.min(cfg.bars, Math.floor((w + cfg.gap) / step)));
+      let x = Math.max(0, (w - (n * step - cfg.gap)) / 2);
+      for (let i = cfg.bars - n; i < cfg.bars; i++) {
+        const val = v.bars[i] || 0;
+        const h = cfg.hMin + Math.pow(val, 0.7) * (cfg.hMax - cfg.hMin);
+        ctx.fillStyle = lerpColor(v.from, v.to, val);
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x, mid - h / 2, cfg.bw, h, cfg.r);
+        else ctx.rect(x, mid - h / 2, cfg.bw, h);
+        ctx.fill();
+        x += step;
+      }
+    });
+  }
+
+  async function requestMic() {
+    const el = document.getElementById('micState');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      el.textContent = 'Microphone: unavailable (needs http://localhost, not file://)';
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false }
+      });
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      buf = new Float32Array(analyser.fftSize);
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+      synthetic = false;
+      el.textContent = 'Microphone: live';
+    } catch (e) {
+      synthetic = true;
+      el.textContent = 'Microphone: denied — using a synthetic envelope';
+    }
+  }
+
+  /* ── input ────────────────────────────────────────────────── */
+  let down = false;
+  const ptt = document.getElementById('ptt');
+  function press() { if (down) return; down = true; ptt.classList.add('is-down'); startCapture(); }
+  function release() { if (!down) return; down = false; ptt.classList.remove('is-down'); endCapture(false); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'AltRight') { e.preventDefault(); if (!e.repeat) press(); }
+    else if (e.key === 'Escape') { down = false; ptt.classList.remove('is-down'); endCapture(true); }
+  });
+  document.addEventListener('keyup', (e) => { if (e.code === 'AltRight') { e.preventDefault(); release(); } });
+  window.addEventListener('blur', () => { if (down) release(); });
+  ptt.addEventListener('pointerdown', (e) => { e.preventDefault(); press(); });
+  window.addEventListener('pointerup', () => release());
+  ptt.addEventListener('click', () => { if (synthetic && !audioCtx) requestMic(); });
+
+  document.querySelectorAll('[data-theme-set]').forEach(b => {
+    b.addEventListener('click', () => {
+      const v = b.dataset.themeSet;
+      if (v === 'auto') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', v);
+      document.querySelectorAll('[data-theme-set]').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+      readColors();
+    });
+  });
+  document.getElementById('reduceBtn').addEventListener('click', (e) => {
+    const on = document.documentElement.classList.toggle('force-reduce');
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+  });
+  ERRORS.forEach(([label, msg]) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.addEventListener('click', () => showError(msg));
+    document.getElementById('errBtns').appendChild(b);
+  });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+
+  /* ── boot ─────────────────────────────────────────────────── */
+  readColors();
+  caps.forEach(sizeCanvas);
+  requestAnimationFrame(frame);
+  requestMic();
+  document.getElementById('field').focus();
+})();
+</script>
+</body>
+</html>
