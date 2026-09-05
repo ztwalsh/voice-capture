@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Capture — the window when it is open</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   Two directions for the main window, over one set of transcripts.
+
+     Library   — days in a rail, captures as cards. Built to find things.
+     Document  — the day rendered as one continuous piece. Built to read.
+
+   "Show markdown" reveals the actual file behind whatever you are
+   looking at, generated from the same data the UI is drawing, so the
+   format can be checked rather than imagined.
+
+   Motion is transitions.dev: tabs-sliding (16) for the layout switch,
+   panel-reveal (07) for the markdown panel, texts-reveal (18) for the
+   list, card-resize (01) for row expansion.
+   Type is Geist and Geist Mono.
+   ══════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Geist'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('./fonts/geist.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('./fonts/geist-mono.woff2') format('woff2');
+}
+
+:root {
+  color-scheme: light;
+
+  --duration-stagger: 40ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: ease-in-out;
+  --resize-dur: 300ms;
+  --panel-open-dur: 400ms; --panel-close-dur: 350ms;
+  --panel-translate-x: 40px; --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tabs-dur: 250ms; --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --stagger-dur: 400ms; --stagger-distance: 8px; --stagger-blur: 2px;
+  --stagger-ease: ease-in-out;
+
+  --surface-solid: #ffffff;
+  --sidebar:  #f7f7f8;
+  --trough:   #f2f2f3;
+  --hairline: rgba(0,0,0,0.07);
+  --text:        #0d0d0d;
+  --text-muted:  #6c6c6c;
+  --text-subtle: #767676;
+  --text-faint:  #9a9a9a;
+  --label-mono:  #5e6073;
+  --live: #E5484D;
+  --sel:  rgba(0,0,0,0.06);
+  --mark: rgba(255, 214, 0, 0.38);
+  --elev-win:
+    0 24px 70px 0 rgba(0,0,0,0.18), 0 6px 18px 0 rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.07);
+  --desk-a: #c3cddb; --desk-b: #e7eaef; --desk-c: #9fb0c6; --desk-d: #d9c9c0;
+
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --surface-solid: #1c1c1e; --sidebar: #171719; --trough: rgba(255,255,255,0.05);
+  --hairline: rgba(255,255,255,0.09);
+  --text: #fbfbfb; --text-muted: rgba(255,255,255,0.62);
+  --text-subtle: rgba(255,255,255,0.50); --text-faint: rgba(255,255,255,0.36);
+  --label-mono: rgba(255,255,255,0.52); --live: #FF6369;
+  --sel: rgba(255,255,255,0.08); --mark: rgba(255, 214, 0, 0.26);
+  --elev-win: 0 24px 70px 0 rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.09);
+  --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-solid: #1c1c1e; --sidebar: #171719; --trough: rgba(255,255,255,0.05);
+  --hairline: rgba(255,255,255,0.09);
+  --text: #fbfbfb; --text-muted: rgba(255,255,255,0.62);
+  --text-subtle: rgba(255,255,255,0.50); --text-faint: rgba(255,255,255,0.36);
+  --label-mono: rgba(255,255,255,0.52); --live: #FF6369;
+  --sel: rgba(255,255,255,0.08); --mark: rgba(255, 214, 0, 0.26);
+  --elev-win: 0 24px 70px 0 rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.09);
+  --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; font-family: var(--font-sans); color: var(--text);
+  overflow: hidden; -webkit-font-smoothing: antialiased;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(900px 620px at 14% 10%,  var(--desk-c), transparent 62%),
+    radial-gradient(760px 520px at 88% 22%,  var(--desk-d), transparent 58%),
+    radial-gradient(1000px 700px at 62% 96%, var(--desk-a), transparent 60%),
+    var(--desk-b);
+}
+
+/* ── window ── */
+.win {
+  width: min(1060px, 92vw); height: min(680px, 86vh);
+  background: var(--surface-solid); border-radius: 12px;
+  box-shadow: var(--elev-win); overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.titlebar {
+  flex: none; height: 52px; display: flex; align-items: center; gap: 14px;
+  padding: 0 14px; border-bottom: 1px solid var(--hairline);
+  background: var(--sidebar);
+}
+.tl { width: 12px; height: 12px; border-radius: 50%; background: var(--text-faint); opacity: .42; }
+.tls { display: flex; gap: 8px; margin-right: 4px; }
+.search {
+  flex: 1; max-width: 300px; height: 28px; border-radius: 8px;
+  border: 1px solid var(--hairline); background: var(--surface-solid);
+  padding: 0 10px; font-family: var(--font-sans); font-size: 13px;
+  color: var(--text); outline: none;
+}
+.search::placeholder { color: var(--text-faint); }
+.search:focus { border-color: var(--text-faint); }
+.spacer { flex: 1; }
+
+/* tabs sliding (16) */
+.t-tabs {
+  position: relative; display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px; border-radius: 48px; background: var(--trough);
+}
+.t-tab {
+  position: relative; appearance: none; border: 0; background: transparent;
+  height: 26px; padding: 0 12px; color: var(--text-muted); cursor: pointer;
+  border-radius: 48px; z-index: 1; font-family: var(--font-sans);
+  font-size: 12px; font-weight: 500;
+  transition: color var(--tabs-dur) var(--tabs-ease);
+}
+.t-tab[aria-selected="true"], .t-tab:hover { color: var(--text); }
+.t-tabs-pill {
+  position: absolute; top: 3px; left: 0; height: 26px; width: 0;
+  background: var(--surface-solid); border-radius: 48px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  transform: translateX(0);
+  transition: transform var(--tabs-dur) var(--tabs-ease), width var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width; z-index: 0; pointer-events: none;
+}
+.tbtn {
+  appearance: none; border: 1px solid var(--hairline); background: var(--surface-solid);
+  border-radius: 8px; height: 28px; padding: 0 10px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+  transition: background-color var(--duration-quick) ease-out, color var(--duration-quick) ease-out;
+}
+.tbtn:hover { color: var(--text); background: var(--trough); }
+.tbtn[aria-pressed="true"] { background: var(--text); color: var(--surface-solid); border-color: var(--text); }
+
+.body { flex: 1; display: flex; min-height: 0; }
+
+/* ── rail ── */
+.rail {
+  flex: none; width: 210px; border-right: 1px solid var(--hairline);
+  background: var(--sidebar); overflow-y: auto; padding: 10px 8px;
+  transition: width var(--resize-dur) var(--ease-smooth-out);
+}
+body[data-layout="document"] .rail { width: 150px; }
+.rail-head {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-faint); padding: 6px 10px 8px;
+}
+.day {
+  display: flex; align-items: baseline; gap: 8px; padding: 7px 10px;
+  border-radius: 8px; cursor: pointer;
+}
+.day:hover { background: var(--sel); }
+.day[aria-selected="true"] { background: var(--sel); }
+.day-name { font-size: 13px; font-weight: 500; flex: 1; }
+.day[aria-selected="true"] .day-name { font-weight: 600; }
+.day-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); }
+.day-date { font-size: 11px; color: var(--text-faint); }
+body[data-layout="document"] .day-meta { display: none; }
+
+/* ── content ── */
+.content { flex: 1; overflow-y: auto; min-width: 0; }
+
+/* Library layout — cards */
+.cards { padding: 14px 16px 32px; }
+.card {
+  padding: 12px 14px; border-radius: 10px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.card:hover { background: var(--trough); }
+.card + .card { margin-top: 2px; }
+.card-top {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 5px;
+}
+.mono-meta {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--label-mono);
+  letter-spacing: .01em;
+}
+.app-chip {
+  font-size: 10.5px; color: var(--text-subtle); background: var(--trough);
+  border-radius: 5px; padding: 1px 6px;
+}
+.card:hover .app-chip { background: var(--sel); }
+.dur { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); }
+.card-actions { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity var(--duration-quick) ease-out; }
+.card:hover .card-actions { opacity: 1; }
+.act {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-faint);
+  padding: 2px 5px; border-radius: 5px;
+}
+.act:hover { color: var(--text); background: var(--sel); }
+.play {
+  flex: none; width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid var(--hairline); background: var(--surface-solid);
+  cursor: pointer; display: none; align-items: center; justify-content: center;
+  color: var(--text-muted); font-size: 8px; padding: 0 0 0 1px;
+}
+body[data-audio="on"] .play { display: flex; }
+.card-body {
+  font-size: 13.5px; line-height: 21px; color: var(--text); overflow: hidden;
+}
+.card-body.clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.daysep {
+  position: sticky; top: 0; z-index: 2; background: var(--surface-solid);
+  padding: 10px 14px 6px; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint);
+}
+
+/* Document layout — the day as one rendered piece */
+.doc { max-width: 660px; margin: 0 auto; padding: 40px 32px 80px; }
+.doc-title { font-size: 26px; font-weight: 600; letter-spacing: -0.015em; margin: 0 0 4px; }
+.doc-sub {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-faint);
+  margin-bottom: 34px; padding-bottom: 18px; border-bottom: 1px solid var(--hairline);
+}
+.entry + .entry { margin-top: 30px; }
+.entry-meta {
+  font-family: var(--font-mono); font-size: 11px; color: var(--label-mono);
+  display: flex; align-items: center; gap: 9px; margin-bottom: 7px;
+}
+.entry-body { font-size: 16px; line-height: 27px; color: var(--text); }
+mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+.empty { padding: 60px 24px; text-align: center; color: var(--text-subtle); font-size: 13px; }
+
+/* texts reveal (18) */
+.t-stagger-line {
+  opacity: 0; transform: translateY(var(--stagger-distance));
+  filter: blur(var(--stagger-blur));
+  transition:
+    opacity   var(--stagger-dur) var(--stagger-ease),
+    transform var(--stagger-dur) var(--stagger-ease),
+    filter    var(--stagger-dur) var(--stagger-ease);
+}
+.is-shown .t-stagger-line { opacity: 1; transform: translateY(0); filter: blur(0); }
+
+/* card resize (01) */
+.t-resize { transition: height var(--resize-dur) var(--ease-smooth-out); }
+
+/* ── markdown panel, panel-reveal (07) ── */
+.md {
+  flex: none; width: 380px; border-left: 1px solid var(--hairline);
+  background: var(--sidebar); display: flex; flex-direction: column;
+  transform: translateX(var(--panel-translate-x)); opacity: 0;
+  filter: blur(var(--panel-blur)); pointer-events: none;
+  margin-right: -380px;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity   var(--panel-close-dur) var(--panel-ease),
+    filter    var(--panel-close-dur) var(--panel-ease),
+    margin-right var(--panel-close-dur) var(--panel-ease);
+  will-change: transform, opacity, filter;
+}
+.md[data-open="true"] {
+  transform: translateX(0); opacity: 1; filter: blur(0);
+  pointer-events: auto; margin-right: 0;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity   var(--panel-open-dur) var(--panel-ease),
+    filter    var(--panel-open-dur) var(--panel-ease),
+    margin-right var(--panel-open-dur) var(--panel-ease);
+}
+.md-head {
+  flex: none; padding: 12px 14px; border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.md-body {
+  flex: 1; overflow: auto; padding: 14px; margin: 0;
+  font-family: var(--font-mono); font-size: 11px; line-height: 19px;
+  color: var(--text-muted); white-space: pre-wrap; word-break: break-word;
+}
+.md-body .fm { color: var(--text-faint); }
+.md-body .h { color: var(--text); font-weight: 500; }
+
+/* ── status bar ── */
+.status {
+  flex: none; height: 30px; border-top: 1px solid var(--hairline);
+  background: var(--sidebar); display: flex; align-items: center;
+  padding: 0 14px; gap: 12px;
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint);
+}
+.status .path { color: var(--text-subtle); }
+.status .right { margin-left: auto; }
+
+/* ── prototype chrome ── */
+.proto {
+  position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px; z-index: 90;
+  background: var(--surface-solid); border-radius: 10px; padding: 6px 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 0 0 1px var(--hairline);
+}
+.proto span {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--text-faint); padding: 0 4px;
+}
+.proto button {
+  appearance: none; border: 1px solid var(--hairline); background: var(--trough);
+  border-radius: 7px; padding: 4px 8px; cursor: pointer;
+  font-family: var(--font-sans); font-size: 11px; font-weight: 500; color: var(--text);
+}
+.proto button[aria-pressed="true"] { background: var(--text); color: var(--surface-solid); border-color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .t-tabs-pill, .t-tab, .md, .rail, .t-stagger-line, .t-resize { transition: none !important; }
+  .md { filter: none !important; }
+}
+html.force-reduce .t-tabs-pill,
+html.force-reduce .t-tab,
+html.force-reduce .md,
+html.force-reduce .rail,
+html.force-reduce .t-stagger-line,
+html.force-reduce .t-resize { transition: none !important; }
+html.force-reduce .md { filter: none !important; }
+</style>
+</head>
+<body data-layout="library" data-audio="off">
+
+<div class="win">
+  <div class="titlebar">
+    <div class="tls"><span class="tl"></span><span class="tl"></span><span class="tl"></span></div>
+    <input class="search" id="search" type="search" placeholder="Search transcripts" aria-label="Search transcripts">
+    <div class="spacer"></div>
+    <div class="t-tabs" id="tabs" role="tablist">
+      <span class="t-tabs-pill" id="pill"></span>
+      <button class="t-tab" role="tab" data-layout="library"  aria-selected="true">Library</button>
+      <button class="t-tab" role="tab" data-layout="document" aria-selected="false">Document</button>
+    </div>
+    <button class="tbtn" id="mdBtn" aria-pressed="false">.md</button>
+  </div>
+
+  <div class="body">
+    <aside class="rail" id="rail" aria-label="Days"></aside>
+    <main class="content" id="content"></main>
+    <aside class="md" id="md" data-open="false" aria-label="Raw markdown">
+      <div class="md-head"><span id="mdPath"></span><span id="mdSize"></span></div>
+      <pre class="md-body" id="mdBody"></pre>
+    </aside>
+  </div>
+
+  <div class="status">
+    <span class="path" id="statPath"></span>
+    <span class="right" id="statCount"></span>
+  </div>
+</div>
+
+<div class="proto">
+  <span>Prototype</span>
+  <button data-theme-set="auto" aria-pressed="true">Auto</button>
+  <button data-theme-set="light" aria-pressed="false">Light</button>
+  <button data-theme-set="dark" aria-pressed="false">Dark</button>
+  <button id="reduceBtn" aria-pressed="false">Reduce motion</button>
+  <button id="audioBtn" aria-pressed="false">Keep audio</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  /* ── data ──────────────────────────────────────────────────────
+     Five days of plausible captures. Each day is one file. */
+  const DAYS = [
+    { date: '2026-09-05', label: 'Today', captures: [
+      ['09:14', 'Notes',  6,  "Let's push the launch to the week after next so the docs land first."],
+      ['09:31', 'Slack', 11,  "Reminder to follow up with the design team about the motion spec, specifically whether the asymmetric smoothing coefficients survived the review."],
+      ['11:02', 'Linear', 8,  "Ship the walking skeleton before touching any of the visual design. The whole point of phase two is finding out whether insertion actually works."],
+      ['14:47', 'Mail',   19, "Thanks for sending that over. I read through it last night and the only thing I'd push back on is the timeline in section three. Four weeks feels optimistic given how much of it depends on the vendor."],
+      ['16:20', 'Notes',  4,  "Ask whether we need streaming results or whether batch on release is fine."]
+    ]},
+    { date: '2026-09-04', label: 'Yesterday', captures: [
+      ['08:52', 'Notes',  7,  "The thing I keep coming back to is that nobody actually reads the changelog, so putting it there is the same as not shipping it."],
+      ['10:15', 'Slack',  5,  "Can we move standup to nine thirty on Thursdays."],
+      ['13:38', 'Xcode', 12,  "Note to self, the accessibility permission gets revoked whenever the binary is re-signed, which is why it keeps breaking between builds."],
+      ['17:05', 'Mail',   9,  "Confirming I'll be out Friday afternoon but reachable if anything urgent comes up on the release."]
+    ]},
+    { date: '2026-09-03', label: 'Thursday', captures: [
+      ['09:40', 'Notes',  15, "Half-formed idea. What if the history window isn't a list at all but just the markdown file rendered, and search is the only navigation. Fewer parts, and the file stays the source of truth rather than a thing the app exports to."],
+      ['11:22', 'Linear', 6,  "Bug, the timer keeps counting after the capsule dismisses on an error."],
+      ['15:10', 'Slack',  10, "I think we're overcomplicating the onboarding. Two permissions, two screens, done."]
+    ]},
+    { date: '2026-09-02', label: 'Wednesday', captures: [
+      ['10:08', 'Notes',  8,  "Whisper base dot en is fast enough on this machine that the model size argument is basically settled."],
+      ['16:44', 'Mail',   13, "Following up on the contract. We're happy with the scope as written, the only change we'd want is moving the review gate to the end of the second milestone rather than the first."]
+    ]},
+    { date: '2026-09-01', label: 'Tuesday', captures: [
+      ['09:05', 'Notes',  5,  "Start the week by writing down what would make this a good week."],
+      ['12:30', 'Slack',  7,  "Lunch pushed to one, the room was double booked again."],
+      ['14:55', 'Xcode',  11, "The non-activating panel works exactly as documented, which is the first thing on this project that has."],
+      ['18:12', 'Notes',  6,  "Remember that the point of the prototype is to be thrown away."]
+    ]}
+  ];
+
+  const words = (t) => t.trim().split(/\s+/).length;
+  DAYS.forEach(d => {
+    d.words = d.captures.reduce((n, c) => n + words(c[3]), 0);
+    d.file  = d.date + '.md';
+  });
+
+  let selected = 0, query = '';
+
+  /* ── markdown ──────────────────────────────────────────────────
+     One file per day. The UI renders from the same objects this
+     serialises, so what the panel shows is what would be on disk. */
+  function toMarkdown(day) {
+    const fm = [
+      '---',
+      'date: ' + day.date,
+      'captures: ' + day.captures.length,
+      'words: ' + day.words,
+      '---',
+      ''
+    ].join('\n');
+    const body = day.captures.map(([time, app, dur, text]) =>
+      '## ' + time + ' · ' + app + ' · ' + dur + 's\n\n' + text + '\n'
+    ).join('\n');
+    return fm + '\n' + body;
+  }
+  function renderMarkdown(day) {
+    const md = toMarkdown(day);
+    const html = md.split('\n').map(line => {
+      const safe = line.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      if (/^(---|date:|captures:|words:)/.test(line)) return '<span class="fm">' + safe + '</span>';
+      if (/^## /.test(line)) return '<span class="h">' + safe + '</span>';
+      return safe;
+    }).join('\n');
+    $('mdBody').innerHTML = html;
+    $('mdPath').textContent = day.file;
+    $('mdSize').textContent = new Blob([md]).size + ' B';
+  }
+
+  /* ── rail ── */
+  function renderRail() {
+    const rail = $('rail');
+    rail.innerHTML = '<div class="rail-head">Days</div>';
+    DAYS.forEach((d, i) => {
+      const el = document.createElement('div');
+      el.className = 'day';
+      el.setAttribute('aria-selected', String(i === selected && !query));
+      el.innerHTML =
+        '<span class="day-name">' + d.label + '</span>' +
+        '<span class="day-meta">' + d.captures.length + ' · ' + d.words + 'w</span>';
+      el.addEventListener('click', () => {
+        selected = i; query = ''; $('search').value = '';
+        render();
+      });
+      rail.appendChild(el);
+    });
+  }
+
+  /* ── highlight ── */
+  function highlight(text) {
+    if (!query) return text.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const esc = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text
+      .replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))
+      .replace(new RegExp('(' + esc + ')', 'ig'), '<mark>$1</mark>');
+  }
+
+  /* ── content ── */
+  function matches() {
+    const q = query.toLowerCase();
+    return DAYS.map(d => ({
+      day: d,
+      hits: d.captures.filter(c => !q || c[3].toLowerCase().includes(q))
+    })).filter(g => g.hits.length);
+  }
+
+  function cardFor(day, cap, i) {
+    const [time, app, dur, text] = cap;
+    const card = document.createElement('div');
+    card.className = 'card t-stagger-line';
+    card.style.transitionDelay = Math.min(i, 8) * 40 + 'ms';
+    const top = document.createElement('div');
+    top.className = 'card-top';
+    top.innerHTML =
+      '<button class="play" title="Play recording">&#9654;</button>' +
+      '<span class="mono-meta">' + time + '</span>' +
+      '<span class="app-chip">' + app + '</span>' +
+      '<span class="dur">' + dur + 's · ' + words(text) + 'w</span>' +
+      '<span class="card-actions"><button class="act">copy</button><button class="act">delete</button></span>';
+    const body = document.createElement('div');
+    body.className = 'card-body clamped';
+    body.innerHTML = highlight(text);
+    // card-resize (01) on expand: measure, then tween to the new height.
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      const from = body.getBoundingClientRect().height;
+      body.classList.toggle('clamped');
+      body.style.height = 'auto';
+      const to = body.getBoundingClientRect().height;
+      body.style.height = from + 'px';
+      body.classList.add('t-resize');
+      requestAnimationFrame(() => { body.style.height = to + 'px'; });
+      setTimeout(() => { body.style.height = ''; body.classList.remove('t-resize'); }, 320);
+    });
+    card.appendChild(top); card.appendChild(body);
+    return card;
+  }
+
+  function renderLibrary() {
+    const wrap = document.createElement('div');
+    wrap.className = 'cards';
+    const groups = query ? matches() : [{ day: DAYS[selected], hits: DAYS[selected].captures }];
+    if (!groups.length) {
+      wrap.innerHTML = '<div class="empty">Nothing matches “' + query + '”.</div>';
+      return wrap;
+    }
+    let n = 0;
+    groups.forEach(g => {
+      if (query) {
+        const sep = document.createElement('div');
+        sep.className = 'daysep';
+        sep.textContent = g.day.label + ' · ' + g.day.file;
+        wrap.appendChild(sep);
+      }
+      g.hits.forEach(c => wrap.appendChild(cardFor(g.day, c, n++)));
+    });
+    return wrap;
+  }
+
+  function renderDocument() {
+    const wrap = document.createElement('div');
+    wrap.className = 'doc';
+    const groups = query ? matches() : [{ day: DAYS[selected], hits: DAYS[selected].captures }];
+    if (!groups.length) {
+      wrap.innerHTML = '<div class="empty">Nothing matches “' + query + '”.</div>';
+      return wrap;
+    }
+    let n = 0;
+    groups.forEach(g => {
+      const h = document.createElement('h1');
+      h.className = 'doc-title t-stagger-line';
+      h.textContent = g.day.label;
+      const sub = document.createElement('div');
+      sub.className = 'doc-sub t-stagger-line';
+      sub.style.transitionDelay = '40ms';
+      sub.textContent = g.day.date + ' · ' + g.hits.length + ' captures · ' + g.day.words + ' words';
+      wrap.appendChild(h); wrap.appendChild(sub);
+      g.hits.forEach(([time, app, dur, text]) => {
+        const e = document.createElement('article');
+        e.className = 'entry t-stagger-line';
+        e.style.transitionDelay = Math.min(2 + n++, 10) * 40 + 'ms';
+        e.innerHTML =
+          '<div class="entry-meta">' +
+            '<button class="play" title="Play recording">&#9654;</button>' +
+            '<span>' + time + '</span><span>·</span><span>' + app + '</span>' +
+            '<span>·</span><span>' + dur + 's</span>' +
+          '</div>' +
+          '<div class="entry-body">' + highlight(text) + '</div>';
+        wrap.appendChild(e);
+      });
+    });
+    return wrap;
+  }
+
+  function render() {
+    renderRail();
+    const content = $('content');
+    content.innerHTML = '';
+    const layout = document.body.dataset.layout;
+    content.appendChild(layout === 'document' ? renderDocument() : renderLibrary());
+    content.scrollTop = 0;
+    // texts-reveal (18): stagger in on every re-render
+    content.classList.remove('is-shown');
+    void content.offsetWidth;
+    content.classList.add('is-shown');
+
+    const day = DAYS[selected];
+    renderMarkdown(day);
+    const total = DAYS.reduce((n, d) => n + d.captures.length, 0);
+    const tw = DAYS.reduce((n, d) => n + d.words, 0);
+    $('statPath').textContent = '~/Library/Application Support/VoiceCapture/transcripts/' + day.file;
+    $('statCount').textContent = query
+      ? matches().reduce((n, g) => n + g.hits.length, 0) + ' of ' + total + ' matching'
+      : total + ' captures · ' + tw + ' words · ' + DAYS.length + ' files';
+  }
+
+  /* ── tabs sliding (16): JS writes width and transform ── */
+  function movePill() {
+    const tabs = $('tabs');
+    const active = tabs.querySelector('[aria-selected="true"]');
+    const pill = $('pill');
+    pill.style.width = active.offsetWidth + 'px';
+    pill.style.transform = 'translateX(' + (active.offsetLeft - 3) + 'px)';
+  }
+  $('tabs').querySelectorAll('.t-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $('tabs').querySelectorAll('.t-tab').forEach(t =>
+        t.setAttribute('aria-selected', String(t === tab)));
+      document.body.dataset.layout = tab.dataset.layout;
+      movePill();
+      render();
+    });
+  });
+
+  /* ── controls ── */
+  $('search').addEventListener('input', (e) => { query = e.target.value.trim(); render(); });
+  $('mdBtn').addEventListener('click', (e) => {
+    const open = $('md').dataset.open !== 'true';
+    $('md').dataset.open = String(open);
+    e.currentTarget.setAttribute('aria-pressed', String(open));
+  });
+  $('audioBtn').addEventListener('click', (e) => {
+    const on = document.body.dataset.audio !== 'on';
+    document.body.dataset.audio = on ? 'on' : 'off';
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+  });
+  $('reduceBtn').addEventListener('click', (e) => {
+    const on = document.documentElement.classList.toggle('force-reduce');
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+  });
+  document.querySelectorAll('[data-theme-set]').forEach(b => {
+    b.addEventListener('click', () => {
+      const v = b.dataset.themeSet;
+      if (v === 'auto') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', v);
+      document.querySelectorAll('[data-theme-set]').forEach(o =>
+        o.setAttribute('aria-pressed', String(o === b)));
+    });
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') { e.preventDefault(); $('search').focus(); }
+  });
+
+  document.fonts.ready.then(movePill);
+  render(); movePill();
+})();
+</script>
+</body>
+</html>

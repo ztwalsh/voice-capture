@@ -270,7 +270,7 @@ of the capsule: this is where you sit and read.
 - Sticky day separators: `Today`, `Yesterday`, then dates.
 - Empty state: one line naming the hotkey. The only place the app teaches, and
   where a new user will look.
-- A footer control reveals `transcripts.jsonl` in Finder. Say plainly where the
+- A footer control reveals the day's `.md` file in Finder. Say plainly where the
   data lives; that is the whole promise of a local-first tool.
 
 ---

@@ -8,6 +8,7 @@ not a foundation for the app.
 | `index.html` | The adopted direction, full loop: capture, insert, history |
 | `versions.html` | Three directions for the capsule side by side, live on the same audio |
 | `dim.html` | What happens to everything else while you dictate — five background treatments |
+| `library.html` | The main window when it is open — two layouts over one set of transcripts |
 
 ## Run it
 
@@ -17,7 +18,8 @@ python3 -m http.server 8000
 
 Then open <http://127.0.0.1:8000/> for the full prototype, or
 <http://127.0.0.1:8000/versions.html> to compare directions, or
-<http://127.0.0.1:8000/dim.html> to compare background treatments.
+<http://127.0.0.1:8000/dim.html> to compare background treatments, or
+<http://127.0.0.1:8000/library.html> for the main window.
 
 **Serve it — do not open the file directly.** `getUserMedia` requires a secure
 context, and `file://` is not one, so opening `index.html` from Finder silently
@@ -62,6 +64,36 @@ on the same audio at the same moment rather than from memory.
 Mono is deliberately the same in light and dark, which `design.md` allows for a
 design that commits to one look. Its distinctness is strongest in light mode; in
 dark it converges with the other two.
+
+## The main window
+
+`library.html` is the window you open to get your transcripts back. Two
+directions over the same five days of data, switchable in the toolbar.
+
+| | What it is | Built for |
+| --- | --- | --- |
+| **Library** | Days in a rail, captures as cards with time, app, duration and word count | Finding a thing |
+| **Document** | The selected day rendered as one continuous piece, wide measure, quiet type | Reading a day back |
+
+Search filters across every day at once and groups the hits, in both layouts.
+`⌘F` focuses it. Cards expand in place on click rather than opening a detail
+pane, because a dictated sentence is short enough not to need one.
+
+### The .md toggle
+
+The `.md` button in the toolbar slides in the actual file behind whatever you
+are looking at. It is generated from the same objects the UI renders, so the
+panel is not a mock-up of the format — it is the format, and the round trip can
+be checked rather than imagined. The status bar shows the real path.
+
+### Audio
+
+**Keep audio** in the prototype bar toggles a play control onto every capture.
+It is off by default and matches `../PLAN.md`, which does not retain audio: it
+is the most sensitive thing the app touches and it has no use after
+transcription. The toggle exists so the cost of changing that decision is
+visible — turning it on is what adds playback, and it is a privacy and disk
+decision before it is a UI one.
 
 ## Background treatments
 

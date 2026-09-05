@@ -78,7 +78,7 @@ insertion strategies diverge.
 | Packaging | Xcode project, agent app (`LSUIElement`) | Entitlements and signing are painful outside Xcode |
 | Audio | `AVAudioEngine` + `AVAudioConverter` | Standard, low-latency, gives raw float buffers |
 | Transcription | `whisper.cpp` with Metal, via its Swift package | Small, auditable, ships a plain C API, no framework lock-in |
-| Storage | Append-only JSON Lines file | Durable, greppable, human-readable, zero schema migration |
+| Storage | One Markdown file per day | Readable and editable without the app, opens in any editor, zero schema migration |
 | Sandbox | Off | The App Sandbox and the Accessibility API do not coexist usefully |
 
 On transcription there is a real alternative worth naming: **WhisperKit** is a
@@ -158,9 +158,21 @@ first launch rather than bundling it, so the app stays small.
 
 Everything lives in `~/Library/Application Support/VoiceCapture/`.
 
-- `transcripts.jsonl` — one JSON object per line: id, timestamp, duration,
-  word count, the text, the app it was inserted into, and the model used.
-  Append-only. Survives crashes. Readable with `tail`. No migrations, ever.
+- `transcripts/YYYY-MM-DD.md` — one file per day. YAML frontmatter carries the
+  day's date, capture count and word count; each capture is a section whose
+  heading is its time, the app it landed in, and its duration:
+
+  ```md
+  ---
+  date: 2026-09-05
+  captures: 5
+  words: 110
+  ---
+
+  ## 09:14 · Notes · 6s
+
+  Let's push the launch to the week after next so the docs land first.
+  ```
 - `settings.json` — hotkey, model, insertion preference, retention.
 - `models/` — downloaded Whisper weights.
 
@@ -168,11 +180,33 @@ Audio is **not** retained by default. It is the most sensitive artifact the app
 touches and it has no use after transcription. A debug setting can keep the last
 few recordings for troubleshooting, off by default.
 
-JSON Lines is the right call over SQLite here. Search stays instant well past
-any personal volume, the file is trivially backed up, and the user can read
-their own data without the app. If full-text search ever gets slow, a SQLite
-index can be built from the log as a cache, with the log staying the source of
-truth.
+**Why Markdown, and what it costs.** The point of a local-first tool is that
+your data outlives the app, and a folder of dated Markdown files is the most
+durable form that takes. It opens in Obsidian, iA Writer, BBEdit, or `cat`. It
+diffs and versions in git. Search is `rg` over a few hundred small files, which
+is instant well past any personal volume.
+
+The costs are real and worth naming:
+
+- **One file per day, not one per capture.** Per-capture files are more
+  atomic and more Obsidian-native, but at thirty captures a day that is roughly
+  ten thousand files a year, which is unpleasant in Finder and noisy for
+  Spotlight. Per-day is a few hundred files a year and reads as a journal.
+- **Markdown is not a database.** Appending is cheap; editing or deleting a
+  capture means rewriting the file. At day-file size, a few kilobytes, that is
+  free — but it must be a write to a temporary file followed by an atomic
+  rename, or a crash mid-write loses the day rather than one line. An
+  append-only log gets that property for nothing; this does not.
+- **The user can edit these files, and that is the whole point.** Which means
+  the app must re-read before it appends, must watch for external changes, and
+  must never assume it was the last writer.
+- **Human-editable metadata is fragile metadata.** The heading is both prose
+  and schema. If a heading is edited by hand the parse degrades, so parse
+  leniently and treat the transcript text as the only thing that truly matters.
+  Counts and durations are a convenience, and the app should survive losing them.
+
+A SQLite index can be built over the folder later as a pure cache if search
+ever gets slow. The files stay the source of truth.
 
 ### Privacy posture
 
@@ -262,7 +296,7 @@ Reduce Motion.
 
 The window you open to get your transcripts back. A reverse-chronological list,
 search, copy, delete, and reveal-in-Finder for the underlying file. Reads the
-JSON Lines log directly.
+Markdown files directly.
 
 **Exit criteria:** you can find something you dictated last week in a few seconds.
 
