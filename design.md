@@ -195,7 +195,7 @@ Four, each with a distinct width. Transitions between them are specified in
 **Dormant.** Nothing on screen. The menu bar glyph is a thin waveform in
 template style, following the menu bar's own color.
 
-**Listening** — 240 × 44.
+**Listening** — 248 × 44.
 
 ```
 ┌──────────────────────────────────────────┐
@@ -205,12 +205,14 @@ template style, following the menu bar's own color.
 
 - Record dot, 6px, `--live`, 20px from the left edge. Solid, not pulsing. It is
   a state indicator, and a pulse would be decoration competing with the waveform.
-- Waveform centered, 148px wide. 32 bars, 3px wide, 2px gap, mirrored
-  vertically, 3px to 24px tall.
+- Waveform centered, 148px wide. 30 bars, 3px wide, 2px gap, mirrored
+  vertically, 2px to 24px tall. Thirty bars at that spacing is exactly 148px,
+  which sets the capsule width: 248 is the smallest that fits the waveform
+  between the dot and the timer without clipping.
 - Elapsed timer in Timer type, right-aligned at 20px inset, appearing only after
   three seconds so short captures stay clean.
 
-**Transcribing** — 132 × 44. The record dot goes dark and the waveform is
+**Transcribing** — 176 × 44. The record dot goes dark and the waveform is
 replaced by a shimmering status line reading `Transcribing`. Using the
 reference's thinking-states pattern here means the app can narrate honestly if
 the work has phases, rather than showing an indeterminate spinner.
@@ -221,6 +223,10 @@ app is the confirmation.
 **Error** — sized to the message, maximum 320px. The dot goes dark, the message
 appears in `--text`, and the capsule shakes once. It holds for three seconds and
 then dismisses.
+
+In both states that drop the timer, the centre box carries a mirrored 18px right
+margin matching the dot and its gap. Without it the label sits 18px right of the
+capsule's true centre line, which is visible.
 
 The error messages are part of the design, because they are the only sentences
 this interface ever writes:

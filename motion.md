@@ -138,7 +138,7 @@ snippet rather than reimplementing it.
 | --- | --- | --- |
 | Dormant → Listening | **Toast** (22) | Rise 16px, fade, cross-blur 2px, scale 0.97 → 1. 350ms, `--ease-smooth-out` |
 | Listening | *custom* | Waveform only. Dot solid, timer fades in at `--duration-quick` after 3s |
-| Listening → Transcribing | **Card resize** (01) + **Text states swap** (04) | Width 240 → 132 over 300ms `--ease-smooth-out`; center content swaps over 150ms, out up through 2px blur, in from 4px below |
+| Listening → Transcribing | **Card resize** (01) + **Text states swap** (04) | Width 248 → 176 over 300ms `--ease-smooth-out`; center content swaps over 150ms, out up through 2px blur, in from 4px below |
 | Transcribing, holding | **Thinking states** (28) | Shimmer sweeps the label on a 2000ms linear loop; any state change swaps at 150ms |
 | Transcribing → Dormant | **Toast** close (22) | 250ms, reverse of entry |
 | Any → Error | **Card resize** + **Error state shake** (12) | Width morphs to fit; shake 6px with 4px overshoot in 80ms then 60ms segments; holds 3000ms; reverts over 280ms |
@@ -189,7 +189,7 @@ Fast attack so consonants punch through, slow release so it does not strobe
 between syllables. The asymmetry is the whole trick, and it echoes the
 reference's own open-slow, close-fast asymmetry at a different timescale.
 
-**Height.** `height = 3 + pow(value, 0.7) * 21`, giving the 3px to 24px range
+**Height.** `height = 2 + pow(value, 0.7) * 22`, giving the 2px to 24px range
 from `design.md`. The exponent lifts quiet speech into visibility, since normal
 talking sits low in the range and a linear map makes the app look deaf.
 
@@ -197,11 +197,12 @@ talking sits low in the range and a linear map makes the app look deaf.
 per the design principle that motion carries state rather than color. Loudness
 becomes weight instead of hue.
 
-**History.** The array shifts one bar per sample. 32 bars at 50 Hz is 640ms of
+**History.** The array shifts one bar per sample. 30 bars at 50 Hz is 600ms of
 visible history, roughly a phrase — long enough to show the shape of what you
 said, short enough to feel immediate.
 
-**Silence.** Flat at 3px. No jitter, no floor animation, no idle life. It is the
+**Silence.** Flat at 2px. A 3px bar at 3px wide draws as a circle, so silence
+read as a dot matrix; two pixels gives a dash, and the row reads as a flat line. No jitter, no floor animation, no idle life. It is the
 clearest possible signal that the microphone is not picking you up.
 
 ---
@@ -257,6 +258,9 @@ App-specific additions:
 
 - Render the waveform on a display-link-driven canvas, not by pushing SwiftUI
   state fifty times a second. State churn at that rate drops frames.
+- Interpolate the bar color in RGBA, not RGB. The dark palette's
+  `--text-faint` is `rgba(255,255,255,0.34)`, so dropping alpha collapses the
+  whole waveform to solid white and the loudness mapping disappears.
 - Never transition `backdrop-filter`. Animating the blur is the single most
   expensive mistake available on this surface.
 - Warm the audio engine, the panel, and the model at launch, not at key-down.
