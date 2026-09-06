@@ -344,6 +344,12 @@ the display. No settings, one hardcoded hotkey, one hardcoded model.
 This is the moment the product either works or does not, and it should arrive
 early. Everything after it is refinement.
 
+Source lives in `app/`, built ahead of Phase 0's results rather than after
+them — it reuses the exact techniques each spike tests in isolation (Spike A's
+panel, Spike B's paste strategy, Spike C's recording and engine) combined into
+one real path, so it was unblocked work rather than a jump ahead. It has not
+been compiled; `app/README.md` says so and gives exact Xcode setup steps.
+
 **Exit criteria:** you dictate a real sentence into a real app and the text
 appears. Latency measured against the budget.
 

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	App Sandbox is deliberately absent, per PLAN.md: the sandbox and the
+	Accessibility API needed for global hotkeys and text insertion do not
+	coexist usefully. Its absence is what turns the sandbox off — there is
+	no "false" value to set.
+
+	This key is only meaningful if you later enable the hardened runtime
+	for notarization; it does nothing for an unsandboxed, ad-hoc-signed
+	local build.
+	-->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+</dict>
+</plist>
