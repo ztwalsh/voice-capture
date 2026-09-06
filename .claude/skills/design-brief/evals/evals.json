@@ -1,0 +1,27 @@
+{
+  "skill_name": "design-brief",
+  "notes": "Fixture images are real product screenshots. Eval 3 is a deliberate near-miss: a single screenshot and a narrow question, where building a whole brief would be over-triggering.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "explicit-review-request",
+      "prompt": "We prototyped two directions for the analytics screen this week and I need the team to pick one on Monday. Shots are at /home/user/voice-capture/.claude/skills/design-brief/evals/fixtures — dashboard-light.jpg and dashboard-dark.jpg are direction A in both themes, list-view.jpg and detail-view.jpg are direction B. Put something together I can send round so people actually decide rather than just nodding at it.",
+      "expected_output": "A single self-contained HTML page with all four images inlined, figures with captions that make claims, and a decisions section separating settled from open, published as an Artifact.",
+      "files": ["/home/user/voice-capture/.claude/skills/design-brief/evals/fixtures/dashboard-light.jpg", "/home/user/voice-capture/.claude/skills/design-brief/evals/fixtures/dashboard-dark.jpg", "/home/user/voice-capture/.claude/skills/design-brief/evals/fixtures/list-view.jpg", "/home/user/voice-capture/.claude/skills/design-brief/evals/fixtures/detail-view.jpg"]
+    },
+    {
+      "id": 1,
+      "name": "implicit-recap",
+      "prompt": "can you summarise where the settings and overlay work got to this sprint? screenshots in /home/user/voice-capture/.claude/skills/design-brief/evals/fixtures (settings.jpg, overlay.jpg, dashboard-dark.jpg). i want to look back at it later",
+      "expected_output": "Recognises this needs a durable brief rather than chat prose, and adds a decisions list even though the user did not ask for one.",
+      "files": ["/home/user/voice-capture/.claude/skills/design-brief/evals/fixtures/settings.jpg", "/home/user/voice-capture/.claude/skills/design-brief/evals/fixtures/overlay.jpg", "/home/user/voice-capture/.claude/skills/design-brief/evals/fixtures/dashboard-dark.jpg"]
+    },
+    {
+      "id": 2,
+      "name": "near-miss-single-question",
+      "prompt": "quick one — does the spacing under the header in /home/user/voice-capture/.claude/skills/design-brief/evals/fixtures/settings.jpg look off to you? feels tight",
+      "expected_output": "Answers the question directly. Does NOT build or publish an HTML brief for a single narrow question.",
+      "files": ["/home/user/voice-capture/.claude/skills/design-brief/evals/fixtures/settings.jpg"]
+    }
+  ]
+}
