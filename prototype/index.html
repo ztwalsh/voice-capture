@@ -3,9 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Harps — capsule prototype</title>
+<title>Harps — prototype catalog</title>
 <style>
-/* Geist — vercel.com/font. Self-hosted so the prototype needs no network. */
 @font-face {
   font-family: 'Geist'; font-style: normal; font-weight: 100 900;
   font-display: swap; src: url('./fonts/geist.woff2') format('woff2');
@@ -14,151 +13,44 @@
   font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900;
   font-display: swap; src: url('./fonts/geist-mono.woff2') format('woff2');
 }
-/* ══════════════════════════════════════════════════════════════════
-   Harps — HTML prototype (Phase 1)
-
-   Motion is transitions.dev, used as published:
-     toast (22) · card-resize (01) · text-states-swap (04)
-     error-state-shake (12) · thinking-states (28)
-     texts-reveal (18) · streaming-text (30)
-   Token block below is their _root.css, trimmed to what this uses.
-   ══════════════════════════════════════════════════════════════════ */
 
 :root {
   color-scheme: light;
-
-  /* ── transitions.dev motion tokens ─────────────────────────── */
-  --duration-stagger:   40ms;
-  --duration-micro:     80ms;
-  --duration-quick:     150ms;
-  --duration-fast:      250ms;
-  --duration-medium:    350ms;
-  --duration-slow:      400ms;
-  --duration-very-slow: 500ms;
-
-  --ease-smooth-out:    cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in-out:        ease-in-out;
-  --ease-linear:        linear;
-
-  --distance-micro: 4px;
-  --distance-small: 6px;
-  --distance-base:  8px;
-  --blur-small:  2px;
-
-  /* toast (22) */
-  --toast-open: 350ms;
-  --toast-close: 250ms;
-  --toast-distance: 16px;
-  --toast-blur: 2px;
-  --toast-scale: 0.97;
-  --toast-ease: cubic-bezier(0.22, 1, 0.36, 1);
-
-  /* card resize (01) */
-  --resize-dur: 300ms;
-  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
-
-  /* text states swap (04) */
-  --text-swap-dur: 150ms;
-  --text-swap-translate-y: 4px;
-  --text-swap-blur: 2px;
-  --text-swap-ease: ease-in-out;
-
-  /* error state shake (12) */
-  --shake-distance: 6px;
-  --shake-overshoot: 4px;
-  --shake-dur-a: 80ms;
-  --shake-dur-b: 60ms;
-  --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --revert-hold: 3000ms;
-  --revert-dur: 280ms;
-
-  /* thinking states (28) */
-  --think-swap: 150ms;
-  --think-distance: 8px;
-  --think-blur: 2px;
-  --think-shimmer: 2000ms;
-  --think-ease: ease-in-out;
-
-  /* texts reveal (18) */
-  --stagger-dur: 500ms;
-  --stagger-stagger: 40ms;
-  --stagger-distance: 12px;
-  --stagger-blur: 3px;
-  --stagger-ease: ease-in-out;
-
-  /* streaming text (30) */
-  --stream-gap: 60ms;
-  --stream-fade: 350ms;
-  --stream-blur: 1px;
-  --stream-ease: cubic-bezier(0.22, 1, 0.36, 1);
-
-  /* ── Harps design tokens (design.md) ───────────────── */
-  --surface:       rgba(255, 255, 255, 0.86);
-  --surface-solid: #ffffff;
+  --bg:            #f4f4f5;
+  --surface:       #ffffff;
   --trough:        #f9f9f9;
-  --hairline:      rgba(0, 0, 0, 0.06);
+  --hairline:      rgba(0, 0, 0, 0.08);
+  --hairline-soft: rgba(0, 0, 0, 0.05);
   --text:          #0d0d0d;
   --text-muted:    #6c6c6c;
   --text-subtle:   #767676;
   --text-faint:    #8f8f8f;
   --label-mono:    #5e6073;
-  --live:          #E5484D;
-
-  --elev-capsule:
-    0 8px 48px 0 rgba(0, 0, 0, 0.12),
-    0 2px  8px 0 rgba(0, 0, 0, 0.08),
-    0 0 0 1px   rgba(0, 0, 0, 0.06);
+  --accent:        #E5484D;
   --elev-card:
     0 4px 42px 0 rgba(0, 0, 0, 0.06),
     0 2px  6px 0 rgba(0, 0, 0, 0.05),
     0 0 0 1px   rgba(0, 0, 0, 0.06);
-
-  --think-base:      var(--text-subtle);
-  --think-highlight: var(--text);
-
   --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-
-  /* desktop scene */
-  --desk-a: #dfe3ea;
-  --desk-b: #eef0f3;
-  --desk-c: #c9d2de;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { color-scheme: dark; }
-}
-:root[data-theme="dark"] { color-scheme: dark; }
-
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --surface:       rgba(28, 28, 30, 0.82);
-  --surface-solid: #1c1c1e;
-  --trough:        rgba(255, 255, 255, 0.04);
-  --hairline:      rgba(255, 255, 255, 0.08);
-  --text:          #fbfbfb;
-  --text-muted:    rgba(255, 255, 255, 0.62);
-  --text-subtle:   rgba(255, 255, 255, 0.48);
-  --text-faint:    rgba(255, 255, 255, 0.34);
-  --label-mono:    rgba(255, 255, 255, 0.52);
-  --live:          #FF6369;
-  --elev-capsule: 0 8px 48px 0 rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.08);
-  --elev-card:    0 4px 24px 0 rgba(0,0,0,0.36), 0 0 0 1px rgba(255,255,255,0.08);
-  --desk-a: #2a2f38; --desk-b: #1b1e24; --desk-c: #363d49;
-} }
-:root[data-theme="dark"] {
-  --surface:       rgba(28, 28, 30, 0.82);
-  --surface-solid: #1c1c1e;
-  --trough:        rgba(255, 255, 255, 0.04);
-  --hairline:      rgba(255, 255, 255, 0.08);
-  --text:          #fbfbfb;
-  --text-muted:    rgba(255, 255, 255, 0.62);
-  --text-subtle:   rgba(255, 255, 255, 0.48);
-  --text-faint:    rgba(255, 255, 255, 0.34);
-  --label-mono:    rgba(255, 255, 255, 0.52);
-  --live:          #FF6369;
-  --elev-capsule: 0 8px 48px 0 rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.08);
-  --elev-card:    0 4px 24px 0 rgba(0,0,0,0.36), 0 0 0 1px rgba(255,255,255,0.08);
-  --desk-a: #2a2f38; --desk-b: #1b1e24; --desk-c: #363d49;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg:            #0e0e0f;
+    --surface:       #1c1c1e;
+    --trough:        rgba(255, 255, 255, 0.04);
+    --hairline:      rgba(255, 255, 255, 0.10);
+    --hairline-soft: rgba(255, 255, 255, 0.06);
+    --text:          #fbfbfb;
+    --text-muted:    rgba(255, 255, 255, 0.62);
+    --text-subtle:   rgba(255, 255, 255, 0.48);
+    --text-faint:    rgba(255, 255, 255, 0.34);
+    --label-mono:    rgba(255, 255, 255, 0.52);
+    --accent:        #FF6369;
+    --elev-card:     0 4px 24px 0 rgba(0,0,0,0.36), 0 0 0 1px rgba(255,255,255,0.08);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -167,816 +59,331 @@ body {
   margin: 0;
   font-family: var(--font-sans);
   color: var(--text);
-  background:
-    radial-gradient(1200px 700px at 18% 12%, var(--desk-c), transparent 60%),
-    radial-gradient(900px 600px at 82% 78%, var(--desk-a), transparent 55%),
-    var(--desk-b);
-  overflow: hidden;
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
 }
 
-/* ══════════════════ mock host app ══════════════════ */
-.host {
-  position: absolute;
-  top: 8vh; left: 50%; transform: translateX(-50%);
-  width: min(720px, 86vw); height: min(460px, 56vh);
-  background: var(--surface-solid);
-  border-radius: 12px;
-  box-shadow: var(--elev-card);
-  display: flex; flex-direction: column; overflow: hidden;
-}
-.host-bar {
-  height: 38px; flex: none; display: flex; align-items: center; gap: 8px;
-  padding: 0 14px; border-bottom: 1px solid var(--hairline);
-}
-.tl { width: 12px; height: 12px; border-radius: 50%; background: var(--text-faint); opacity: .5; }
-.host-title {
-  font-size: 12px; font-weight: 500; color: var(--text-subtle);
-  margin-left: 6px; letter-spacing: -0.01em;
-}
-#field {
-  flex: 1; width: 100%; border: 0; resize: none; outline: none;
-  padding: 22px 24px; font-family: var(--font-sans);
-  font-size: 14px; line-height: 22px; color: var(--text);
-  background: transparent;
-}
-#field::placeholder { color: var(--text-faint); }
-
-/* ══════════════════ the capsule ══════════════════ */
-.anchor {
-  position: fixed; left: 50%; bottom: 96px;
-  transform: translateX(-50%);
-  z-index: 50; pointer-events: none;
-}
-.shaker { display: block; }
-
-.capsule {
-  --w: 248px;
-  position: relative;
-  width: var(--w);
-  height: 44px;
-  border-radius: 22px;
-  background: var(--surface);
-  -webkit-backdrop-filter: blur(32px) saturate(180%);
-  backdrop-filter: blur(32px) saturate(180%);
-  box-shadow: var(--elev-capsule);
-  display: flex; align-items: center;
-  padding: 0 20px; gap: 12px;
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 56px 28px 96px;
 }
 
-/* card resize (01) — verbatim */
-.t-resize {
-  transition:
-    width  var(--resize-dur) var(--resize-ease),
-    height var(--resize-dur) var(--resize-ease);
-  will-change: width, height;
+/* ── header ─────────────────────────────────────────── */
+header { margin-bottom: 28px; }
+h1 {
+  font-size: 26px; font-weight: 600; letter-spacing: -0.02em;
+  margin: 0 0 6px;
 }
+.sub {
+  font-size: 13px; color: var(--text-subtle); margin: 0;
+}
+.sub a { color: var(--text-muted); }
 
-/* toast (22) — verbatim */
-.t-toast {
-  opacity: 0;
-  transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
-  filter: blur(var(--toast-blur));
-  will-change: transform, opacity, filter;
-  transition:
-    opacity var(--toast-close) var(--toast-ease),
-    transform var(--toast-close) var(--toast-ease),
-    filter var(--toast-close) var(--toast-ease);
-}
-.t-toast.is-open {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
-  transition:
-    opacity var(--toast-open) var(--toast-ease),
-    transform var(--toast-open) var(--toast-ease),
-    filter var(--toast-open) var(--toast-ease);
-}
-/* both transitions live on .capsule, so merge the width tween in */
-.capsule { transition:
-    opacity var(--toast-close) var(--toast-ease),
-    transform var(--toast-close) var(--toast-ease),
-    filter var(--toast-close) var(--toast-ease),
-    width var(--resize-dur) var(--resize-ease); }
-.capsule.is-open { transition:
-    opacity var(--toast-open) var(--toast-ease),
-    transform var(--toast-open) var(--toast-ease),
-    filter var(--toast-open) var(--toast-ease),
-    width var(--resize-dur) var(--resize-ease); }
-
-.dot {
-  flex: none; width: 6px; height: 6px; border-radius: 50%;
-  background: var(--text-faint);
-  transition: background-color var(--duration-quick) var(--ease-out, ease-out);
-}
-.capsule[data-state="listening"] .dot { background: var(--live); }
-
-.center { position: relative; flex: 1; height: 100%; min-width: 0; }
-
-/* text states swap (04) — applied to the three center children */
-.c-item {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  transform: translateY(0); filter: blur(0); opacity: 1;
-  transition:
-    transform var(--text-swap-dur) var(--text-swap-ease),
-    filter    var(--text-swap-dur) var(--text-swap-ease),
-    opacity   var(--text-swap-dur) var(--text-swap-ease);
-  will-change: transform, filter, opacity;
-}
-.c-item.is-exit {
-  transform: translateY(calc(var(--text-swap-translate-y) * -1));
-  filter: blur(var(--text-swap-blur));
-  opacity: 0;
-}
-.c-item.is-enter-start {
-  transform: translateY(var(--text-swap-translate-y));
-  filter: blur(var(--text-swap-blur));
-  opacity: 0;
-  transition: none;
-}
-.c-item[hidden] { display: none; }
-
-#wave { display: block; width: 100%; height: 24px; }
-
-/* thinking states (28) — shimmer sweeps the glyphs */
-.t-think { position: relative; display: inline-block; text-align: center; }
-.t-think-text {
-  display: block; color: var(--think-base); white-space: nowrap;
-  font-size: 11px; font-weight: 500; letter-spacing: 0.01em;
-}
-.t-think-text::before {
-  content: attr(data-text);
-  position: absolute; inset: 0; pointer-events: none;
-  background-image: linear-gradient(90deg,
-    transparent 0%, transparent 40%,
-    var(--think-highlight) 50%,
-    transparent 60%, transparent 100%);
-  background-size: 400% 100%;
-  background-repeat: no-repeat;
-  -webkit-background-clip: text; background-clip: text;
-  color: transparent; -webkit-text-fill-color: transparent;
-  animation: t-think-shimmer var(--think-shimmer) linear infinite;
-}
-@keyframes t-think-shimmer {
-  0%   { background-position: 100% 0; }
-  100% { background-position: 0% 0; }
-}
-
-.errmsg {
-  font-size: 11px; font-weight: 500; letter-spacing: 0.01em;
-  color: var(--text); white-space: nowrap;
-}
-
-.timer {
-  flex: none; width: 30px; text-align: right;
-  font-family: var(--font-mono); font-size: 11px; line-height: 14px;
-  color: var(--label-mono);
-  opacity: 0;
-  transition: opacity var(--duration-quick) var(--ease-in-out);
-}
-.timer.is-shown { opacity: 1; }
-.capsule:not([data-state="listening"]) .timer { display: none; }
-/* With the timer gone, the dot + gap would push the centre box 18px right.
-   Mirror it so the label sits on the capsule's true centre line. */
-.capsule[data-state="transcribing"] .center,
-.capsule[data-state="error"] .center { margin-right: 18px; }
-
-/* error state shake (12) — verbatim keyframe, applied to .shaker */
-.shaker.is-shaking {
-  animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
-}
-@keyframes t-input-shake {
-  0%     { transform: translateX(0);                                animation-timing-function: var(--shake-ease); }
-  28.57% { transform: translateX(var(--shake-distance));            animation-timing-function: var(--shake-ease); }
-  57.14% { transform: translateX(calc(var(--shake-distance) * -1)); animation-timing-function: var(--shake-ease); }
-  78.57% { transform: translateX(var(--shake-overshoot));           animation-timing-function: var(--shake-ease); }
-  100%   { transform: translateX(0); }
-}
-
-/* ══════════════════ history window ══════════════════ */
-.history {
-  position: fixed; right: 28px; bottom: 96px; width: 380px;
-  max-height: min(520px, 62vh);
-  background: var(--surface-solid);
-  border-radius: 12px; box-shadow: var(--elev-card);
-  display: flex; flex-direction: column; overflow: hidden; z-index: 40;
-}
-.history[hidden] { display: none; }
-.h-head {
-  flex: none; padding: 16px 20px 12px;
+/* ── toolbar ────────────────────────────────────────── */
+.toolbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: 24px 0 8px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--hairline);
 }
-.h-title { font-size: 22px; line-height: 26px; font-weight: 600; letter-spacing: -0.01em; }
-.h-search {
-  margin-top: 12px; width: 100%; height: 30px; border-radius: 8px;
-  border: 1px solid var(--hairline); background: var(--trough);
-  padding: 0 10px; font-family: var(--font-sans); font-size: 13px;
-  color: var(--text); outline: none;
+.seg {
+  display: inline-flex; background: var(--trough);
+  border: 1px solid var(--hairline); border-radius: 9px; padding: 2px;
 }
-.h-search::placeholder { color: var(--text-faint); }
-.h-list { overflow-y: auto; padding: 8px; flex: 1; }
-.h-day {
-  position: sticky; top: 0; z-index: 1;
-  padding: 8px 12px 6px; font-size: 11px; font-weight: 500;
-  letter-spacing: 0.01em; color: var(--text-subtle);
-  background: var(--surface-solid);
+.seg button {
+  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
+  color: var(--text-muted); background: transparent; border: 0;
+  border-radius: 7px; padding: 5px 12px; cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
 }
-.row {
-  padding: 10px 12px; border-radius: 10px; cursor: pointer;
-  display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start;
+.seg button:hover { color: var(--text); }
+.seg button[aria-pressed="true"] {
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--hairline-soft);
 }
-.row:hover { background: var(--trough); }
-.row-meta { font-size: 11px; color: var(--text-subtle); margin-bottom: 3px; }
-.row-body {
-  font-size: 13px; line-height: 19px; color: var(--text);
-  overflow: hidden;
+.count {
+  font-size: 12px; color: var(--text-faint);
+  font-family: var(--font-mono); letter-spacing: -0.01em;
 }
-.row-body.clamped {
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+.spacer { flex: 1; }
+.linkbtn {
+  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
+  color: var(--text-muted); background: transparent;
+  border: 0; cursor: pointer; padding: 4px 2px;
+  text-decoration: underline; text-underline-offset: 2px;
+  text-decoration-color: var(--hairline);
 }
-.row-app {
-  flex: none; width: 16px; height: 16px; border-radius: 4px;
-  background: var(--text-faint); opacity: .45; margin-top: 2px;
-}
-.h-foot {
-  flex: none; padding: 10px 20px; border-top: 1px solid var(--hairline);
-  font-size: 11px; color: var(--text-subtle);
-}
-.h-empty { padding: 28px 20px; font-size: 13px; line-height: 19px; color: var(--text-subtle); }
+.linkbtn:hover { color: var(--text); text-decoration-color: currentColor; }
 
-/* texts reveal (18) */
-.t-stagger-line {
-  display: block; opacity: 0;
-  transform: translateY(var(--stagger-distance));
-  filter: blur(var(--stagger-blur));
-  transition:
-    opacity   var(--stagger-dur) var(--stagger-ease),
-    transform var(--stagger-dur) var(--stagger-ease),
-    filter    var(--stagger-dur) var(--stagger-ease);
-  will-change: transform, opacity, filter;
-}
-.row.t-stagger-line { display: grid; }
-.t-stagger.is-shown .t-stagger-line {
-  opacity: 1; transform: translateY(0); filter: blur(0);
+/* ── groups ─────────────────────────────────────────── */
+.group { margin-top: 34px; }
+.group-label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--label-mono); margin-bottom: 12px;
 }
 
-/* streaming text (30) — verbatim */
-.t-stream-w {
-  opacity: 0; filter: blur(var(--stream-blur));
-  transition:
-    opacity var(--stream-fade) var(--stream-ease),
-    filter var(--stream-fade) var(--stream-ease);
+/* ── cards ──────────────────────────────────────────── */
+.card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px 18px;
+  align-items: start;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--elev-card);
+  padding: 18px 20px;
+  margin-bottom: 12px;
+  transition: opacity 150ms ease;
 }
-.t-stream-w.is-in { opacity: 1; filter: blur(0); }
+.card.is-archived { opacity: 0.52; }
+.card-main { min-width: 0; }
+.card-title {
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.card-title a { color: var(--text); text-decoration: none; }
+.card-title a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.card-desc {
+  font-size: 13px; color: var(--text-muted); margin: 5px 0 0;
+}
+.card-meta {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-faint);
+  margin-top: 9px; display: flex; gap: 12px; flex-wrap: wrap;
+}
+.card-meta .file { color: var(--text-subtle); }
 
-/* ══════════════════ prototype chrome (not part of the design) ══════════════════ */
-.panel {
-  position: fixed; top: 20px; right: 20px; width: 250px; z-index: 60;
-  background: var(--surface-solid); border-radius: 12px;
-  box-shadow: var(--elev-card); padding: 14px; font-size: 12px;
+/* badges */
+.badge {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 5px;
+  border: 1px solid var(--hairline); color: var(--text-subtle);
+  white-space: nowrap;
 }
-.panel h2 {
-  margin: 0 0 2px; font-size: 12px; font-weight: 600; letter-spacing: -0.01em;
-}
-.panel p { margin: 0 0 10px; color: var(--text-subtle); font-size: 11px; line-height: 16px; }
-.panel hr { border: 0; border-top: 1px solid var(--hairline); margin: 10px 0; }
-.grp { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-.lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); margin-bottom: 5px; }
-button {
-  font-family: var(--font-sans); font-size: 11px; font-weight: 500;
+.badge.latest { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.badge.superseded { color: var(--text-faint); }
+
+/* actions */
+.card-actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.btn {
+  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
   color: var(--text); background: var(--trough);
-  border: 1px solid var(--hairline); border-radius: 7px;
-  padding: 5px 9px; cursor: pointer;
-  transition: background-color var(--duration-quick) ease-out;
+  border: 1px solid var(--hairline); border-radius: 8px;
+  padding: 7px 12px; cursor: pointer; white-space: nowrap; text-align: center;
+  text-decoration: none; display: inline-block;
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
-button:hover { background: var(--hairline); }
-button[aria-pressed="true"] { background: var(--text); color: var(--surface-solid); border-color: var(--text); }
-.ptt {
-  width: 100%; padding: 9px; border-radius: 9px; font-size: 12px;
-  margin-top: 2px;
-}
-.ptt.is-down { background: var(--live); border-color: var(--live); color: #fff; }
-.mic { font-size: 10px; color: var(--text-faint); margin-top: 8px; line-height: 15px; }
-kbd {
-  font-family: var(--font-mono); font-size: 10px;
-  background: var(--trough); border: 1px solid var(--hairline);
-  border-radius: 4px; padding: 1px 4px;
+.btn:hover { background: var(--hairline-soft); }
+.btn.primary { background: var(--text); color: var(--surface); border-color: var(--text); }
+.btn.primary:hover { opacity: 0.9; background: var(--text); }
+.btn.ghost { background: transparent; }
+
+.empty {
+  text-align: center; color: var(--text-subtle); font-size: 13px;
+  padding: 60px 20px;
 }
 
-/* ══════════════════ reduced motion ══════════════════
-   Guards from every transitions.dev snippet, plus the app-specific
-   rules from motion.md. Mirrored on .force-reduce so the prototype
-   can demo it without changing an OS setting. */
-@media (prefers-reduced-motion: reduce) {
-  .t-resize, .capsule, .c-item, .t-stagger-line, .t-stream-w { transition: none !important; }
-  .t-think-text { transition: none !important; transform: none !important; filter: none !important; }
-  .t-think-text::before { display: none !important; }
-  .t-stream-w { filter: none !important; opacity: 1 !important; }
-  .shaker { animation: none !important; transform: none !important; }
-  .capsule { filter: none !important; }
+@media (max-width: 560px) {
+  .card { grid-template-columns: 1fr; }
+  .card-actions { flex-direction: row; }
+  .card-actions .btn { flex: 1; }
 }
-html.force-reduce .t-resize,
-html.force-reduce .capsule,
-html.force-reduce .c-item,
-html.force-reduce .t-stagger-line,
-html.force-reduce .t-stream-w { transition: none !important; }
-html.force-reduce .t-think-text { transition: none !important; transform: none !important; filter: none !important; }
-html.force-reduce .t-think-text::before { display: none !important; }
-html.force-reduce .t-stream-w { filter: none !important; opacity: 1 !important; }
-html.force-reduce .shaker { animation: none !important; transform: none !important; }
-html.force-reduce .capsule { filter: none !important; }
 </style>
 </head>
 <body>
+<div class="wrap">
+  <header>
+    <h1>Harps — prototype catalog</h1>
+    <p class="sub">Phase 1 design prototypes. See <a href="./README.md">README.md</a> for what each one settles. Archive state is stored in this browser only.</p>
+  </header>
 
-<!-- mock host app: the thing the capsule floats over -->
-<div class="host">
-  <div class="host-bar">
-    <span class="tl"></span><span class="tl"></span><span class="tl"></span>
-    <span class="host-title">Untitled note</span>
-  </div>
-  <textarea id="field" placeholder="Put the cursor here, then hold the key and talk. Dictated text lands at the caret with no animation at all."></textarea>
-</div>
-
-<!-- the capsule -->
-<div class="anchor">
-  <div class="shaker" id="shaker">
-    <div class="capsule t-toast t-resize" id="capsule" data-state="listening" role="status" aria-live="polite">
-      <span class="dot" id="dot"></span>
-      <div class="center" id="center">
-        <div class="c-item" id="i-wave"><canvas id="wave"></canvas></div>
-        <div class="c-item" id="i-think" hidden>
-          <span class="t-think"><span class="t-think-text" id="thinkText" data-text="Transcribing">Transcribing</span></span>
-        </div>
-        <div class="c-item" id="i-err" hidden><span class="errmsg" id="errText">Didn't catch anything</span></div>
-      </div>
-      <span class="timer" id="timer">0:00</span>
+  <div class="toolbar">
+    <div class="seg" role="tablist" aria-label="Filter prototypes">
+      <button data-filter="active" aria-pressed="true">Active</button>
+      <button data-filter="archived" aria-pressed="false">Archived</button>
+      <button data-filter="all" aria-pressed="false">All</button>
     </div>
+    <span class="count" id="count"></span>
+    <span class="spacer"></span>
+    <button class="linkbtn" id="archiveSuperseded">Archive superseded versions</button>
+    <button class="linkbtn" id="resetArchive">Reset</button>
   </div>
+
+  <div id="groups"></div>
+  <div class="empty" id="empty" hidden></div>
 </div>
-
-<!-- history -->
-<section class="history t-stagger" id="history" hidden aria-label="Transcript history">
-  <div class="h-head">
-    <div class="h-title">History</div>
-    <input class="h-search" id="search" type="search" placeholder="Search transcripts" aria-label="Search transcripts">
-  </div>
-  <div class="h-list" id="list"></div>
-  <div class="h-foot">transcripts.jsonl — Reveal in Finder</div>
-</section>
-
-<!-- prototype controls, not part of the design -->
-<aside class="panel">
-  <h2>Capsule prototype</h2>
-  <p>Hold <kbd>Right&nbsp;Option</kbd> or the button below to capture. <kbd>H</kbd> toggles history, <kbd>Esc</kbd> cancels.</p>
-  <button class="ptt" id="ptt">Hold to talk</button>
-  <div class="mic" id="micState">Microphone: not requested</div>
-  <hr>
-  <div class="lbl">Appearance</div>
-  <div class="grp">
-    <button data-theme-set="auto" aria-pressed="true">Auto</button>
-    <button data-theme-set="light" aria-pressed="false">Light</button>
-    <button data-theme-set="dark" aria-pressed="false">Dark</button>
-  </div>
-  <div class="lbl">Motion</div>
-  <div class="grp">
-    <button id="reduceBtn" aria-pressed="false">Reduce motion</button>
-  </div>
-  <div class="lbl">Error states</div>
-  <div class="grp" id="errBtns"></div>
-</aside>
 
 <script>
 (function () {
   'use strict';
 
-  const $ = (id) => document.getElementById(id);
-  const capsule = $('capsule'), shaker = $('shaker'), dot = $('dot');
-  const iWave = $('i-wave'), iThink = $('i-think'), iErr = $('i-err');
-  const errText = $('errText'), timer = $('timer'), field = $('field');
-  const history = $('history'), list = $('list'), search = $('search');
-  const canvas = $('wave'), ctx = canvas.getContext('2d');
-
-  const WIDTH = { listening: 248, transcribing: 176 };
-  const ERRORS = [
-    ["No speech",     "Didn't catch anything"],
-    ["Secure input",  "Can't type into a password field"],
-    ["No mic",        "No microphone"],
-    ["Insert failed", "Copied to clipboard instead"]
+  // ── manifest ──────────────────────────────────────────────
+  // stage: 'latest' | 'current' | 'exploration' | 'superseded'
+  const PROTOS = [
+    {
+      file: 'capture-v2.html',
+      title: 'Capture — second pass',
+      desc: 'The capsule in the main window’s visual language, invoked from the menu bar or the hotkey. Two interactions, not one with two triggers.',
+      group: 'Capture', stage: 'latest', updated: '2026-09-06',
+    },
+    {
+      file: 'capsule.html',
+      title: 'Capsule — full loop',
+      desc: 'The adopted Phase 1 direction end to end: capture, insert at the caret, history window. Live microphone and amplitude mapping.',
+      group: 'Capture', stage: 'current', updated: '2026-09-06',
+    },
+    {
+      file: 'versions.html',
+      title: 'Capsule — three directions',
+      desc: 'Pill, Bar and Mono side by side on one microphone feed, so they can be judged on the same audio at the same moment.',
+      group: 'Capture', stage: 'exploration', updated: '2026-09-06',
+    },
+    {
+      file: 'dim.html',
+      title: 'Background treatments',
+      desc: 'What the rest of the screen does while you dictate — five treatments (scrim, fade, blur, vignette, none) on one intensity control.',
+      group: 'Capture', stage: 'exploration', updated: '2026-09-06',
+    },
+    {
+      file: 'library-v2.html',
+      title: 'Main window — second pass',
+      desc: 'Sidebar, Overview, settings and a live .md toggle. Reworked against the MonRize dashboard and a markdown notes app.',
+      group: 'Main window', stage: 'latest', updated: '2026-09-06',
+    },
+    {
+      file: 'library.html',
+      title: 'Main window — first pass',
+      desc: 'Library and Document layouts over one set of transcripts, switchable in the toolbar.',
+      group: 'Main window', stage: 'superseded', supersededBy: 'library-v2.html', updated: '2026-09-06',
+    },
   ];
-  const SENTENCES = [
-    "Let's push the launch to the week after next so the docs land first.",
-    "Reminder to follow up with the design team about the motion spec.",
-    "The asymmetric smoothing is what makes the waveform feel alive rather than like a graph.",
-    "Ship the walking skeleton before touching any of the visual design.",
-    "Ask whether we actually need streaming results or whether batch on release is fine."
-  ];
 
-  /* ── state ────────────────────────────────────────────────── */
-  let state = 'dormant';     // dormant | listening | transcribing | error
-  let visible = false;
-  let startedAt = 0, timerTick = 0, holdTimer = 0, seq = 0;
-  let sentenceIdx = 0;
+  const GROUP_ORDER = ['Capture', 'Main window'];
+  const KEY = 'harps.prototype.archived';
 
-  /* ── capsule plumbing ─────────────────────────────────────── */
-
-  // text-states-swap (04): outgoing and incoming animate together,
-  // so one swap costs one --text-swap-dur, not two.
-  function swapCenter(next) {
-    const current = [iWave, iThink, iErr].find(el => !el.hidden && el !== next);
-    if (current === next) return;
-    if (current) {
-      current.classList.add('is-exit');
-      setTimeout(() => {
-        current.hidden = true;
-        current.classList.remove('is-exit');
-      }, 150);
-    }
-    next.hidden = false;
-    next.classList.add('is-enter-start');
-    void next.offsetWidth;               // reflow, so the class removal animates
-    next.classList.remove('is-enter-start');
-  }
-
-  function setWidth(px) { capsule.style.setProperty('--w', px + 'px'); }
-
-  function show() {
-    if (visible) return;
-    visible = true;
-    capsule.classList.add('is-open');
-  }
-  function hide() {
-    if (!visible) return;
-    visible = false;
-    capsule.classList.remove('is-open');
-    setTimeout(() => { if (!visible) { state = 'dormant'; capsule.dataset.state = 'dormant'; } }, 250);
-  }
-
-  /* ── listening ────────────────────────────────────────────── */
-  function startCapture() {
-    if (state === 'listening' || state === 'transcribing') return;
-    clearTimeout(holdTimer);
-    const token = ++seq;
-    state = 'listening';
-    capsule.dataset.state = 'listening';
-    setWidth(WIDTH.listening);
-    swapCenter(iWave);
-    resetWave();
-    startedAt = performance.now();
-
-    // Timer appears only after 3s, so short captures stay clean.
-    timer.textContent = '0:00';
-    timer.classList.remove('is-shown');
-    clearInterval(timerTick);
-    timerTick = setInterval(() => {
-      if (state !== 'listening') return;
-      const s = Math.floor((performance.now() - startedAt) / 1000);
-      timer.textContent = '0:' + String(s).padStart(2, '0');
-      if (s >= 3) timer.classList.add('is-shown');
-    }, 200);
-
-    show();
-    startAudio();
-    return token;
-  }
-
-  function endCapture(cancelled) {
-    if (state !== 'listening') return;
-    clearInterval(timerTick);
-    stopAudio();
-    const heldMs = performance.now() - startedAt;
-
-    if (cancelled) { hide(); return; }
-
-    // Too short to contain speech — the app's own guard against
-    // Whisper hallucinating on silence.
-    if (heldMs < 350) { showError("Didn't catch anything"); return; }
-
-    state = 'transcribing';
-    capsule.dataset.state = 'transcribing';
-    setWidth(WIDTH.transcribing);
-    swapCenter(iThink);
-    timer.classList.remove('is-shown');
-
-    // Stand-in for on-device transcription.
-    holdTimer = setTimeout(() => {
-      if (state !== 'transcribing') return;
-      const text = SENTENCES[sentenceIdx++ % SENTENCES.length];
-      insert(text);
-      addRow(text);
-      hide();
-    }, 900);
-  }
-
-  /* ── insertion: principle 6, no animation at all ──────────── */
-  function insert(text) {
-    const start = field.selectionStart ?? field.value.length;
-    const end = field.selectionEnd ?? field.value.length;
-    const before = field.value.slice(0, start);
-    const pad = before && !/\s$/.test(before) ? ' ' : '';
-    field.value = before + pad + text + field.value.slice(end);
-    const caret = start + pad.length + text.length;
-    field.setSelectionRange(caret, caret);
-    field.focus();
-  }
-
-  /* ── error ────────────────────────────────────────────────── */
-  function showError(message) {
-    clearTimeout(holdTimer);
-    clearInterval(timerTick);
-    state = 'error';
-    capsule.dataset.state = 'error';
-    errText.textContent = message;
-
-    // Measure the message so card-resize has a real target width.
-    const probe = document.createElement('span');
-    probe.className = 'errmsg';
-    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap';
-    probe.textContent = message;
-    document.body.appendChild(probe);
-    const w = Math.min(320, Math.max(200, Math.ceil(probe.getBoundingClientRect().width) + 76));
-    probe.remove();
-
-    setWidth(w);
-    swapCenter(iErr);
-    show();
-
-    shaker.classList.remove('is-shaking');
-    void shaker.offsetWidth;
-    shaker.classList.add('is-shaking');
-
-    holdTimer = setTimeout(hide, 3000);   // --revert-hold
-  }
-  shaker.addEventListener('animationend', () => shaker.classList.remove('is-shaking'));
-
-  /* ── waveform ─────────────────────────────────────────────── */
-  const BARS = 30, BAR_W = 3, GAP = 2, H_MIN = 2, H_MAX = 24;
-  const DB_FLOOR = -50, DB_CEIL = -6;
-  let bars = new Array(BARS).fill(0);
-  let level = 0, lastShift = 0, raf = 0;
-  let audioCtx = null, analyser = null, stream = null, buf = null;
-  let synthetic = true, synthPhase = 0;
-
-  function resetWave() { bars.fill(0); level = 0; lastShift = 0; }
-
-  function sizeCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    const r = canvas.getBoundingClientRect();
-    if (!r.width) return;
-    canvas.width = Math.round(r.width * dpr);
-    canvas.height = Math.round(H_MAX * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  new ResizeObserver(sizeCanvas).observe(canvas);
-
-  function currentLevel() {
-    if (!synthetic && analyser) {
-      analyser.getFloatTimeDomainData(buf);
-      let sum = 0;
-      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
-      const rms = Math.sqrt(sum / buf.length);
-      if (rms <= 1e-7) return 0;
-      const db = 20 * Math.log10(rms);
-      return Math.max(0, Math.min(1, (db - DB_FLOOR) / (DB_CEIL - DB_FLOOR)));
-    }
-    // Synthetic speech-ish envelope for when there is no microphone.
-    synthPhase += 0.055;
-    const syllable = Math.pow(Math.max(0, Math.sin(synthPhase * 3.1)), 1.6);
-    const phrase = 0.55 + 0.45 * Math.sin(synthPhase * 0.42);
-    const jitter = 0.86 + Math.random() * 0.28;
-    return Math.max(0, Math.min(1, syllable * phrase * jitter * 0.82));
-  }
-
-  function lerpColor(a, b, t) {
-    const r = Math.round(a[0] + (b[0]-a[0]) * t);
-    const g = Math.round(a[1] + (b[1]-a[1]) * t);
-    const bl = Math.round(a[2] + (b[2]-a[2]) * t);
-    const al = (a[3] + (b[3]-a[3]) * t).toFixed(3);
-    return `rgba(${r},${g},${bl},${al})`;
-  }
-  // Alpha matters: the dark palette's --text-faint is rgba(255,255,255,0.34),
-  // so dropping it would flatten the whole waveform to solid white.
-  function parseColor(v) {
-    const el = document.createElement('div');
-    el.style.color = v; document.body.appendChild(el);
-    const m = getComputedStyle(el).color.match(/[\d.]+/g);
-    el.remove();
-    if (!m) return [128, 128, 128, 1];
-    return [Number(m[0]), Number(m[1]), Number(m[2]), m[3] === undefined ? 1 : Number(m[3])];
-  }
-  let cFaint = [143,143,143,1], cText = [13,13,13,1];
-  function readColors() {
-    const cs = getComputedStyle(document.documentElement);
-    cFaint = parseColor(cs.getPropertyValue('--text-faint').trim());
-    cText  = parseColor(cs.getPropertyValue('--text').trim());
-  }
-
-  function frame(t) {
-    raf = requestAnimationFrame(frame);
-    if (state !== 'listening') return;
-
-    // Asymmetric smoothing: fast attack so consonants punch through,
-    // slow release so it does not strobe between syllables.
-    const target = currentLevel();
-    level += (target - level) * (target > level ? 0.60 : 0.12);
-
-    // 50 Hz shift — 32 bars is 640ms of visible history, roughly a phrase.
-    if (t - lastShift >= 20) {
-      lastShift = t;
-      bars.push(level);
-      if (bars.length > BARS) bars.shift();
-    }
-
-    const w = canvas.clientWidth, mid = H_MAX / 2;
-    ctx.clearRect(0, 0, w, H_MAX);
-    const step = BAR_W + GAP;
-    // Draw only what fits, keeping the most recent bars, so the
-    // waveform can never spill past the capsule at any width.
-    const n = Math.max(1, Math.min(BARS, Math.floor((w + GAP) / step)));
-    const total = n * step - GAP;
-    let x = Math.max(0, (w - total) / 2);
-
-    for (let i = BARS - n; i < BARS; i++) {
-      const v = bars[i] || 0;
-      const h = H_MIN + Math.pow(v, 0.7) * (H_MAX - H_MIN);
-      ctx.fillStyle = lerpColor(cFaint, cText, v);
-      const y = mid - h / 2;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(x, y, BAR_W, h, 1.5);
-      else ctx.rect(x, y, BAR_W, h);
-      ctx.fill();
-      x += step;
-    }
-  }
-
-  /* ── audio ────────────────────────────────────────────────── */
-  async function requestMic() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      $('micState').textContent = 'Microphone: unavailable (needs http://localhost, not file://)';
-      return;
-    }
+  // ── archive state (localStorage) ──────────────────────────
+  function loadArchived() {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false }
-      });
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const src = audioCtx.createMediaStreamSource(stream);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 1024;
-      buf = new Float32Array(analyser.fftSize);
-      src.connect(analyser);
-      synthetic = false;
-      $('micState').textContent = 'Microphone: live';
-    } catch (e) {
-      synthetic = true;
-      $('micState').textContent = 'Microphone: denied — using a synthetic envelope';
-    }
+      const raw = localStorage.getItem(KEY);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (e) { return new Set(); }
   }
-  function startAudio() { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
-  function stopAudio() {}
-
-  /* ── history ──────────────────────────────────────────────── */
-  const rows = [];
-  function relTime(d) {
-    const m = Math.round((Date.now() - d) / 60000);
-    if (m < 1) return 'Just now';
-    if (m < 60) return m + ' min ago';
-    return Math.round(m / 60) + ' hr ago';
+  function saveArchived(set) {
+    try { localStorage.setItem(KEY, JSON.stringify([...set])); } catch (e) {}
   }
-  function addRow(text) {
-    rows.unshift({ text, at: Date.now(), fresh: true });
-    if (!history.hidden) renderList();
+  let archived = loadArchived();
+  let filter = 'active';
+
+  // ── render ────────────────────────────────────────────────
+  const groupsEl = document.getElementById('groups');
+  const emptyEl = document.getElementById('empty');
+  const countEl = document.getElementById('count');
+
+  function visibleFor(p) {
+    const isArch = archived.has(p.file);
+    if (filter === 'active') return !isArch;
+    if (filter === 'archived') return isArch;
+    return true;
   }
-  function renderList() {
-    const q = search.value.trim().toLowerCase();
-    const shown = rows.filter(r => !q || r.text.toLowerCase().includes(q));
-    list.innerHTML = '';
 
-    if (!shown.length) {
-      const p = document.createElement('div');
-      p.className = 'h-empty';
-      p.textContent = rows.length
-        ? 'No transcripts match that search.'
-        : 'Nothing captured yet. Hold Right Option and talk.';
-      list.appendChild(p);
-      return;
-    }
+  function stageBadge(p) {
+    if (p.stage === 'latest') return '<span class="badge latest">latest</span>';
+    if (p.stage === 'current') return '<span class="badge latest">adopted</span>';
+    if (p.stage === 'superseded') return '<span class="badge superseded">superseded</span>';
+    return '<span class="badge">exploration</span>';
+  }
 
-    const day = document.createElement('div');
-    day.className = 'h-day'; day.textContent = 'Today';
-    list.appendChild(day);
+  function render() {
+    groupsEl.innerHTML = '';
+    let shown = 0;
 
-    shown.forEach((r, i) => {
-      const row = document.createElement('div');
-      // texts-reveal (18): stagger the first eight rows only.
-      row.className = 'row' + (i < 8 ? ' t-stagger-line' : '');
-      row.style.transitionDelay = i < 8 ? (i * 40) + 'ms' : '0ms';
+    GROUP_ORDER.forEach(function (g) {
+      const items = PROTOS.filter(function (p) { return p.group === g && visibleFor(p); });
+      if (!items.length) return;
+      shown += items.length;
 
-      const col = document.createElement('div');
-      const meta = document.createElement('div');
-      meta.className = 'row-meta'; meta.textContent = relTime(r.at);
-      const body = document.createElement('div');
-      body.className = 'row-body clamped';
+      const wrap = document.createElement('section');
+      wrap.className = 'group';
+      const label = document.createElement('div');
+      label.className = 'group-label';
+      label.textContent = g;
+      wrap.appendChild(label);
 
-      if (r.fresh) {
-        // streaming-text (30): only what just arrived resolves in.
-        r.text.split(' ').forEach((word, wi) => {
-          const s = document.createElement('span');
-          s.className = 't-stream-w';
-          s.textContent = word + ' ';
-          body.appendChild(s);
-          setTimeout(() => s.classList.add('is-in'), 120 + wi * 60);
-        });
-        r.fresh = false;
-      } else {
-        body.textContent = r.text;
-      }
+      items.forEach(function (p) {
+        const isArch = archived.has(p.file);
+        const card = document.createElement('div');
+        card.className = 'card' + (isArch ? ' is-archived' : '');
 
-      // card-resize (01) on the row body when it expands.
-      row.addEventListener('click', () => {
-        const clamped = body.classList.contains('clamped');
-        body.style.height = body.getBoundingClientRect().height + 'px';
-        body.classList.add('t-resize');
-        void body.offsetWidth;
-        body.classList.toggle('clamped', !clamped);
-        body.style.height = 'auto';
-        const target = body.getBoundingClientRect().height;
-        body.style.height = body.getBoundingClientRect().height + 'px';
-        requestAnimationFrame(() => { body.style.height = target + 'px'; });
-        setTimeout(() => { body.style.height = ''; body.classList.remove('t-resize'); }, 320);
+        const supersededNote = p.supersededBy
+          ? '<span>superseded by ' + p.supersededBy + '</span>' : '';
+
+        card.innerHTML =
+          '<div class="card-main">' +
+            '<div class="card-title"><a href="./' + p.file + '">' + p.title + '</a>' + stageBadge(p) + '</div>' +
+            '<p class="card-desc">' + p.desc + '</p>' +
+            '<div class="card-meta"><span class="file">' + p.file + '</span><span>updated ' + p.updated + '</span>' + supersededNote + '</div>' +
+          '</div>' +
+          '<div class="card-actions">' +
+            '<a class="btn primary" href="./' + p.file + '">Open</a>' +
+            '<button class="btn ghost" data-toggle="' + p.file + '">' + (isArch ? 'Restore' : 'Archive') + '</button>' +
+          '</div>';
+
+        wrap.appendChild(card);
       });
 
-      col.appendChild(meta); col.appendChild(body);
-      const app = document.createElement('div'); app.className = 'row-app';
-      row.appendChild(col); row.appendChild(app);
-      list.appendChild(row);
+      groupsEl.appendChild(wrap);
     });
 
-    history.classList.remove('is-shown');
-    void history.offsetWidth;
-    history.classList.add('is-shown');
+    const total = PROTOS.length;
+    countEl.textContent = shown + ' of ' + total + ' · ' + archived.size + ' archived';
+
+    emptyEl.hidden = shown > 0;
+    if (!shown) {
+      emptyEl.textContent = filter === 'archived'
+        ? 'Nothing archived yet.'
+        : 'Nothing to show under this filter.';
+    }
   }
-  search.addEventListener('input', renderList);
 
-  function toggleHistory() {
-    history.hidden = !history.hidden;
-    if (!history.hidden) renderList();
-  }
-
-  /* ── input ────────────────────────────────────────────────── */
-  let down = false;
-  const ptt = $('ptt');
-
-  function press() { if (down) return; down = true; ptt.classList.add('is-down'); startCapture(); }
-  function release() { if (!down) return; down = false; ptt.classList.remove('is-down'); endCapture(false); }
-
-  document.addEventListener('keydown', (e) => {
-    if (e.code === 'AltRight') { e.preventDefault(); if (!e.repeat) press(); return; }
-    if (e.key === 'Escape') { down = false; ptt.classList.remove('is-down'); endCapture(true); return; }
-    const typing = /^(INPUT|TEXTAREA)$/.test(e.target.tagName) || e.target.isContentEditable;
-    if (!typing && (e.key === 'h' || e.key === 'H')) toggleHistory();
-  });
-  document.addEventListener('keyup', (e) => { if (e.code === 'AltRight') { e.preventDefault(); release(); } });
-  window.addEventListener('blur', () => { if (down) release(); });
-
-  ptt.addEventListener('pointerdown', (e) => { e.preventDefault(); press(); });
-  window.addEventListener('pointerup', () => release());
-  ptt.addEventListener('click', () => { if (synthetic && !audioCtx) requestMic(); });
-
-  /* ── prototype controls ───────────────────────────────────── */
-  document.querySelectorAll('[data-theme-set]').forEach(b => {
-    b.addEventListener('click', () => {
-      const v = b.dataset.themeSet;
-      if (v === 'auto') document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', v);
-      document.querySelectorAll('[data-theme-set]').forEach(o =>
-        o.setAttribute('aria-pressed', String(o === b)));
-      readColors();
+  // ── events ────────────────────────────────────────────────
+  document.querySelectorAll('.seg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      filter = b.dataset.filter;
+      document.querySelectorAll('.seg button').forEach(function (o) {
+        o.setAttribute('aria-pressed', String(o === b));
+      });
+      render();
     });
   });
 
-  $('reduceBtn').addEventListener('click', (e) => {
-    const on = document.documentElement.classList.toggle('force-reduce');
-    e.currentTarget.setAttribute('aria-pressed', String(on));
+  groupsEl.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-toggle]');
+    if (!btn) return;
+    const file = btn.dataset.toggle;
+    if (archived.has(file)) archived.delete(file);
+    else archived.add(file);
+    saveArchived(archived);
+    render();
   });
 
-  ERRORS.forEach(([label, msg]) => {
-    const b = document.createElement('button');
-    b.textContent = label;
-    b.addEventListener('click', () => showError(msg));
-    $('errBtns').appendChild(b);
+  document.getElementById('archiveSuperseded').addEventListener('click', function () {
+    PROTOS.forEach(function (p) {
+      if (p.stage === 'superseded' || p.supersededBy) archived.add(p.file);
+    });
+    saveArchived(archived);
+    render();
   });
 
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+  document.getElementById('resetArchive').addEventListener('click', function () {
+    archived = new Set();
+    saveArchived(archived);
+    render();
+  });
 
-  /* ── boot ─────────────────────────────────────────────────── */
-  capsule.dataset.state = 'dormant';
-  readColors();
-  sizeCanvas();
-  raf = requestAnimationFrame(frame);
-  requestMic();
-  field.focus();
+  render();
 })();
 </script>
 </body>

@@ -5,7 +5,8 @@ not a foundation for the app.
 
 | File | What it is |
 | --- | --- |
-| `index.html` | The adopted direction, full loop: capture, insert, history |
+| `index.html` | Central index of every prototype, with per-concept archiving and an Active / Archived / All filter. Served by default at `/prototype/` |
+| `capsule.html` | The adopted direction, full loop: capture, insert, history |
 | `versions.html` | Three directions for the capsule side by side, live on the same audio |
 | `dim.html` | What happens to everything else while you dictate — five background treatments |
 | `library.html` | The main window, first pass — two layouts over one set of transcripts |
@@ -18,15 +19,16 @@ not a foundation for the app.
 python3 -m http.server 8000
 ```
 
-Then open <http://127.0.0.1:8000/> for the full prototype, or
-<http://127.0.0.1:8000/versions.html> to compare directions, or
-<http://127.0.0.1:8000/dim.html> to compare background treatments, or
-<http://127.0.0.1:8000/library.html> or
-<http://127.0.0.1:8000/library-v2.html> for the main window, or
-<http://127.0.0.1:8000/capture-v2.html> for capture.
+Then open <http://127.0.0.1:8000/prototype/> for the index of every prototype, and
+navigate from there. Direct links: <http://127.0.0.1:8000/prototype/capsule.html>
+for the full prototype, <http://127.0.0.1:8000/prototype/versions.html> to compare
+directions, <http://127.0.0.1:8000/prototype/dim.html> to compare background
+treatments, <http://127.0.0.1:8000/prototype/library.html> or
+<http://127.0.0.1:8000/prototype/library-v2.html> for the main window, or
+<http://127.0.0.1:8000/prototype/capture-v2.html> for capture.
 
 **Serve it — do not open the file directly.** `getUserMedia` requires a secure
-context, and `file://` is not one, so opening `index.html` from Finder silently
+context, and `file://` is not one, so opening `capsule.html` from Finder silently
 falls back to a synthetic envelope and you never see the waveform respond to
 your actual voice. `localhost` counts as secure, so the local server is enough.
 
