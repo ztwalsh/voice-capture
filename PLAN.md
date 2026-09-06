@@ -44,7 +44,8 @@ history you own.
 - Voice commands, punctuation dictation, custom vocabulary, text replacements.
 - Any language other than English. Swap the model later if you want more.
 - Any cloud call, account, telemetry, or auto-update.
-- An AI cleanup pass over the transcript.
+- An AI cleanup pass over the transcript. The architecture for it is settled
+  above, but it is a v2 capability — v1 inserts what you said, unedited.
 - Distribution to anyone but you. No notarization, no installer.
 
 ### Success criteria
@@ -77,17 +78,64 @@ insertion strategies diverge.
 | UI | SwiftUI inside an AppKit `NSPanel` | SwiftUI for layout, AppKit for window behavior SwiftUI cannot express |
 | Packaging | Xcode project, agent app (`LSUIElement`) | Entitlements and signing are painful outside Xcode |
 | Audio | `AVAudioEngine` + `AVAudioConverter` | Standard, low-latency, gives raw float buffers |
-| Transcription | `whisper.cpp` with Metal, via its Swift package | Small, auditable, ships a plain C API, no framework lock-in |
+| Transcription | `SpeechAnalyzer` / `SpeechTranscriber` | On-device, faster and more accurate than Whisper on English, nothing to download |
+| Language work | Foundation Models framework | On-device by default, and its protocol is the bring-your-own-model mechanism |
 | Storage | One Markdown file per day | Readable and editable without the app, opens in any editor, zero schema migration |
 | Sandbox | Off | The App Sandbox and the Accessibility API do not coexist usefully |
 
-On transcription there is a real alternative worth naming: **WhisperKit** is a
-Swift-native package that compiles Whisper to Core ML and runs it on the Neural
-Engine, and it is a smaller integration than bridging C++. The tradeoff is that
-whisper.cpp gives more direct control over threading and model files, which
-matters when tuning the latency budget. Both are viable. The plan assumes
-whisper.cpp and treats swapping in WhisperKit as a contained change behind one
-protocol, decided during the Phase 0 spike on measured latency.
+### Two model jobs, and they are not the same model
+
+Worth separating up front, because they use different frameworks and carry
+different privacy consequences.
+
+**Transcription — speech to text.** Apple's `SpeechAnalyzer` and
+`SpeechTranscriber`, introduced alongside macOS 26, are now the default rather
+than Whisper. Independent benchmarks put them ahead of Whisper Small on English
+word error rate at roughly a third of the compute per second of audio, and they
+ship with the OS, which removes the model download, the bundled weights, and
+most of the latency budget's risk.
+
+What that gives up is real: roughly thirty locales against Whisper's hundred and
+more, and no custom vocabulary, which the older `SFSpeechRecognizer` had and this
+does not. For an English-only personal tool neither costs anything. If either
+starts to matter, `whisper.cpp` or **WhisperKit** stays the fallback, and the
+engine sits behind one protocol so swapping it is contained.
+
+**Language work — cleaning up, punctuating, reformatting.** Apple's Foundation
+Models framework, and specifically the `LanguageModel` protocol it opened to
+third-party providers at WWDC 2026. That protocol is the important part: the
+same interface covers the on-device system model, Private Cloud Compute, a local
+MLX model pulled from Hugging Face, and a hosted API, so **bring-your-own-model
+becomes a picker over Apple's own abstraction rather than something this app
+invents.**
+
+```swift
+let model = SystemLanguageModel()                       // on device, the default
+// let model = MLXLanguageModel(modelID: "…")           // local, someone else's weights
+// let model = PrivateCloudComputeLanguageModel()       // Apple's servers
+let session = LanguageModelSession(model: model)
+```
+
+Three constraints on that. `SystemLanguageModel` requires Apple Intelligence to
+be enabled on a supported machine, so its availability has to be checked and the
+feature has to degrade to nothing rather than error. The on-device model is
+around three billion parameters with a small context window, which is right for
+tidying one dictated sentence and wrong for anything longer. And any provider
+that is not the on-device one **sends your transcript off the machine.**
+
+### The rule that keeps the promise
+
+Local is not a default that a settings picker is allowed to quietly undo.
+
+- The on-device model is the only option enabled out of the box.
+- Any provider that leaves the machine is opt-in, chosen explicitly, and
+  labelled where it is chosen and wherever its output appears.
+- Turning one on is the only thing in the app that ever makes a network request,
+  and the app says so in that moment rather than in a privacy policy.
+
+Without this, "everything stays on your Mac" stops being a verifiable claim the
+first time someone picks a cloud model, which is exactly the kind of erosion
+that makes local-first tools stop being trustworthy.
 
 ### The four hard problems
 
@@ -247,13 +295,14 @@ the product; the point is to buy certainty before committing to a design.
   the focused field using each of the three strategies. Build the compatibility
   matrix across all eight target apps. This tells us which strategy is the
   default and which are fallbacks.
-- **Spike C, latency.** Feed a 10-second WAV to whisper.cpp with `base.en` and
-  `small.en` and to WhisperKit. Measure wall-clock on the target machine. This
-  decides the transcription engine and the default model.
+- **Spike C, latency and accuracy.** Feed the same 10-second sample to
+  `SpeechAnalyzer`, to whisper.cpp with `base.en`, and to WhisperKit. Measure
+  wall-clock and eyeball the transcripts on your own voice, since published
+  benchmarks are read speech and you are not. This decides the engine.
 
 **Exit criteria:** the insertion matrix is filled in, measured latency for a
 10-second clip is under 1.5s with a named model and engine, and focus provably
-never moves. If Spike C misses the budget, the fallback is a smaller model or
+never moves. If Spike C misses the budget with Apple's engine, the fallback is a Whisper model or
 Apple's on-device speech APIs, and that decision happens here rather than late.
 
 ### Phase 1 — HTML prototype
@@ -363,7 +412,7 @@ These need your input; none of them block Phase 0 or Phase 1.
 1. **Name.** The docs use "Voice Capture" as a placeholder.
 2. **Hotkey.** Right-Option is the recommendation. It is your muscle memory.
 3. **Push-to-talk versus toggle** as the default. Push-to-talk is safer.
-4. **Model size** — accuracy against latency. Decided in part by Spike C.
+4. **Transcription engine** — Apple's or Whisper's. Decided in part by Spike C.
 5. **Where the display appears** — anchored near the caret, or fixed near the
    bottom of the screen. Near the caret is more elegant and much harder to get
    right, since caret position is not reliably available. Fixed placement is
