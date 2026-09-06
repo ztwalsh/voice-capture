@@ -1,4 +1,4 @@
-# Capsule prototype
+# Harps — prototypes
 
 Phase 1 of `../PLAN.md`. Design artifacts for settling how the capsule feels,
 not a foundation for the app.
@@ -170,8 +170,8 @@ monochrome, and in red while recording.
 | | Reads as | Verdict |
 | --- | --- | --- |
 | **bars** | An audio waveform | The current mark. Clear, but every audio app has one |
-| **caret** | A text I-beam | The most apt idea — text lands at a caret — but at 16px it reads as a text-tool cursor |
-| **arc** | Sound leaving a point | Distinctive at 16px without being generic. The recommendation |
+| **caret** | A text I-beam | **Chosen.** The most apt idea — text lands at a caret. Known risk: at 16px it can read as a text-tool cursor |
+| **arc** | Sound leaving a point | Distinctive at 16px without being generic. The fallback if caret's ambiguity bites |
 | **ring** | The record symbol | Instantly legible, and instantly anonymous |
 
 ## Background treatments

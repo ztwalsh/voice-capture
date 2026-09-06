@@ -1,241 +1,240 @@
-# Voice Capture — Design
+# Harps — Design
 
-**Reference:** [transitions.dev](https://transitions.dev) by Jakub Antalík
-([source](https://github.com/Jakubantalik/transitions.dev)). The site was
-blocked by this environment's proxy, so this is drawn from the repository behind
-it: the showcase page's own visual tokens, and the thirty-two transition
-specifications it publishes as an installable agent skill.
+**References.** Motion comes from [transitions.dev](https://transitions.dev) and is
+specified in `motion.md`. The visual language of the second pass comes from two
+places: a fintech dashboard (MonRize) for the window's structure, and a markdown
+notes app for how the files stay visible as files.
 
-Two things were taken. The **visual language** — light-first, near-neutral, soft
-layered shadows, hairline borders, Inter with a mono companion — informs this
-document. The **motion system** informs `motion.md`, which uses its tokens
-directly rather than inventing a parallel scale.
-
-> This revises an earlier draft that proposed a dark heads-up display with a warm
-> coral accent. The reference is light-first and almost entirely without chroma,
-> so the palette, the appearance behavior, and the role of color have all
-> changed. What survives is the premise below, which comes from the product
-> rather than from any reference.
+**Status.** Approved. This describes the second pass, built in
+`prototype/library-v2.html` and `prototype/capture-v2.html`. It supersedes the
+first pass, which used a softer grey palette, a single-column history panel, one
+accent, and push-to-talk as the only trigger.
 
 ---
 
 ## 1. The premise
 
-**This interface appears on top of someone else's app, in the middle of
-someone's sentence, and its job is to leave.**
+Harps is two surfaces with opposite jobs, and almost every decision follows from
+which one you are in.
 
-Most software wants attention. This wants the opposite. It is closer to the
-macOS volume overlay than to an app — a momentary confirmation that the system
-heard you, floating over work that continues underneath.
+**The capsule appears on top of someone else's app, mid-sentence, and its job is
+to leave.** It is closer to the macOS volume overlay than to an app. It is never
+asked to be memorable, only legible in peripheral vision while your attention is
+on a sentence you are composing.
 
-So it is not asked to be memorable. It is asked to be legible in peripheral
-vision, at a glance, while your attention is on a sentence you are composing.
-
-The reference turns out to suit this unusually well. A library of small,
-self-contained transitions for surfaces that appear, do one thing, and dismiss
-is a close match for an app that is a single surface appearing, doing one thing,
-and dismissing.
+**The window is where you sit and read.** Native, calm, dense, comfortable. It
+follows the opposite rules on purpose.
 
 ## 2. Principles
 
-**Invisible until invoked.** No idle window, no persistent overlay, no resting
-state on screen. Before you press the key there is nothing. The menu bar item is
-the only permanent surface.
+**Invisible until invoked.** No idle overlay. Before you press the key or click
+the menu bar there is nothing on screen but a 16px template glyph.
 
-**One object, resized.** The whole interface is a single capsule that changes
-width. It does not navigate, stack, or open panels. Every state is the same
-object at a different size, which is what makes it readable peripherally: you
-learn one silhouette and its proportions tell you the state.
+**One object, resized.** The capsule is a single shape that changes width. Every
+state is the same object at a different size, which is what makes it readable
+peripherally: you learn one silhouette and its proportions tell you the state.
 
-**Motion carries the state, not color.** This is the reference's central lesson
-and the biggest change from the earlier draft. The palette is neutral to the
-point of being nearly monochrome. What tells you the app is listening is that
-the waveform is moving; what tells you it is working is that the status line is
-shimmering. Where an earlier version reached for a saturated accent, motion now
-does that job. Details are in `motion.md`.
+**Motion carries state, colour does not.** What tells you Harps is listening is
+that the waveform is moving; what tells you it is working is that the label is
+shimmering. This is why the palette can be almost monochrome.
+
+**Two colours, both earned.** Red means the microphone is hot, and appears on
+nothing else. Green means a delta improved, never appears without an arrow and a
+comparison label, and appears nowhere but the Overview. Anything else is neutral.
 
 **Soft materials, hairline edges.** Surfaces are defined by layered low-opacity
-shadows and a one-pixel border at six percent black, never by heavy strokes or
-strong fills. Nothing in the reference has a hard edge, and nothing here should.
+shadow and a one-pixel border, never by heavy strokes or strong fills. Separators
+are hairlines, not cards — border, fill, radius and shadow are spent by role
+rather than stamped on every block.
 
-**The voice is the only ornament.** Exactly one thing is driven by live data,
-and it is your audio. No decorative motion, no gradients breathing on a timer.
+**The files stay visible as files.** The Document view keeps the `##` markers on
+screen, dimmed. The `.md` panel shows the real file. The status bar names the
+real path. A local-first tool that hides its own storage is asking to be trusted
+rather than earning it.
 
-**Confidence over reassurance.** Success is not celebrated. When it works, the
-text appears and the capsule leaves. The reference ships a success-check
-animation and we deliberately do not use it, because a checkmark here would be
-the app congratulating itself for doing its job.
-
-**The history is a document, not a feed.** The second surface follows the
-opposite rules: native, calm, dense, comfortable to sit in. It is a text app.
+**Confidence over reassurance.** Success is not celebrated. When a capture works,
+the text appears and the capsule leaves.
 
 ---
 
 ## 3. Tokens
 
-Values are inherited from the reference where it defines them and marked where
-they are adapted.
+### Colour
 
-### Color
-
-Both appearances are defined, and the capsule follows the system. The reference
-is light-first with a dark theme, and following it here also means the overlay
-matches whatever the user's Mac is already doing.
+Both appearances are first-class. Nothing is designed for one and flipped.
 
 ```
-/* ── Light ─────────────────────────────────────────── */
---surface          rgba(255, 255, 255, 0.86)  /* over a 32px backdrop blur */
---surface-solid    #ffffff                    /* Reduce Transparency fallback */
---trough           #f9f9f9                    /* waveform bed — their stage-bg */
---hairline         rgba(0, 0, 0, 0.06)
---text             #0d0d0d
---text-muted       #6c6c6c
---text-subtle      #767676
---text-faint       #8f8f8f
---label-mono       #5e6073
+/* ── Light ─────────────────────────────────── */
+--bg          #ffffff     /* window ground                    */
+--side        #fbfbfc     /* sidebar, panels, status bar      */
+--sel         #ececed     /* selected row, pressed control    */
+--trough      #f4f4f5     /* inputs, chips, inactive tabs     */
+--hairline    rgba(0,0,0,0.075)
+--text        #0a0a0a
+--text-muted  #6a6a6c
+--text-subtle #86868a
+--text-faint  #a8a8ac
+--label-mono  #6f7180     /* mono metadata — a cool grey      */
 
-/* ── Dark ──────────────────────────────────────────── */
---surface          rgba(28, 28, 30, 0.82)
---surface-solid    #1c1c1e
---trough           rgba(255, 255, 255, 0.04)
---hairline         rgba(255, 255, 255, 0.08)
---text             #fbfbfb
---text-muted       rgba(255, 255, 255, 0.62)
---text-subtle      rgba(255, 255, 255, 0.48)
---text-faint       rgba(255, 255, 255, 0.34)
---label-mono       rgba(255, 255, 255, 0.52)
+/* ── Dark ──────────────────────────────────── */
+--bg          #0c0c0d
+--side        #09090a
+--sel         #1d1d20
+--trough      #151517
+--hairline    rgba(255,255,255,0.075)
+--text        #fafafa
+--text-muted  rgba(255,255,255,0.56)
+--text-subtle rgba(255,255,255,0.44)
+--text-faint  rgba(255,255,255,0.30)
+--label-mono  rgba(255,255,255,0.48)
 
-/* ── The one chromatic value, both appearances ─────── */
---live             #E5484D   /* light */
---live             #FF6369   /* dark */
+/* ── The two accents ───────────────────────── */
+--live   #E5484D / #FF6369   /* microphone is hot. Nothing else */
+--up     #1E9E63 / #4ADE80   /* a delta improved. Overview only */
 ```
 
-`--live` is the single deliberate departure from the reference's chroma-free
-palette, and it is justified on safety rather than style: you must never be
-uncertain whether the microphone is hot. It appears on one six-pixel dot and
-nowhere else in the app. Everything else is neutral.
+The greys carry a slight cool bias, most visible in `--label-mono`. That is
+deliberate — a pure neutral reads as unconsidered.
 
 ### Elevation
 
-The reference's material shadow, used for cards sitting on a near-white page:
+Three layers, always: a wide soft ambient, a tight contact shadow, and a hairline
+ring standing in for a border. That structure is what makes surfaces read as
+material rather than as boxes.
 
 ```
-0 4px 42px 0 rgba(0, 0, 0, 0.06),
-0 2px  6px 0 rgba(0, 0, 0, 0.05),
-0 0 0 1px   rgba(0, 0, 0, 0.06)
+/* window */
+0 24px 70px 0 rgba(0,0,0,0.18), 0 6px 18px 0 rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.08)
+/* capsule and popover — floating over unknown content, so more separation */
+0 18px 50px 0 rgba(0,0,0,0.16), 0 4px 14px 0 rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.08)
+/* dark: one ambient plus a light ring, since shadow alone cannot separate */
+0 18px 50px 0 rgba(0,0,0,0.60), 0 0 0 1px rgba(255,255,255,0.09)
 ```
-
-**Adapted** for the capsule, which floats over unknown content rather than a
-known page, and needs more separation to stay readable over a photograph or a
-dark editor:
-
-```
-/* light */
-0 8px 48px 0 rgba(0, 0, 0, 0.12),
-0 2px  8px 0 rgba(0, 0, 0, 0.08),
-0 0 0 1px   rgba(0, 0, 0, 0.06)
-
-/* dark */
-0 8px 48px 0 rgba(0, 0, 0, 0.50),
-0 0 0 1px   rgba(255, 255, 255, 0.08)
-```
-
-The three-layer structure is kept: a wide soft ambient, a tight contact shadow,
-and a hairline ring standing in for a border. That layering is what makes the
-reference's surfaces feel like material rather than boxes.
 
 ### Type
 
-**Geist and Geist Mono** ([vercel.com/font](https://vercel.com/font)), replacing
-the reference's own Inter and Roboto Mono pairing. Geist is a tighter, more
-geometric neo-grotesque with an unusually strong monospace companion, and the
-mono is what earns the choice here: the elapsed timer needs tabular digits so the
-readout does not jitter as it counts, and Geist Mono's slashed zero and wide
-counters stay legible at 10 and 11px, which is the whole size range this
-interface uses.
+**Geist and Geist Mono** ([vercel.com/font](https://vercel.com/font)), self-hosted,
+52 KB for the variable latin subset. Both are SIL Open Font License, so the same
+files ship inside the app rather than falling back to a system substitute.
 
-Both are under the SIL Open Font License, so the same files can be self-hosted in
-the prototype and bundled in the shipped app. No system-font substitution, and no
-network dependency at runtime.
+The mono earns its place. The timer needs tabular digits so the readout does not
+jitter as it counts, and Geist Mono's slashed zero and open counters hold at 10
+and 11 px, which is the entire size range the capsule lives in.
 
 | Role | Size / line | Weight | Tracking | Used for |
 | --- | --- | --- | --- | --- |
+| Display | 27 / 30 | Semibold | −0.03em | Overview stat values |
+| Title | 17 / 22 | Semibold | −0.02em | Window header |
+| Subtitle | 15.5 / 20 | Semibold | −0.012em | Row headings |
+| Body | 13.5 / 21 | Regular | 0 | Transcript text |
 | Label | 11 / 14 | Medium | +0.01em | Capsule status |
-| Timer | 11 / 14 | Regular, Geist Mono | 0 | Elapsed time, in `--label-mono` |
-| Body | 13 / 19 | Regular | 0 | Transcript text |
-| Title | 15 / 20 | Semibold | −0.01em | History row headers |
-| Display | 22 / 26 | Semibold | −0.01em | History window header |
+| Meta | 10.5 / 14 | Regular, mono | +0.01em | Times, durations, paths |
+| Section | 9.5 / 12 | Regular, mono | +0.09em, upper | Sidebar and section headers |
 
-The negative tracking on the two larger sizes is the reference's, and it is what
-keeps larger text from looking loose.
+Mono uppercase with wide tracking is the app's structural voice: it marks
+sections and metadata, and never carries a sentence.
 
 ### Space and radius
 
-4pt base. Permitted: 4, 8, 12, 16, 20, 24, 32, 48. The 20 is the reference's own
-card inset.
+4pt base. Permitted: 4, 8, 10, 12, 14, 16, 20, 22, 24, 32, 40.
 
 | Token | Value |
 | --- | --- |
 | `--r-capsule` | fully rounded, height ÷ 2 |
-| `--r-card` | 12 |
-| `--r-window` | 12 |
-| `--r-bar` | 1.5 |
+| `--r-window` | 14 |
+| `--r-popover` | 13 |
+| `--r-card` | 10 |
+| `--r-control` | 8 to 9 |
+| `--r-pill` | 48 (tabs, chips) |
 
 ---
 
-## 4. The capsule
+## 4. The mark
 
-Horizontally centered on the screen containing the cursor, bottom edge 96px
-above the screen bottom. That clears the Dock and sits below the natural center
-of attention, which is where a status readout belongs.
+**Caret** — an I-beam, `M5.6 2.6h4.8 M5.6 13.4h4.8 M8 2.6v10.8`, 1.7px stroke with
+round caps on a 16 viewBox.
+
+It is the most apt idea available: Harps puts text at a caret, so the mark is the
+place the text lands. It is not a microphone, not a waveform, and not the generic
+record circle.
+
+**The known risk.** At 16px monochrome it can read as a text-tool cursor rather
+than as an app. If that ambiguity ever bites in practice, the fallback is `arc`
+(a dot with two arcs opening right), which was the alternative recommendation and
+is already drawn in `prototype/capture-v2.html`.
+
+The mark ships three ways, and only the first has to survive at 16px:
+
+- **Menu bar** — 16px, template style, taking the menu bar's own colour, and
+  `--live` for the full duration of a capture.
+- **Sidebar and popover** — 14px reversed out of a rounded tile in `--text`.
+- **App icon** — the full-size mark, out of scope until packaging.
+
+The wordmark is **Harps** in Geist Semibold at −0.02em. One word, so no
+two-weight split.
+
+---
+
+## 5. The capsule
+
+Fully rounded, 44px tall, on `--bg` with the floating elevation above.
+
+### Invocation decides the anchor
+
+The capsule emerges from whatever summoned it, so the object always comes from
+the thing you touched.
+
+| Trigger | Anchor | Motion |
+| --- | --- | --- |
+| Hotkey | Bottom centre, 92px up | Rises from below |
+| Menu bar | Under the item, 34px down, 14px from the right | Descends from above |
 
 Fixed placement rather than following the caret. Caret position is not reliably
 available across apps, and a capsule that lands in the wrong place is worse than
 one that lands consistently.
 
+### Two modes, and they are not the same interaction
+
+A button cannot be held, so the menu bar means toggle — which can be left running,
+the exact failure push-to-talk was chosen to avoid. The safeguards are the design,
+not polish:
+
+| | Hotkey | Menu bar |
+| --- | --- | --- |
+| Mode | Push-to-talk | Toggle |
+| Width, listening | 248 | 286 |
+| Stop | Release the key | Stop control, or the menu bar item again |
+| Timer | Appears after 3s | Visible from the first tick |
+| Menu bar icon | `--live` throughout | `--live` throughout |
+
+The red menu bar icon is the one signal that survives every window being covered,
+which is why it is not optional in either mode.
+
 ### States
 
-Four, each with a distinct width. Transitions between them are specified in
-`motion.md`.
+**Dormant.** Nothing on screen.
 
-**Dormant.** Nothing on screen. The menu bar glyph is a thin waveform in
-template style, following the menu bar's own color.
+**Listening.** Record dot in `--live`, 6px, 20px from the left edge, solid and
+never pulsing — a pulse would be decoration competing with the waveform. Waveform
+centred, 148px, 30 bars. Timer right-aligned in Meta type. In toggle mode, a 32px
+round stop control at the right edge.
 
-**Listening** — 248 × 44.
+**Transcribing.** Contracts to 176. The dot goes neutral and the centre becomes a
+shimmering `Transcribing` label. No spinner, and no progress bar that would have
+to invent a percentage.
 
-```
-┌──────────────────────────────────────────┐
-│  ●   ▁▃▅█▆▃▂▁▂▄▆█▅▃▁▂▃▅▄▂▁▂▃▁      0:04  │
-└──────────────────────────────────────────┘
-```
+**Inserted.** No visual state. The capsule leaves; the text appearing is the
+confirmation.
 
-- Record dot, 6px, `--live`, 20px from the left edge. Solid, not pulsing. It is
-  a state indicator, and a pulse would be decoration competing with the waveform.
-- Waveform centered, 148px wide. 30 bars, 3px wide, 2px gap, mirrored
-  vertically, 2px to 24px tall. Thirty bars at that spacing is exactly 148px,
-  which sets the capsule width: 248 is the smallest that fits the waveform
-  between the dot and the timer without clipping.
-- Elapsed timer in Timer type, right-aligned at 20px inset, appearing only after
-  three seconds so short captures stay clean.
+**Error.** Sized to the message, maximum 320. The capsule shakes once, holds three
+seconds, and dismisses.
 
-**Transcribing** — 176 × 44. The record dot goes dark and the waveform is
-replaced by a shimmering status line reading `Transcribing`. Using the
-reference's thinking-states pattern here means the app can narrate honestly if
-the work has phases, rather than showing an indeterminate spinner.
+In every state that drops the timer, the centre box carries a mirrored 18px right
+margin matching the dot and its gap, or the label sits visibly right of centre.
 
-**Inserted.** No visual state. The capsule leaves. The text appearing in your
-app is the confirmation.
+### Error copy
 
-**Error** — sized to the message, maximum 320px. The dot goes dark, the message
-appears in `--text`, and the capsule shakes once. It holds for three seconds and
-then dismisses.
-
-In both states that drop the timer, the centre box carries a mirrored 18px right
-margin matching the dot and its gap. Without it the label sits 18px right of the
-capsule's true centre line, which is visible.
-
-The error messages are part of the design, because they are the only sentences
-this interface ever writes:
+The only sentences this interface ever writes.
 
 | Condition | Message |
 | --- | --- |
@@ -246,68 +245,125 @@ this interface ever writes:
 | Transcription failed | `Couldn't transcribe that` |
 | Insertion failed | `Copied to clipboard instead` |
 
-Each is under six words and describes the situation rather than assigning blame.
-The last one matters most: when insertion fails the text is never lost, it goes
-to the clipboard, and the message says so.
+Each under six words, describing the situation rather than assigning blame. The
+last one matters most: when insertion fails the text is never lost, it goes to the
+clipboard, and the message says so.
 
 ---
 
-## 5. The history window
+## 6. The menu bar popover
 
-A standard macOS window following system appearance. Deliberately the opposite
-of the capsule: this is where you sit and read.
+300px wide, `--r-popover`, anchored under the item with its transform origin at
+the top right. The discoverable path — the hotkey needs none of this, which is
+why it does not have it.
 
-- Minimum 720 × 520, remembers size and position.
-- Single reverse-chronological column. No sidebar. "Basic" means one list.
-- Search in the toolbar, focused by Command-F, filtering live.
-- Rows carry a relative timestamp in `--text-subtle`, the transcript in Body
-  clamped to three lines, and the 16px icon of the destination app right-aligned.
-- Rows sit on `--surface-solid` with the reference's original card shadow, not
-  the heavier capsule one. These are cards on a page, which is exactly the case
-  that shadow was tuned for.
-- Clicking a row expands it in place. No detail pane, no modal.
-- Hover actions: copy and delete. Both also on the context menu.
-- Sticky day separators: `Today`, `Yesterday`, then dates.
-- Empty state: one line naming the hotkey. The only place the app teaches, and
-  where a new user will look.
-- A footer control reveals the day's `.md` file in Finder. Say plainly where the
-  data lives; that is the whole promise of a local-first tool.
+Contents, in order: the mark on a tile with the wordmark and the hotkey in Meta
+type; a full-width record button with a `--live` bulb; three recent captures as
+time, app and one clamped line; a hairline footer with **Open window** and
+**Settings**.
+
+While a capture is running the popover does not open — the menu bar item becomes
+the stop instead.
 
 ---
 
-## 6. Accessibility
+## 7. The window
 
-A translucent floating overlay is exactly the pattern that breaks for people, so
-it is handled explicitly.
+1140 × 720 default, `--r-window`, remembers size and position.
 
-- **Reduce Transparency.** Swap in `--surface-solid`, drop the backdrop blur,
+### Sidebar, 236px
+
+On `--side`. The mark and wordmark at the top, then three destinations, then the
+days.
+
+**Three destinations, not eight.** Overview, Transcripts, Settings. The reference
+this borrows from is a platform with eight; padding the list to match its density
+would be borrowing the look without the substance.
+
+Selected rows take a `--sel` pill at `--r-control` with the label in `--text` at
+Medium and the icon at full opacity; everything else sits at `--text-muted` with
+icons at 62%.
+
+Below a `RECENT` section header, the days, each with a `→` prefix, the day name,
+and a **⌘1–⌘9 shortcut in Meta type**, right-aligned. Sidebar width contracts to
+150 in the Document layout, since the day list is all it needs to carry there.
+
+A hairline footer carries the current file path and a settings gear.
+
+### Overview
+
+Four stat blocks in a row, separated by hairlines rather than made into cards.
+Each is a small `--text-subtle` label, a Display numeral, then a delta line: an
+arrow and percentage in `--up`, then the comparison in `--text-faint`.
+
+Below, one chart on its own hairline-bounded band: captures per day, this week
+solid and last week dashed. The two series are **one measure across consecutive
+periods**, so they separate by lightness and dash pattern rather than hue. There
+is no categorical palette, the distinction survives any colour vision, and the
+legend plus a hover crosshair and tooltip carry the rest.
+
+Then `RECENT CAPTURES` and the four most recent cards.
+
+### Transcripts
+
+A sliding pill tab switches two layouts over the same data.
+
+**Library** is built for finding a thing: cards carrying time, destination app,
+duration and word count, body clamped to two lines, expanding in place on click.
+A dictated sentence is too short to deserve a detail pane.
+
+**Document** is built for reading a day back: the whole day set in Geist Mono at a
+700px measure, frontmatter shown as frontmatter, and the `##` markers left visible
+but dimmed to `--text-faint`. It should be obvious you are looking at a file.
+
+Search filters every day at once and groups the hits, in both layouts, focused by
+⌘F. Matches highlight in a warm translucent mark.
+
+### The `.md` panel
+
+360px, slides in from the right, shows the real file behind whatever is on screen
+with the frontmatter dimmed and the `##` headings in `--text`. Its header carries
+the filename and byte count.
+
+### Settings
+
+Label, one-line explanation, and a control. Rows separated by hairlines.
+Hotkey, model, insertion strategy, keep audio, launch at login, transcript folder.
+
+Two rows carry the app's promises and should read as statements rather than
+options: **Runs on device. Nothing leaves this Mac.** and **Off by default. Audio
+has no use after transcription.** Where a model that leaves the machine can be
+chosen, that row says so where it is chosen — see `PLAN.md`.
+
+---
+
+## 8. Accessibility
+
+- **Reduce Transparency.** Drop the capsule's backdrop blur for `--bg` solid and
   raise `--hairline` to 12% so the shape stays defined over a busy desktop.
 - **Increase Contrast.** `--text-muted` to `--text`, `--text-subtle` up one step,
-  and a full 1px `--hairline` border on the capsule.
-- **Reduce Motion.** Covered in `motion.md`. The reference ships a
-  `prefers-reduced-motion` guard with every transition, so this is inherited
-  rather than invented.
-- **Contrast.** `--text` and `--text-muted` clear 4.5:1 against `--surface-solid`
-  in both appearances. `--text-faint` is decorative only and never carries
-  meaning alone. `--live` clears 3:1, the bar for a non-text indicator.
-- **Color is never the only signal.** Because motion carries state here, this is
-  mostly free: listening and transcribing differ in width, in what occupies the
-  center, and in whether the waveform is live.
+  a full 1px border on the capsule and popover.
+- **Reduce Motion.** In `motion.md`, with full functional parity.
+- **Contrast.** `--text` and `--text-muted` clear 4.5:1 on `--bg` in both
+  appearances. `--text-faint` is decorative and never carries meaning alone.
+  `--live` and `--up` clear 3:1, the bar for a non-text indicator.
+- **Colour is never the only signal.** `--up` always ships with an arrow and a
+  comparison label. `--live` is reinforced by the waveform being live and by the
+  capsule's silhouette. Listening and transcribing differ in width, not just hue.
 - **VoiceOver.** The capsule announces state changes through a live region. The
-  status line already carries `role="status"` in the reference's markup.
-- **Keyboard.** The history window is fully operable without a mouse. The
-  capsule has no controls by design.
+  window is a standard accessible list and form.
+- **Keyboard.** The window is fully operable without a mouse: ⌘F to search,
+  ⌘1–⌘9 for days, tab order through the sidebar. The capsule has no controls in
+  push-to-talk by design, and one reachable stop in toggle.
 
 ---
 
-## 7. What this deliberately does not have
+## 9. What this deliberately does not have
 
-Stated so it stays absent.
-
-No logo in the capsule. No settings gear on the overlay. No waveform when there
-is no audio. No progress bar with a fake percentage. No success checkmark, even
-though the reference ships a good one. No onboarding tooltips over other
-people's apps. No sound. No badge counts. No theme picker.
+No logo in the capsule. No settings gear on the overlay. No waveform when there is
+no audio. No progress bar with an invented percentage. No success checkmark. No
+onboarding tooltips over other people's apps. No sound. No badge counts. No theme
+picker — the system decides.
 
 Every one of these is common in this category, and every one makes the object
 heavier than what it does.

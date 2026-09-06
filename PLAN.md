@@ -1,4 +1,4 @@
-# Voice Capture — Execution Plan
+# Harps — Execution Plan
 
 A local-first push-to-talk dictation utility for macOS. Hold a key, speak, release,
 and the transcribed text lands in whatever text field you were already focused on.
@@ -220,7 +220,7 @@ first launch rather than bundling it, so the app stays small.
 
 ### Storage
 
-Everything lives in `~/Library/Application Support/VoiceCapture/`.
+Everything lives in `~/Library/Application Support/Harps/`.
 
 - `transcripts/YYYY-MM-DD.md` — one file per day. YAML frontmatter carries the
   day's date, capture count and word count; each capture is a section whose
@@ -409,8 +409,9 @@ latency. Both are answered in Phase 0, which is why Phase 0 exists.
 
 These need your input; none of them block Phase 0 or Phase 1.
 
-1. **Name.** The docs use "Voice Capture" as a placeholder.
+1. ~~**Name.**~~ Settled: **Harps**.
 2. **Hotkey.** Right-Option is the recommendation. It is your muscle memory.
+   The menu bar item is settled as the second trigger.
 3. **Push-to-talk versus toggle** as the default. Push-to-talk is safer.
 4. **Transcription engine** — Apple's or Whisper's. Decided in part by Spike C.
 5. **Where the display appears** — anchored near the caret, or fixed near the

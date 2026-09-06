@@ -1,4 +1,4 @@
-# Voice Capture — Motion Principles
+# Harps — Motion Principles
 
 **Reference:** [transitions.dev](https://transitions.dev) by Jakub Antalík
 ([source](https://github.com/Jakubantalik/transitions.dev)). A collection of
@@ -30,13 +30,23 @@ as components with specifications rather than as flourishes.
 
 ---
 
-## Six principles
+## Seven principles
 
-### 1. It emerges where it lives
+### 1. It emerges from whatever summoned it
 
 Nothing travels across the screen. The capsule rises sixteen pixels into the
-place it will occupy and settles. Travel implies the object came from somewhere
-and has a home elsewhere. This object has no elsewhere.
+place it will occupy and settles.
+
+Which direction it rises from is not decoration. A hotkey capture appears at the
+bottom of the screen and rises *upward*; a menu bar capture appears under the
+item you clicked and descends *downward*. The sign of one variable, and it means
+the object always comes from the thing you touched rather than arriving from
+nowhere.
+
+```css
+body[data-anchor="menubar"] .capsule { --dir: -1; }
+transform: translateY(calc(var(--toast-distance) * var(--dir))) scale(var(--toast-scale));
+```
 
 ### 2. Motion tracks the voice, not the clock
 
@@ -79,7 +89,17 @@ about a percentage.
 This is the one looping animation in the app, and it loops because work is
 genuinely ongoing and its duration is genuinely unknown.
 
-### 6. The inserted text never animates
+### 6. A running capture is visible when nothing else is
+
+Push-to-talk cannot outlive your finger, so it needs no persistent signal. A
+toggle can, so it gets one that survives every window being covered: the menu bar
+icon holds `--live` for the entire capture, and the timer runs from the first
+tick rather than after three seconds.
+
+This is the one place the app is allowed to be insistent, and it is insistent
+about exactly one fact — the microphone is on.
+
+### 7. The inserted text never animates
 
 The moment the transcript lands in your app it appears. No fade, no typewriter,
 no highlight. This is the one place the app touches your actual work, and any
@@ -146,6 +166,11 @@ snippet rather than reimplementing it.
 | History rows on open | **Texts reveal** (18) | Staggered blurred rise, 40ms per row, first eight rows only |
 | Expanding a history row | **Card resize** (01) | 300ms, `--ease-smooth-out` |
 | A transcript arriving in an open history window | **Streaming text** (30) | Words resolve through 1px cross-blur, 60ms apart, 350ms each |
+| Menu bar popover, open and close | **Menu dropdown** (05) | Scale 0.97 → 1 from a top-right origin, rise 6px, 250ms open and 150ms close |
+| Switching Library and Document | **Tabs sliding** (16) | The pill tweens width and position together over 250ms `--ease-smooth-out` |
+| The `.md` panel | **Panel reveal** (07) | Slide 36px with a 2px cross-blur, 400ms open and 350ms close |
+| Sidebar contracting for the Document layout | **Card resize** (01) | 300ms `--ease-smooth-out` |
+| Expanding a capture card | **Card resize** (01) | Measure, then tween the body's height over 300ms |
 
 Two of these are worth calling out as changes the reference caused.
 

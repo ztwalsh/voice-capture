@@ -1,0 +1,214 @@
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #ffffff;
+  --ground:    #f1f2f4;
+  --panel:     #fbfbfc;
+  --trough:    #f4f4f5;
+  --hairline:  rgba(0,0,0,0.09);
+  --rule:      rgba(0,0,0,0.055);
+  --text:      #0a0a0a;
+  --muted:     #6a6a6c;
+  --subtle:    #86868a;
+  --faint:     #a4a4a9;
+  --mono-ink:  #6f7180;
+  --settled:   #1E9E63;
+  --open:      #B4741A;
+  --live:      #E5484D;
+  --shadow: 0 18px 44px rgba(0,0,0,0.13), 0 3px 10px rgba(0,0,0,0.07);
+  --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c0c0d; --ground: #09090a; --panel: #131315; --trough: #151517;
+  --hairline: rgba(255,255,255,0.10); --rule: rgba(255,255,255,0.07);
+  --text: #fafafa; --muted: rgba(255,255,255,0.58); --subtle: rgba(255,255,255,0.46);
+  --faint: rgba(255,255,255,0.32); --mono-ink: rgba(255,255,255,0.50);
+  --settled: #4ADE80; --open: #E0A93B; --live: #FF6369;
+  --shadow: 0 18px 44px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+} }
+:root[data-theme="dark"] {
+  --bg: #0c0c0d; --ground: #09090a; --panel: #131315; --trough: #151517;
+  --hairline: rgba(255,255,255,0.10); --rule: rgba(255,255,255,0.07);
+  --text: #fafafa; --muted: rgba(255,255,255,0.58); --subtle: rgba(255,255,255,0.46);
+  --faint: rgba(255,255,255,0.32); --mono-ink: rgba(255,255,255,0.50);
+  --settled: #4ADE80; --open: #E0A93B; --live: #FF6369;
+  --shadow: 0 18px 44px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--sans); font-size: 15px; line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px 120px; }
+
+/* ── header ── */
+header { padding: 76px 0 0; }
+.eyebrow {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--faint); margin-bottom: 20px;
+}
+h1 {
+  font-size: clamp(34px, 5vw, 50px); line-height: 1.06; font-weight: 600;
+  letter-spacing: -0.035em; margin: 0 0 20px; text-wrap: balance;
+}
+.lede {
+  font-size: 18px; line-height: 1.6; color: var(--muted);
+  max-width: 60ch; margin: 0 0 34px;
+}
+.meta {
+  display: flex; flex-wrap: wrap; gap: 10px 26px;
+  padding: 18px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 11.5px; color: var(--mono-ink);
+}
+.meta b { color: var(--text); font-weight: 500; }
+
+/* ── sections ── */
+section { padding-top: 76px; }
+.sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; }
+.sec-num {
+  font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: .1em;
+  color: var(--muted); text-transform: uppercase;
+  width: 18px; flex: none;
+}
+h2 {
+  font-size: 27px; font-weight: 600; letter-spacing: -0.025em; margin: 0;
+}
+.sec-note { color: var(--muted); max-width: 62ch; margin: 0 0 40px; }
+.sec-note code {
+  font-family: var(--mono); font-size: .88em; background: var(--trough);
+  border: 1px solid var(--rule); border-radius: 5px; padding: 1px 5px;
+}
+
+/* ── figures ── */
+figure { margin: 0 0 52px; }
+.fig-label {
+  display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--mono-ink);
+}
+.fig-label .dot {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--faint); flex: none;
+  transform: translateY(-2px);
+}
+figcaption {
+  color: var(--muted); font-size: 14.5px; line-height: 1.6;
+  max-width: 68ch; margin: 0 0 16px;
+}
+figcaption strong { color: var(--text); font-weight: 500; }
+.shot {
+  display: block; width: 100%; height: auto; border-radius: 10px;
+  background: var(--ground); box-shadow: var(--shadow);
+}
+.shot.plain { box-shadow: 0 0 0 1px var(--hairline); border-radius: 8px; }
+
+/* ── decisions ── */
+.dec { border-top: 1px solid var(--rule); }
+.row {
+  display: grid; grid-template-columns: 116px 1fr; gap: 22px;
+  padding: 22px 0; border-bottom: 1px solid var(--rule); align-items: start;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted);
+  border: 1px solid var(--hairline); border-radius: 999px;
+  padding: 3px 9px 3px 7px; white-space: nowrap;
+}
+.chip i { width: 6px; height: 6px; border-radius: 50%; flex: none; font-style: normal; }
+.chip.is-settled i { background: var(--settled); }
+.chip.is-open i { background: var(--open); }
+.row h3 { margin: 0 0 5px; font-size: 15.5px; font-weight: 600; letter-spacing: -0.012em; }
+.row p { margin: 0; color: var(--muted); font-size: 14.5px; max-width: 66ch; }
+.row p + p { margin-top: 9px; }
+.row em { color: var(--text); font-style: normal; font-weight: 500; }
+.row code {
+  font-family: var(--mono); font-size: .87em; background: var(--trough);
+  border: 1px solid var(--rule); border-radius: 5px; padding: 1px 5px;
+}
+
+/* ── callout ── */
+.note {
+  border-left: 2px solid var(--live); padding: 4px 0 4px 20px;
+  margin: 34px 0 0; color: var(--muted); font-size: 14.5px; max-width: 66ch;
+}
+.note b { color: var(--text); font-weight: 600; }
+
+footer {
+  margin-top: 76px; padding-top: 26px; border-top: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 11.5px; color: var(--faint);
+  display: flex; flex-wrap: wrap; gap: 8px 24px;
+}
+
+@media (max-width: 700px) {
+  .wrap { padding: 0 18px 80px; }
+  .row { grid-template-columns: 1fr; gap: 10px; }
+  header { padding-top: 48px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">{{EYEBROW}}</div>
+  <h1>{{TITLE}}</h1>
+  <p class="lede">{{LEDE — one sentence on what this covers and what it is asking of the reader.}}</p>
+  <div class="meta">
+    <span>{{Label}} <b>{{value}}</b></span>
+    <span>{{Label}} <b>{{value}}</b></span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head"><span class="sec-num">A</span><h2>{{Section name}}</h2></div>
+  <p class="sec-note">{{One or two sentences framing the section. Name the file it runs from in <code>code</code>.}}</p>
+
+  <figure>
+    <div class="fig-label"><span class="dot"></span>{{Screen · variant}}</div>
+    <figcaption><strong>{{The claim.}}</strong> {{Then the reasoning — what decision this figure shows and why it went that way. One or two sentences.}}</figcaption>
+    <img class="shot" src="{{img:figure-key}}" alt="{{What a reader who cannot see it needs to know.}}">
+  </figure>
+
+  <figure>
+    <div class="fig-label"><span class="dot"></span>{{Screen · variant}}</div>
+    <figcaption>{{Not every figure needs a bolded claim — use it when the figure is making an argument, plain prose when it is just showing another state.}}</figcaption>
+    <img class="shot plain" src="{{img:figure-key-2}}" alt="{{Alt text.}}">
+  </figure>
+</section>
+
+<section class="dec-wrap">
+  <div class="sec-head"><span class="sec-num">B</span><h2>What you are approving</h2></div>
+  <p class="sec-note">Settled means built and consistent. Open means it changes the work and I need your call.</p>
+
+  <div class="dec">
+    <div class="row">
+      <span class="chip is-settled"><i></i>Settled</span>
+      <div>
+        <h3>{{The decision, as a noun phrase}}</h3>
+        <p>{{Why it went this way, in the reader's terms.}}</p>
+        <p><em>The cost:</em> {{What it gives up. Every settled decision that has a real cost should name it here — a settled list with no costs reads as salesmanship.}}</p>
+      </div>
+    </div>
+    <div class="row">
+      <span class="chip is-open"><i></i>Your call</span>
+      <div>
+        <h3>{{The open question}}</h3>
+        <p>{{The options, a recommendation, and what tips it. Say which way you would go.}}</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="note"><b>{{The one thing to decide first.}}</b> {{What is blocked until they answer, and what you will do once they do.}}</p>
+</section>
+
+<footer>
+  <span>{{How to run or reproduce what is shown}}</span>
+</footer>
+
+</div>

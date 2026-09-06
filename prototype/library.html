@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Voice Capture — the window when it is open</title>
+<title>Harps — the window when it is open</title>
 <style>
 /* ══════════════════════════════════════════════════════════════════
    Two directions for the main window, over one set of transcripts.
@@ -593,7 +593,7 @@ html.force-reduce .md { filter: none !important; }
     renderMarkdown(day);
     const total = DAYS.reduce((n, d) => n + d.captures.length, 0);
     const tw = DAYS.reduce((n, d) => n + d.words, 0);
-    $('statPath').textContent = '~/Library/Application Support/VoiceCapture/transcripts/' + day.file;
+    $('statPath').textContent = '~/Library/Application Support/Harps/transcripts/' + day.file;
     $('statCount').textContent = query
       ? matches().reduce((n, g) => n + g.hits.length, 0) + ' of ' + total + ' matching'
       : total + ' captures · ' + tw + ' words · ' + DAYS.length + ' files';

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Voice Capture — window, second pass</title>
+<title>Harps — window, second pass</title>
 <style>
 /* ══════════════════════════════════════════════════════════════════
    Second pass on the main window.
@@ -400,14 +400,12 @@ html.force-reduce .md { filter: none !important; }
     <div class="tls"><span class="tl"></span><span class="tl"></span><span class="tl"></span></div>
     <div class="brand">
       <div class="mark" aria-hidden="true">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-          <rect x="1"   y="5.5" width="1.8" height="4"  rx="0.9" fill="currentColor"/>
-          <rect x="4.3" y="3"   width="1.8" height="9"  rx="0.9" fill="currentColor"/>
-          <rect x="7.6" y="1"   width="1.8" height="13" rx="0.9" fill="currentColor"/>
-          <rect x="10.9" y="4.5" width="1.8" height="6" rx="0.9" fill="currentColor"/>
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+             stroke-width="1.7" stroke-linecap="round">
+          <path d="M5.6 2.6h4.8M5.6 13.4h4.8M8 2.6v10.8"/>
         </svg>
       </div>
-      <div class="wordmark"><span class="a">Voice</span><span class="b">Capture</span></div>
+      <div class="wordmark"><span class="b">Harps</span></div>
     </div>
 
     <div class="navsec" id="nav"></div>
@@ -742,7 +740,7 @@ html.force-reduce .md { filter: none !important; }
       ['Insertion', 'How text reaches the focused field.', 'kbd', 'Accessibility, then paste'],
       ['Keep audio', 'Off by default. Audio has no use after transcription.', 'sw', false],
       ['Launch at login', '', 'sw', true],
-      ['Transcript folder', '~/Library/Application Support/VoiceCapture/transcripts', 'kbd', 'Reveal']
+      ['Transcript folder', '~/Library/Application Support/Harps/transcripts', 'kbd', 'Reveal']
     ];
     $('scroll').innerHTML = '<div class="set">' + rows.map(([n, d, kind, v], i) =>
       '<div class="srow t-stagger-line" style="transition-delay:' + Math.min(i,8)*40 + 'ms">' +
