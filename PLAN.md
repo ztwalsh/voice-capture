@@ -137,7 +137,23 @@ intercepting it reliably is disproportionate work. A chord like
 Command-Shift-Space is the fallback if a modifier-only trigger proves flaky.
 
 Push-to-talk is the default because it has no failure mode where the app is
-silently recording. A toggle mode can come later.
+silently recording.
+
+**The menu bar item forces a second mode.** A button cannot be held, so clicking
+it means toggle: click to start, click again to stop. That reintroduces exactly
+the failure push-to-talk avoids — a capture left running while you walk away —
+so toggle mode has to carry its own safeguards, and they are part of the design
+rather than polish:
+
+- The menu bar icon turns red for the whole capture, so the state is visible
+  even with every window covered.
+- The capsule shows its timer from the first tick rather than after three
+  seconds, since a toggle can run long and unattended.
+- The capsule carries an explicit stop control, and the menu bar item itself
+  becomes a stop while a capture is running.
+
+The two triggers are therefore two interactions, not one interaction with two
+entry points, and `prototype/capture-v2.html` keeps them distinct.
 
 ### Audio and latency
 

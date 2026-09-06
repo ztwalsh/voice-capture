@@ -10,6 +10,7 @@ not a foundation for the app.
 | `dim.html` | What happens to everything else while you dictate — five background treatments |
 | `library.html` | The main window, first pass — two layouts over one set of transcripts |
 | `library-v2.html` | Second pass, after the MonRize reference — sidebar, Overview, settings |
+| `capture-v2.html` | Capture in that same language, invoked from the menu bar or the hotkey |
 
 ## Run it
 
@@ -21,7 +22,8 @@ Then open <http://127.0.0.1:8000/> for the full prototype, or
 <http://127.0.0.1:8000/versions.html> to compare directions, or
 <http://127.0.0.1:8000/dim.html> to compare background treatments, or
 <http://127.0.0.1:8000/library.html> or
-<http://127.0.0.1:8000/library-v2.html> for the main window.
+<http://127.0.0.1:8000/library-v2.html> for the main window, or
+<http://127.0.0.1:8000/capture-v2.html> for capture.
 
 **Serve it — do not open the file directly.** `getUserMedia` requires a secure
 context, and `file://` is not one, so opening `index.html` from Finder silently
@@ -132,6 +134,45 @@ is the most sensitive thing the app touches and it has no use after
 transcription. The toggle exists so the cost of changing that decision is
 visible — turning it on is what adds playback, and it is a privacy and disk
 decision before it is a UI one.
+
+## Capture, second pass
+
+`capture-v2.html` puts the capsule in the window's language and adds the menu
+bar. Both ways in are live: click the item in the mock menu bar, or hold Right
+Option.
+
+**They are two interactions, not one with two triggers.** A button cannot be
+held, so the menu bar means toggle, and toggle can be left running — the exact
+failure push-to-talk was chosen to avoid. So the two behave differently on
+purpose:
+
+| | Hotkey | Menu bar |
+| --- | --- | --- |
+| Mode | Push-to-talk | Toggle |
+| Capsule sits | Bottom centre, near your work | Under the icon it came from |
+| Stop | Release the key | A stop control, or the menu bar item again |
+| Timer | Appears after three seconds | Visible from the first tick |
+| Menu bar icon | Red while recording | Red while recording |
+
+The capsule emerges from wherever it was invoked — upward from the bottom of the
+screen, downward from the menu bar — so the object always comes from the thing
+that summoned it.
+
+The popover is the discoverable path: a record button, the last three captures,
+and a way into the window. The hotkey is the fast path and needs none of it.
+
+### Marks
+
+Four options in the prototype bar, and they change the menu bar item live. That
+is the only size that matters — a mark for this app has to survive at 16px,
+monochrome, and in red while recording.
+
+| | Reads as | Verdict |
+| --- | --- | --- |
+| **bars** | An audio waveform | The current mark. Clear, but every audio app has one |
+| **caret** | A text I-beam | The most apt idea — text lands at a caret — but at 16px it reads as a text-tool cursor |
+| **arc** | Sound leaving a point | Distinctive at 16px without being generic. The recommendation |
+| **ring** | The record symbol | Instantly legible, and instantly anonymous |
 
 ## Background treatments
 
