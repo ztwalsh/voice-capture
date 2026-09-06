@@ -8,7 +8,8 @@ not a foundation for the app.
 | `index.html` | The adopted direction, full loop: capture, insert, history |
 | `versions.html` | Three directions for the capsule side by side, live on the same audio |
 | `dim.html` | What happens to everything else while you dictate — five background treatments |
-| `library.html` | The main window when it is open — two layouts over one set of transcripts |
+| `library.html` | The main window, first pass — two layouts over one set of transcripts |
+| `library-v2.html` | Second pass, after the MonRize reference — sidebar, Overview, settings |
 
 ## Run it
 
@@ -19,7 +20,8 @@ python3 -m http.server 8000
 Then open <http://127.0.0.1:8000/> for the full prototype, or
 <http://127.0.0.1:8000/versions.html> to compare directions, or
 <http://127.0.0.1:8000/dim.html> to compare background treatments, or
-<http://127.0.0.1:8000/library.html> for the main window.
+<http://127.0.0.1:8000/library.html> or
+<http://127.0.0.1:8000/library-v2.html> for the main window.
 
 **Serve it — do not open the file directly.** `getUserMedia` requires a secure
 context, and `file://` is not one, so opening `index.html` from Finder silently
@@ -78,6 +80,42 @@ directions over the same five days of data, switchable in the toolbar.
 Search filters across every day at once and groups the hits, in both layouts.
 `⌘F` focuses it. Cards expand in place on click rather than opening a detail
 pane, because a dictated sentence is short enough not to need one.
+
+### Second pass — `library-v2.html`
+
+Reworked against two references: a fintech dashboard (MonRize) and a markdown
+notes app.
+
+**From MonRize.** A persistent left sidebar with a selected pill, an Overview
+built from big numerals over small muted labels, hairline separators instead of
+cards, pill tab rows, deep near-black in dark rather than the softer grey, and
+green reserved strictly for deltas.
+
+**From the notes app.** Command-number shortcuts set in mono beside each day, and
+a Document view that leaves the `##` markers visible but dimmed — so the file
+still reads as a file rather than as rendered output. Put it beside the `.md`
+panel and the two agree, which is the point.
+
+Three decisions worth arguing with:
+
+**Green is a second chromatic value.** `design.md` says one accent, the record
+dot, and that motion carries state rather than colour. MonRize uses green
+functionally for direction, and that is defensible here because it never appears
+alone — always with an arrow and a "vs last week". But it is a real amendment to
+the principle, not a free addition.
+
+**Three nav items, not eight.** MonRize is a platform with eight destinations.
+This is a basic app with three, and padding the sidebar to match the reference's
+density would be borrowing the look without the substance.
+
+**The Overview is new scope.** `../PLAN.md` Phase 4 is a history window and
+nothing else. Stats and a chart are genuinely useful and make the app feel like
+somewhere you would go, but they are work that is not currently in the plan.
+
+The chart's two series are the same measure across consecutive weeks, so they
+are separated by lightness and dash pattern rather than hue. There is no
+categorical palette to validate, and the distinction survives any colour vision.
+Two series means a legend, and it has one, plus a crosshair and tooltip on hover.
 
 ### The .md toggle
 

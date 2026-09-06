@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Capture — window, second pass</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   Second pass on the main window.
+
+   From MonRize: a persistent left sidebar with a selected pill, an
+   Overview built from big numerals over small muted labels, hairline
+   separators instead of cards, pill tab rows, deep near-black in dark,
+   and green reserved for deltas.
+
+   From the markdown editor: command-number shortcuts set in mono in
+   the sidebar, and a Document view that leaves the "##" markers
+   visible but dimmed, so the file stays legible as a file.
+
+   Motion is still transitions.dev: tabs-sliding (16), texts-reveal
+   (18), card-resize (01), panel-reveal (07).
+   Type is Geist and Geist Mono.
+   ══════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Geist'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('./fonts/geist.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('./fonts/geist-mono.woff2') format('woff2');
+}
+
+:root {
+  color-scheme: light;
+  --duration-quick: 150ms; --duration-fast: 250ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: ease-in-out;
+  --resize-dur: 300ms;
+  --tabs-dur: 250ms; --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --panel-open-dur: 400ms; --panel-close-dur: 350ms;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --stagger-dur: 400ms; --stagger-distance: 8px; --stagger-blur: 2px;
+  --stagger-ease: ease-in-out;
+
+  /* surfaces */
+  --bg:        #ffffff;
+  --side:      #fbfbfc;
+  --sel:       #ececed;
+  --trough:    #f4f4f5;
+  --hairline:  rgba(0,0,0,0.075);
+  /* ink */
+  --text:        #0a0a0a;
+  --text-muted:  #6a6a6c;
+  --text-subtle: #86868a;
+  --text-faint:  #a8a8ac;
+  --label-mono:  #6f7180;
+  /* accents — delta only, and the record dot */
+  --up:   #1E9E63;
+  --live: #E5484D;
+  --mark: rgba(255, 214, 0, 0.40);
+
+  --elev-win: 0 24px 70px 0 rgba(0,0,0,0.18), 0 6px 18px 0 rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.08);
+  --desk-a: #c3cddb; --desk-b: #e7eaef; --desk-c: #9fb0c6; --desk-d: #d9c9c0;
+
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --bg: #0c0c0d; --side: #09090a; --sel: #1d1d20; --trough: #151517;
+  --hairline: rgba(255,255,255,0.075);
+  --text: #fafafa; --text-muted: rgba(255,255,255,0.56);
+  --text-subtle: rgba(255,255,255,0.44); --text-faint: rgba(255,255,255,0.30);
+  --label-mono: rgba(255,255,255,0.48);
+  --up: #4ADE80; --live: #FF6369; --mark: rgba(255, 214, 0, 0.26);
+  --elev-win: 0 24px 70px 0 rgba(0,0,0,0.62), 0 0 0 1px rgba(255,255,255,0.09);
+  --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0c0c0d; --side: #09090a; --sel: #1d1d20; --trough: #151517;
+  --hairline: rgba(255,255,255,0.075);
+  --text: #fafafa; --text-muted: rgba(255,255,255,0.56);
+  --text-subtle: rgba(255,255,255,0.44); --text-faint: rgba(255,255,255,0.30);
+  --label-mono: rgba(255,255,255,0.48);
+  --up: #4ADE80; --live: #FF6369; --mark: rgba(255, 214, 0, 0.26);
+  --elev-win: 0 24px 70px 0 rgba(0,0,0,0.62), 0 0 0 1px rgba(255,255,255,0.09);
+  --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; font-family: var(--font-sans); color: var(--text);
+  overflow: hidden; -webkit-font-smoothing: antialiased;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(900px 620px at 14% 10%,  var(--desk-c), transparent 62%),
+    radial-gradient(760px 520px at 88% 22%,  var(--desk-d), transparent 58%),
+    radial-gradient(1000px 700px at 62% 96%, var(--desk-a), transparent 60%),
+    var(--desk-b);
+}
+
+.win {
+  width: min(1140px, 94vw); height: min(720px, 90vh);
+  background: var(--bg); border-radius: 14px; box-shadow: var(--elev-win);
+  overflow: hidden; display: flex;
+}
+
+/* ══════ sidebar ══════ */
+.side {
+  flex: none; width: 236px; background: var(--side);
+  border-right: 1px solid var(--hairline);
+  display: flex; flex-direction: column; padding: 0 10px;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 18px 10px 22px; }
+.mark {
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  background: var(--text); color: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+}
+.wordmark { font-size: 17px; letter-spacing: -0.02em; }
+.wordmark .a { font-weight: 400; color: var(--text-muted); }
+.wordmark .b { font-weight: 600; color: var(--text); }
+.tls { display: flex; gap: 7px; padding: 14px 10px 0; }
+.tl { width: 11px; height: 11px; border-radius: 50%; background: var(--text-faint); opacity: .4; }
+
+.navsec { display: flex; flex-direction: column; gap: 2px; }
+.nav {
+  display: flex; align-items: center; gap: 11px; padding: 9px 11px;
+  border-radius: 9px; cursor: pointer; color: var(--text-muted);
+  font-size: 14px; font-weight: 450;
+  transition: color var(--duration-quick) ease-out, background-color var(--duration-quick) ease-out;
+}
+.nav svg { flex: none; opacity: .62; transition: opacity var(--duration-quick) ease-out; }
+.nav:hover { color: var(--text); }
+.nav[aria-selected="true"] { background: var(--sel); color: var(--text); font-weight: 500; }
+.nav[aria-selected="true"] svg { opacity: 1; }
+
+.secline {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 22px 11px 8px;
+}
+.days { display: flex; flex-direction: column; gap: 1px; overflow-y: auto; flex: 1; }
+.day {
+  display: flex; align-items: center; gap: 9px; padding: 7px 11px;
+  border-radius: 8px; cursor: pointer; color: var(--text-muted);
+  font-size: 13.5px;
+  transition: color var(--duration-quick) ease-out, background-color var(--duration-quick) ease-out;
+}
+.day .arrow { color: var(--text-faint); font-size: 11px; }
+.day:hover { color: var(--text); }
+.day[aria-selected="true"] { background: var(--sel); color: var(--text); font-weight: 500; }
+.day .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.day .kbd {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint);
+}
+.side-foot {
+  flex: none; border-top: 1px solid var(--hairline); margin: 8px -10px 0;
+  padding: 10px 20px; display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-faint);
+}
+.side-foot .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gear { cursor: pointer; opacity: .6; }
+.gear:hover { opacity: 1; }
+
+/* ══════ main ══════ */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.head {
+  flex: none; height: 62px; display: flex; align-items: center; gap: 12px;
+  padding: 0 22px; border-bottom: 1px solid var(--hairline);
+}
+.head h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.head .grow { flex: 1; }
+.search {
+  width: 210px; height: 30px; border-radius: 9px;
+  border: 1px solid var(--hairline); background: var(--trough);
+  padding: 0 11px; font-family: var(--font-sans); font-size: 13px;
+  color: var(--text); outline: none;
+}
+.search::placeholder { color: var(--text-faint); }
+
+/* tabs sliding (16) */
+.t-tabs[hidden] { display: none; }
+.t-tabs {
+  position: relative; display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px; border-radius: 48px; background: var(--trough);
+}
+.t-tab {
+  position: relative; appearance: none; border: 0; background: transparent;
+  height: 26px; padding: 0 13px; color: var(--text-muted); cursor: pointer;
+  border-radius: 48px; z-index: 1; font-family: var(--font-sans);
+  font-size: 12.5px; font-weight: 500;
+  transition: color var(--tabs-dur) var(--tabs-ease);
+}
+.t-tab[aria-selected="true"], .t-tab:hover { color: var(--text); }
+.t-tabs-pill {
+  position: absolute; top: 3px; left: 0; height: 26px; width: 0;
+  background: var(--bg); border-radius: 48px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  transform: translateX(0);
+  transition: transform var(--tabs-dur) var(--tabs-ease), width var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width; z-index: 0; pointer-events: none;
+}
+.mdbtn {
+  appearance: none; border: 1px solid var(--hairline); background: var(--trough);
+  border-radius: 9px; height: 30px; padding: 0 11px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+  transition: background-color var(--duration-quick) ease-out, color var(--duration-quick) ease-out;
+}
+.mdbtn:hover { color: var(--text); }
+.mdbtn[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+.panes { flex: 1; display: flex; min-height: 0; }
+.scroll { flex: 1; overflow-y: auto; min-width: 0; }
+
+/* ══════ overview ══════ */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); }
+.stat { padding: 24px 22px 26px; border-right: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+.stat:last-child { border-right: 0; }
+.stat-l { font-size: 12.5px; color: var(--text-subtle); margin-bottom: 9px; }
+.stat-v { font-size: 27px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+.stat-d { margin-top: 9px; display: flex; align-items: baseline; gap: 7px; font-size: 12px; }
+.up { color: var(--up); font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat-d .ctx { color: var(--text-faint); }
+
+.chart-wrap { padding: 24px 22px 8px; border-bottom: 1px solid var(--hairline); }
+.chart-head { display: flex; align-items: flex-start; margin-bottom: 20px; }
+.chart-title { font-size: 12.5px; color: var(--text-subtle); }
+.chart-big { font-size: 22px; font-weight: 600; letter-spacing: -0.025em; margin-top: 6px; }
+.legend { margin-left: auto; display: flex; gap: 16px; align-items: center; }
+.lg { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--text-muted); }
+.lg svg { flex: none; }
+figure.chart { margin: 0; position: relative; }
+.chart svg { display: block; width: 100%; height: 190px; overflow: visible; }
+.chart svg text { font-family: var(--font-mono); }
+.tip {
+  position: absolute; pointer-events: none; opacity: 0;
+  background: var(--text); color: var(--bg); border-radius: 8px;
+  padding: 7px 10px; font-size: 11.5px; line-height: 17px; white-space: nowrap;
+  transition: opacity var(--duration-quick) ease-out;
+  font-variant-numeric: tabular-nums; z-index: 5;
+}
+.tip b { font-weight: 600; }
+.tip .row { display: flex; gap: 10px; justify-content: space-between; }
+.tip .k { opacity: .7; }
+
+.sec-h {
+  padding: 22px 22px 10px; font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--text-faint);
+}
+
+/* ══════ cards ══════ */
+.cards { padding: 4px 14px 34px; }
+.card { padding: 12px 14px; border-radius: 10px; cursor: pointer; }
+.card:hover { background: var(--trough); }
+.card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+.mono-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--label-mono); }
+.chip { font-size: 10.5px; color: var(--text-subtle); background: var(--trough); border-radius: 5px; padding: 1px 6px; }
+.card:hover .chip { background: var(--sel); }
+.dur { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); }
+.acts { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity var(--duration-quick) ease-out; }
+.card:hover .acts { opacity: 1; }
+.act {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-faint);
+  padding: 2px 5px; border-radius: 5px;
+}
+.act:hover { color: var(--text); background: var(--sel); }
+.card-body { font-size: 13.5px; line-height: 21px; overflow: hidden; }
+.card-body.clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.daysep {
+  position: sticky; top: 0; z-index: 2; background: var(--bg);
+  padding: 12px 14px 6px; font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--text-faint);
+}
+
+/* ══════ document — markers stay visible but dim ══════ */
+.doc { max-width: 700px; margin: 0 auto; padding: 38px 32px 80px; font-family: var(--font-mono); }
+.doc-fm {
+  white-space: pre-wrap;
+  font-size: 11.5px; line-height: 20px; color: var(--text-faint);
+  padding-bottom: 20px; margin-bottom: 30px; border-bottom: 1px solid var(--hairline);
+}
+.doc-fm .k { color: var(--text-subtle); }
+.entry + .entry { margin-top: 28px; }
+.entry-h { font-size: 14px; line-height: 22px; margin-bottom: 10px; }
+.entry-h .hash { color: var(--text-faint); margin-right: 10px; }
+.entry-h .txt { color: var(--text); font-weight: 600; }
+.entry-b { font-size: 13.5px; line-height: 25px; color: var(--text-muted); }
+mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+/* ══════ settings ══════ */
+.set { max-width: 620px; padding: 26px 22px 60px; }
+.srow {
+  display: flex; align-items: center; gap: 16px; padding: 15px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.srow .lab { flex: 1; }
+.srow .n { font-size: 13.5px; }
+.srow .d { font-size: 11.5px; color: var(--text-subtle); margin-top: 3px; }
+.srow .v {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted);
+  background: var(--trough); border: 1px solid var(--hairline);
+  border-radius: 7px; padding: 4px 9px;
+}
+.sw {
+  width: 36px; height: 21px; border-radius: 999px; background: var(--sel);
+  position: relative; cursor: pointer; flex: none;
+  transition: background-color var(--duration-fast) var(--ease-smooth-out);
+}
+.sw::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px;
+  border-radius: 50%; background: var(--bg);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+  transition: transform var(--duration-fast) var(--ease-smooth-out);
+}
+.sw[aria-checked="true"] { background: var(--text); }
+.sw[aria-checked="true"]::after { transform: translateX(15px); }
+
+/* ══════ md panel — panel-reveal (07) ══════ */
+.md {
+  flex: none; width: 360px; border-left: 1px solid var(--hairline);
+  background: var(--side); display: flex; flex-direction: column;
+  transform: translateX(36px); opacity: 0; filter: blur(2px);
+  pointer-events: none; margin-right: -360px;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity var(--panel-close-dur) var(--panel-ease),
+    filter var(--panel-close-dur) var(--panel-ease),
+    margin-right var(--panel-close-dur) var(--panel-ease);
+}
+.md[data-open="true"] {
+  transform: translateX(0); opacity: 1; filter: blur(0);
+  pointer-events: auto; margin-right: 0;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity var(--panel-open-dur) var(--panel-ease),
+    filter var(--panel-open-dur) var(--panel-ease),
+    margin-right var(--panel-open-dur) var(--panel-ease);
+}
+.md-head {
+  flex: none; padding: 12px 14px; border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle);
+  display: flex; justify-content: space-between; gap: 8px;
+}
+.md-body {
+  flex: 1; overflow: auto; padding: 14px; margin: 0;
+  font-family: var(--font-mono); font-size: 10.5px; line-height: 18px;
+  color: var(--text-muted); white-space: pre-wrap; word-break: break-word;
+}
+.md-body .fm { color: var(--text-faint); }
+.md-body .h { color: var(--text); font-weight: 500; }
+
+/* texts reveal (18) */
+.t-stagger-line {
+  opacity: 0; transform: translateY(var(--stagger-distance)); filter: blur(var(--stagger-blur));
+  transition:
+    opacity var(--stagger-dur) var(--stagger-ease),
+    transform var(--stagger-dur) var(--stagger-ease),
+    filter var(--stagger-dur) var(--stagger-ease);
+}
+.is-shown .t-stagger-line { opacity: 1; transform: translateY(0); filter: blur(0); }
+.t-resize { transition: height var(--resize-dur) var(--ease-smooth-out); }
+
+/* prototype chrome */
+.proto {
+  position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px; z-index: 90;
+  background: var(--bg); border-radius: 10px; padding: 6px 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.14), 0 0 0 1px var(--hairline);
+}
+.proto span {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--text-faint); padding: 0 4px;
+}
+.proto button {
+  appearance: none; border: 1px solid var(--hairline); background: var(--trough);
+  border-radius: 7px; padding: 4px 8px; cursor: pointer;
+  font-family: var(--font-sans); font-size: 11px; font-weight: 500; color: var(--text);
+}
+.proto button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .t-tabs-pill, .t-tab, .md, .t-stagger-line, .t-resize, .sw, .sw::after, .tip { transition: none !important; }
+  .md { filter: none !important; }
+}
+html.force-reduce .t-tabs-pill, html.force-reduce .t-tab, html.force-reduce .md,
+html.force-reduce .t-stagger-line, html.force-reduce .t-resize,
+html.force-reduce .sw, html.force-reduce .sw::after, html.force-reduce .tip { transition: none !important; }
+html.force-reduce .md { filter: none !important; }
+</style>
+</head>
+<body data-section="overview" data-layout="library">
+
+<div class="win">
+  <aside class="side">
+    <div class="tls"><span class="tl"></span><span class="tl"></span><span class="tl"></span></div>
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+          <rect x="1"   y="5.5" width="1.8" height="4"  rx="0.9" fill="currentColor"/>
+          <rect x="4.3" y="3"   width="1.8" height="9"  rx="0.9" fill="currentColor"/>
+          <rect x="7.6" y="1"   width="1.8" height="13" rx="0.9" fill="currentColor"/>
+          <rect x="10.9" y="4.5" width="1.8" height="6" rx="0.9" fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="wordmark"><span class="a">Voice</span><span class="b">Capture</span></div>
+    </div>
+
+    <div class="navsec" id="nav"></div>
+
+    <div class="secline">Recent</div>
+    <div class="days" id="days"></div>
+
+    <div class="side-foot">
+      <span class="grow" id="footPath">transcripts/</span>
+      <span class="gear" title="Settings">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3">
+          <circle cx="8" cy="8" r="2.2"/><path d="M8 1.2v1.6M8 13.2v1.6M14.8 8h-1.6M2.8 8H1.2M12.8 3.2l-1.1 1.1M4.3 11.7l-1.1 1.1M12.8 12.8l-1.1-1.1M4.3 4.3L3.2 3.2"/>
+        </svg>
+      </span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="head">
+      <h1 id="title">Overview</h1>
+      <div class="grow"></div>
+      <input class="search" id="search" type="search" placeholder="Search transcripts" aria-label="Search transcripts">
+      <div class="t-tabs" id="tabs" role="tablist" hidden>
+        <span class="t-tabs-pill" id="pill"></span>
+        <button class="t-tab" role="tab" data-layout="library"  aria-selected="true">Library</button>
+        <button class="t-tab" role="tab" data-layout="document" aria-selected="false">Document</button>
+      </div>
+      <button class="mdbtn" id="mdBtn" aria-pressed="false">.md</button>
+    </div>
+
+    <div class="panes">
+      <div class="scroll" id="scroll"></div>
+      <aside class="md" id="md" data-open="false" aria-label="Raw markdown">
+        <div class="md-head"><span id="mdPath"></span><span id="mdSize"></span></div>
+        <pre class="md-body" id="mdBody"></pre>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<div class="proto">
+  <span>Prototype</span>
+  <button data-theme-set="auto" aria-pressed="true">Auto</button>
+  <button data-theme-set="light" aria-pressed="false">Light</button>
+  <button data-theme-set="dark" aria-pressed="false">Dark</button>
+  <button id="reduceBtn" aria-pressed="false">Reduce motion</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  const DAYS = [
+    { date: '2026-09-05', label: 'Today', captures: [
+      ['09:14','Notes',6,"Let's push the launch to the week after next so the docs land first."],
+      ['09:31','Slack',11,"Reminder to follow up with the design team about the motion spec, specifically whether the asymmetric smoothing coefficients survived the review."],
+      ['11:02','Linear',8,"Ship the walking skeleton before touching any of the visual design. The whole point of phase two is finding out whether insertion actually works."],
+      ['14:47','Mail',19,"Thanks for sending that over. I read through it last night and the only thing I'd push back on is the timeline in section three. Four weeks feels optimistic given how much of it depends on the vendor."],
+      ['16:20','Notes',4,"Ask whether we need streaming results or whether batch on release is fine."]
+    ]},
+    { date: '2026-09-04', label: 'Yesterday', captures: [
+      ['08:52','Notes',7,"The thing I keep coming back to is that nobody actually reads the changelog, so putting it there is the same as not shipping it."],
+      ['10:15','Slack',5,"Can we move standup to nine thirty on Thursdays."],
+      ['13:38','Xcode',12,"Note to self, the accessibility permission gets revoked whenever the binary is re-signed, which is why it keeps breaking between builds."],
+      ['17:05','Mail',9,"Confirming I'll be out Friday afternoon but reachable if anything urgent comes up on the release."]
+    ]},
+    { date: '2026-09-03', label: 'Thursday', captures: [
+      ['09:40','Notes',15,"Half-formed idea. What if the history window isn't a list at all but just the markdown file rendered, and search is the only navigation. Fewer parts, and the file stays the source of truth rather than a thing the app exports to."],
+      ['11:22','Linear',6,"Bug, the timer keeps counting after the capsule dismisses on an error."],
+      ['15:10','Slack',10,"I think we're overcomplicating the onboarding. Two permissions, two screens, done."]
+    ]},
+    { date: '2026-09-02', label: 'Wednesday', captures: [
+      ['10:08','Notes',8,"Whisper base dot en is fast enough on this machine that the model size argument is basically settled."],
+      ['16:44','Mail',13,"Following up on the contract. We're happy with the scope as written, the only change we'd want is moving the review gate to the end of the second milestone rather than the first."]
+    ]},
+    { date: '2026-09-01', label: 'Tuesday', captures: [
+      ['09:05','Notes',5,"Start the week by writing down what would make this a good week."],
+      ['12:30','Slack',7,"Lunch pushed to one, the room was double booked again."],
+      ['14:55','Xcode',11,"The non-activating panel works exactly as documented, which is the first thing on this project that has."],
+      ['18:12','Notes',6,"Remember that the point of the prototype is to be thrown away."]
+    ]}
+  ];
+  const words = t => t.trim().split(/\s+/).length;
+  DAYS.forEach(d => {
+    d.words = d.captures.reduce((n,c) => n + words(c[3]), 0);
+    d.file = d.date + '.md';
+  });
+
+  // Overview series: same measure, two consecutive weeks.
+  const WEEK  = [4, 9, 6, 11, 5, 7, 5];
+  const PREV  = [3, 7, 5, 8, 6, 5, 4];
+  const XLAB  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const sum = a => a.reduce((x,y) => x+y, 0);
+
+  const NAV = [
+    ['overview', 'Overview',
+      '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1.5" y="1.5" width="5.6" height="5.6" rx="1.6"/><rect x="8.9" y="1.5" width="5.6" height="5.6" rx="1.6" opacity=".55"/><rect x="1.5" y="8.9" width="5.6" height="5.6" rx="1.6" opacity=".55"/><rect x="8.9" y="8.9" width="5.6" height="5.6" rx="1.6"/></svg>'],
+    ['transcripts', 'Transcripts',
+      '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="2.5" y="1.8" width="11" height="12.4" rx="2"/><path d="M5.2 5.4h5.6M5.2 8h5.6M5.2 10.6h3.4"/></svg>'],
+    ['settings', 'Settings',
+      '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4.6h4M9 4.6h5M2 11.4h5M10 11.4h4"/><circle cx="7.4" cy="4.6" r="1.8"/><circle cx="8.6" cy="11.4" r="1.8"/></svg>']
+  ];
+
+  let section = 'overview', selected = 0, query = '';
+
+  /* ── markdown ── */
+  function toMarkdown(day) {
+    return ['---','date: ' + day.date,'captures: ' + day.captures.length,'words: ' + day.words,'---',''].join('\n')
+      + '\n' + day.captures.map(([t,a,d,x]) => '## ' + t + ' · ' + a + ' · ' + d + 's\n\n' + x + '\n').join('\n');
+  }
+  const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  function renderMarkdown(day) {
+    $('mdBody').innerHTML = toMarkdown(day).split('\n').map(l =>
+      /^(---|date:|captures:|words:)/.test(l) ? '<span class="fm">' + esc(l) + '</span>'
+      : /^## /.test(l) ? '<span class="h">' + esc(l) + '</span>' : esc(l)).join('\n');
+    $('mdPath').textContent = day.file;
+    $('mdSize').textContent = new Blob([toMarkdown(day)]).size + ' B';
+  }
+  function highlight(t) {
+    if (!query) return esc(t);
+    const q = query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    return esc(t).replace(new RegExp('(' + q + ')','ig'), '<mark>$1</mark>');
+  }
+
+  /* ── sidebar ── */
+  function renderNav() {
+    $('nav').innerHTML = '';
+    NAV.forEach(([key, label, icon]) => {
+      const el = document.createElement('div');
+      el.className = 'nav';
+      el.setAttribute('aria-selected', String(key === section));
+      el.innerHTML = icon + '<span>' + label + '</span>';
+      el.addEventListener('click', () => { section = key; query = ''; $('search').value = ''; render(); });
+      $('nav').appendChild(el);
+    });
+    const days = $('days');
+    days.innerHTML = '';
+    DAYS.forEach((d, i) => {
+      const el = document.createElement('div');
+      el.className = 'day';
+      el.setAttribute('aria-selected', String(section === 'transcripts' && i === selected && !query));
+      el.innerHTML = '<span class="arrow">&#8594;</span><span class="nm">' + d.label +
+                     '</span><span class="kbd">&#8984;' + (i+1) + '</span>';
+      el.addEventListener('click', () => { section = 'transcripts'; selected = i; query = ''; $('search').value = ''; render(); });
+      days.appendChild(el);
+    });
+  }
+
+  /* ── overview ── */
+  function statBlock(label, value, delta, ctx) {
+    return '<div class="stat t-stagger-line">' +
+      '<div class="stat-l">' + label + '</div>' +
+      '<div class="stat-v">' + value + '</div>' +
+      '<div class="stat-d">' + (delta ? '<span class="up">&#8593; ' + delta + '</span>' : '') +
+      '<span class="ctx">' + ctx + '</span></div></div>';
+  }
+
+  // Two series of the same measure across consecutive periods, so they are
+  // separated by lightness and dash pattern rather than hue — no categorical
+  // palette, and the distinction survives any colour vision.
+  let CW = 720;
+  function chart(W) {
+    CW = W;
+    const H = 190, PADL = 40, PADR = 12, PADT = 8, PADB = 26;
+    const max = 12, iw = W - PADL - PADR, ih = H - PADT - PADB;
+    const x = i => PADL + (iw * i) / (WEEK.length - 1);
+    const y = v => PADT + ih - (ih * v) / max;
+    const path = a => a.map((v,i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+
+    let grid = '', xlab = '';
+    [0, 4, 8, 12].forEach(v => {
+      grid += '<line x1="' + PADL + '" y1="' + y(v) + '" x2="' + (W-PADR) + '" y2="' + y(v) +
+              '" stroke="currentColor" stroke-opacity="0.13" stroke-width="1" stroke-dasharray="2 4"/>' +
+              '<text x="' + (PADL-10) + '" y="' + (y(v)+4) + '" text-anchor="end" font-size="10" ' +
+              'font-family="var(--font-mono)" fill="currentColor" fill-opacity="0.42">' + v + '</text>';
+    });
+    XLAB.forEach((l,i) => {
+      xlab += '<text x="' + x(i) + '" y="' + (H-6) + '" text-anchor="middle" font-size="10" ' +
+              'font-family="var(--font-mono)" fill="currentColor" fill-opacity="0.42">' + l + '</text>';
+    });
+
+    return '<div class="chart-wrap t-stagger-line">' +
+      '<div class="chart-head">' +
+        '<div><div class="chart-title">Captures per day</div>' +
+        '<div class="chart-big">' + sum(WEEK) + ' this week</div></div>' +
+        '<div class="legend">' +
+          '<span class="lg"><svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="currentColor" stroke-width="2"/></svg>This week</span>' +
+          '<span class="lg" style="color:var(--text-faint)"><svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/></svg>Last week</span>' +
+        '</div>' +
+      '</div>' +
+      '<figure class="chart" id="fig">' +
+        '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" ' +
+        'aria-label="Captures per day this week compared with last week">' +
+          grid + xlab +
+          '<path d="' + path(PREV) + '" fill="none" stroke="currentColor" stroke-opacity="0.34" ' +
+          'stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+          '<path d="' + path(WEEK) + '" fill="none" stroke="currentColor" stroke-width="2" ' +
+          'stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+          '<line id="cross" x1="0" y1="' + PADT + '" x2="0" y2="' + (PADT+ih) + '" stroke="currentColor" ' +
+          'stroke-opacity="0.28" stroke-width="1" opacity="0"/>' +
+          '<circle id="dotA" r="4" fill="currentColor" opacity="0"/>' +
+          '<circle id="dotB" r="3.5" fill="currentColor" fill-opacity="0.4" opacity="0"/>' +
+          '<rect id="hit" x="0" y="0" width="' + W + '" height="' + H + '" fill="transparent"/>' +
+        '</svg>' +
+        '<div class="tip" id="tip"></div>' +
+      '</figure></div>';
+  }
+
+  function wireChart() {
+    const fig = $('fig'); if (!fig) return;
+    const svg = fig.querySelector('svg'), tip = $('tip');
+    const W = CW, PADL = 40, PADR = 12, PADT = 8, PADB = 26, H = 190;
+    const max = 12, iw = W - PADL - PADR, ih = H - PADT - PADB;
+    const x = i => PADL + (iw * i) / (WEEK.length - 1);
+    const y = v => PADT + ih - (ih * v) / max;
+
+    function move(ev) {
+      const r = svg.getBoundingClientRect();
+      const vx = ((ev.clientX - r.left) / r.width) * W;
+      let i = Math.round(((vx - PADL) / iw) * (WEEK.length - 1));
+      i = Math.max(0, Math.min(WEEK.length - 1, i));
+      $('cross').setAttribute('x1', x(i)); $('cross').setAttribute('x2', x(i));
+      $('cross').setAttribute('opacity', '1');
+      $('dotA').setAttribute('cx', x(i)); $('dotA').setAttribute('cy', y(WEEK[i])); $('dotA').setAttribute('opacity','1');
+      $('dotB').setAttribute('cx', x(i)); $('dotB').setAttribute('cy', y(PREV[i])); $('dotB').setAttribute('opacity','1');
+      tip.innerHTML = '<b>' + XLAB[i] + '</b>' +
+        '<div class="row"><span class="k">This week</span><span>' + WEEK[i] + '</span></div>' +
+        '<div class="row"><span class="k">Last week</span><span>' + PREV[i] + '</span></div>';
+      tip.style.opacity = '1';
+      const px = (x(i) / W) * r.width;
+      tip.style.left = Math.max(0, Math.min(r.width - 130, px - 60)) + 'px';
+      tip.style.top = ((y(Math.max(WEEK[i], PREV[i])) / H) * r.height - 66) + 'px';
+    }
+    svg.addEventListener('mousemove', move);
+    svg.addEventListener('mouseleave', () => {
+      tip.style.opacity = '0';
+      ['cross','dotA','dotB'].forEach(id => $(id).setAttribute('opacity','0'));
+    });
+  }
+
+  function renderOverview() {
+    const total = DAYS.reduce((n,d) => n + d.captures.length, 0);
+    const html =
+      '<div class="stats">' +
+        statBlock('Captures this week', sum(WEEK), '23.7%', 'vs last week') +
+        statBlock('Words dictated', '3,180', '18.4%', 'vs last week') +
+        statBlock('Time speaking', '14m 22s', '', 'this week') +
+        statBlock('Median capture', '8s', '', 'across ' + total + ' captures') +
+      '</div>' + chart(Math.max(520, $('scroll').clientWidth - 44)) +
+      '<div class="sec-h t-stagger-line">Recent captures</div><div class="cards" id="recent"></div>';
+    $('scroll').innerHTML = html;
+    const recent = $('recent');
+    DAYS[0].captures.slice(0, 4).forEach((c, i) => recent.appendChild(card(c, i)));
+    wireChart();
+  }
+
+  /* ── cards ── */
+  function card(cap, i) {
+    const [time, app, dur, text] = cap;
+    const el = document.createElement('div');
+    el.className = 'card t-stagger-line';
+    el.style.transitionDelay = Math.min(i, 8) * 40 + 'ms';
+    const top = document.createElement('div');
+    top.className = 'card-top';
+    top.innerHTML = '<span class="mono-meta">' + time + '</span><span class="chip">' + app +
+      '</span><span class="dur">' + dur + 's · ' + words(text) + 'w</span>' +
+      '<span class="acts"><button class="act">copy</button><button class="act">delete</button></span>';
+    const body = document.createElement('div');
+    body.className = 'card-body clamped';
+    body.innerHTML = highlight(text);
+    el.addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      const from = body.getBoundingClientRect().height;
+      body.classList.toggle('clamped');
+      body.style.height = 'auto';
+      const to = body.getBoundingClientRect().height;
+      body.style.height = from + 'px';
+      body.classList.add('t-resize');
+      requestAnimationFrame(() => { body.style.height = to + 'px'; });
+      setTimeout(() => { body.style.height = ''; body.classList.remove('t-resize'); }, 320);
+    });
+    el.appendChild(top); el.appendChild(body);
+    return el;
+  }
+
+  function groups() {
+    const q = query.toLowerCase();
+    if (!q) return [{ day: DAYS[selected], hits: DAYS[selected].captures }];
+    return DAYS.map(d => ({ day: d, hits: d.captures.filter(c => c[3].toLowerCase().includes(q)) }))
+               .filter(g => g.hits.length);
+  }
+
+  function renderTranscripts() {
+    const gs = groups();
+    if (!gs.length) { $('scroll').innerHTML = '<div class="sec-h">Nothing matches “' + esc(query) + '”</div>'; return; }
+    if (document.body.dataset.layout === 'document') {
+      let h = '<div class="doc">';
+      gs.forEach(g => {
+        h += '<div class="doc-fm t-stagger-line">---\n<span class="k">date:</span> ' + g.day.date +
+             '\n<span class="k">captures:</span> ' + g.hits.length +
+             '\n<span class="k">words:</span> ' + g.day.words + '\n---</div>';
+        g.hits.forEach(([t,a,d,x], i) => {
+          h += '<article class="entry t-stagger-line" style="transition-delay:' + Math.min(i+1,8)*40 + 'ms">' +
+               '<div class="entry-h"><span class="hash">##</span><span class="txt">' + t + ' · ' + a + ' · ' + d + 's</span></div>' +
+               '<div class="entry-b">' + highlight(x) + '</div></article>';
+        });
+      });
+      $('scroll').innerHTML = h + '</div>';
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'cards';
+    let n = 0;
+    gs.forEach(g => {
+      if (query) {
+        const s = document.createElement('div');
+        s.className = 'daysep';
+        s.textContent = g.day.label + ' · ' + g.day.file;
+        wrap.appendChild(s);
+      }
+      g.hits.forEach(c => wrap.appendChild(card(c, n++)));
+    });
+    $('scroll').innerHTML = '';
+    $('scroll').appendChild(wrap);
+  }
+
+  function renderSettings() {
+    const rows = [
+      ['Hotkey', 'Hold to capture. Push-to-talk, so it can never be silently recording.', 'kbd', '&#8997; Right Option'],
+      ['Model', 'Runs on device. Nothing leaves this Mac.', 'kbd', 'whisper base.en'],
+      ['Insertion', 'How text reaches the focused field.', 'kbd', 'Accessibility, then paste'],
+      ['Keep audio', 'Off by default. Audio has no use after transcription.', 'sw', false],
+      ['Launch at login', '', 'sw', true],
+      ['Transcript folder', '~/Library/Application Support/VoiceCapture/transcripts', 'kbd', 'Reveal']
+    ];
+    $('scroll').innerHTML = '<div class="set">' + rows.map(([n, d, kind, v], i) =>
+      '<div class="srow t-stagger-line" style="transition-delay:' + Math.min(i,8)*40 + 'ms">' +
+        '<div class="lab"><div class="n">' + n + '</div>' + (d ? '<div class="d">' + d + '</div>' : '') + '</div>' +
+        (kind === 'sw' ? '<div class="sw" role="switch" aria-checked="' + v + '"></div>'
+                       : '<div class="v">' + v + '</div>') +
+      '</div>').join('') + '</div>';
+    $('scroll').querySelectorAll('.sw').forEach(sw => sw.addEventListener('click', () =>
+      sw.setAttribute('aria-checked', String(sw.getAttribute('aria-checked') !== 'true'))));
+  }
+
+  /* ── render ── */
+  function render() {
+    document.body.dataset.section = section;
+    renderNav();
+    $('title').textContent = section === 'overview' ? 'Overview'
+                          : section === 'settings' ? 'Settings' : DAYS[selected].label;
+    $('tabs').hidden = section !== 'transcripts';
+    $('search').style.visibility = section === 'settings' ? 'hidden' : 'visible';
+    if (section === 'overview') renderOverview();
+    else if (section === 'settings') renderSettings();
+    else renderTranscripts();
+
+    $('scroll').scrollTop = 0;
+    $('scroll').classList.remove('is-shown');
+    void $('scroll').offsetWidth;
+    $('scroll').classList.add('is-shown');
+
+    renderMarkdown(DAYS[selected]);
+    $('footPath').textContent = 'transcripts/' + DAYS[selected].file;
+    if (!$('tabs').hidden) movePill();
+  }
+
+  function movePill() {
+    const active = $('tabs').querySelector('[aria-selected="true"]');
+    if (!active || !active.offsetWidth) return;
+    $('pill').style.width = active.offsetWidth + 'px';
+    $('pill').style.transform = 'translateX(' + (active.offsetLeft - 3) + 'px)';
+  }
+  $('tabs').querySelectorAll('.t-tab').forEach(tab => tab.addEventListener('click', () => {
+    $('tabs').querySelectorAll('.t-tab').forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+    document.body.dataset.layout = tab.dataset.layout;
+    movePill(); render();
+  }));
+
+  $('search').addEventListener('input', e => {
+    query = e.target.value.trim();
+    if (query && section !== 'transcripts') section = 'transcripts';
+    render();
+  });
+  $('mdBtn').addEventListener('click', e => {
+    const open = $('md').dataset.open !== 'true';
+    $('md').dataset.open = String(open);
+    e.currentTarget.setAttribute('aria-pressed', String(open));
+  });
+  $('reduceBtn').addEventListener('click', e => {
+    const on = document.documentElement.classList.toggle('force-reduce');
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+  });
+  document.querySelectorAll('[data-theme-set]').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.themeSet;
+    if (v === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', v);
+    document.querySelectorAll('[data-theme-set]').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+  }));
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') { e.preventDefault(); $('search').focus(); return; }
+    if ((e.metaKey || e.ctrlKey) && /^[1-9]$/.test(e.key)) {
+      const i = Number(e.key) - 1;
+      if (i < DAYS.length) { e.preventDefault(); section = 'transcripts'; selected = i; query = ''; $('search').value = ''; render(); }
+    }
+  });
+
+  let rz;
+  window.addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(() => { if (section === 'overview') render(); }, 120);
+  });
+  document.fonts.ready.then(() => { if (!$('tabs').hidden) movePill(); });
+  render();
+})();
+</script>
+</body>
+</html>
