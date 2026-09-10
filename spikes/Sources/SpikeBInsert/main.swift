@@ -32,6 +32,19 @@ while let flag = args.first {
     }
 }
 
+// MARK: - window server registration
+
+// Reads against the system-wide AX element (`kAXFocusedUIElementAttribute`)
+// only answer for a process the window server recognises as a GUI app. A bare
+// SwiftPM executable is not one until it touches NSApplication — Spike A gets
+// this for free from its `NSApplicationDelegate`; this one has to ask. Without
+// it every `focusedElement()` call returns nil and every strategy reports
+// UNVERIFIED even in apps (Notes) that expose their fields perfectly.
+let nsApp = NSApplication.shared
+nsApp.setActivationPolicy(.accessory)
+nsApp.finishLaunching()
+RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
 // MARK: - accessibility
 
 let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary

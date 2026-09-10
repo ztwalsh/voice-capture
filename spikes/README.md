@@ -40,9 +40,17 @@ Electron, which is where behaviour diverges.
 
 | App | Verdict | Shown in | Notes |
 | --- | --- | --- | --- |
-| Notes | | | |
-| Chrome | | | |
-| Slack | | | |
+| Notes | PASS | ~1–3 ms (24 ms cold) | `AXTextArea` held before/after, every hold |
+| Dia (Chromium) | PASS | ~1–2 ms | `AXTextField` held; tested in the address bar. Stands in for Chrome |
+| Slack | PASS* | ~1 ms | Reported `PARTIAL` only because `AXFocusedUIElement` was `none` both before *and* after — Electron doesn't expose it system-wide. Caret verified visually: stayed put, typing continued uninterrupted |
+
+Run on macOS 26.6, Apple Silicon, 2026-09-07.
+
+**Verdict: focus provably never moves.** `.nonactivatingPanel` + `.accessory`
+policy + `orderFrontRegardless()` holds in AppKit, Chromium and Electron. The
+Slack `PARTIAL` is a read-back limitation of Electron's accessibility, not a
+focus failure — the Spike B question of whether text can be *inserted* there is
+where that limitation actually bites.
 
 A `PARTIAL` result means the app held but the focused element changed — some
 apps rebuild their accessibility tree constantly. Check the caret visually
@@ -61,23 +69,54 @@ swift run SpikeBInsert --strategy ax --delay 8  # one at a time
 Run it once per app and fill this in. This table decides the default strategy
 and the fallback order, and it is the main output of Phase 0.
 
-| App | AX | Paste | Type | Default should be |
-| --- | --- | --- | --- | --- |
-| Notes | | | | |
-| Safari | | | | |
-| Chrome | | | | |
-| Slack | | | | |
-| Xcode | | | | |
-| Terminal / iTerm | | | | |
-| Notion | | | | |
-| Messages | | | | |
+Run on macOS 26.6, Apple Silicon, 2026-09-07. `✓` = verified landed (read back
+from the field), `eye` = confirmed visually where the app hides its value from
+accessibility, `✗ silent` = strategy reported success but no text appeared.
 
-`UNVERIFIED` means the app does not expose its field value over accessibility,
-so the spike cannot self-check — look at the app and record what you saw.
+| App | Kind | AX | Paste | Type | Default |
+| --- | --- | --- | --- | --- | --- |
+| Notes | AppKit | ✓ | ✓ | ✓ | **ax** |
+| Safari | WebKit | ✓ | ✓ | ✓ | **ax** |
+| Dia (≈ Chrome) | Chromium | ✓ | ✓ | ✓ | **ax** |
+| Xcode | AppKit | ✓ | ✓ | ✓ | **ax** — tested in a field, not the source editor |
+| Slack | Electron | ✗ no element | eye | eye | **paste** |
+| Notion | Electron | ✗ no element | eye | eye | **paste** |
+| Ghostty | GPU term | ✗ no element | eye | eye | **paste** |
+| Terminal.app | AppKit | ✗ silent (`AXError 0`, nothing lands) | ✓ | ✓ | **paste** |
+| Messages | Catalyst | ✗ nothing lands | ✓ | ✓ | **paste** |
 
-Also worth doing once: focus a **password field** and run it. Secure input
-should be detected and reported. That path has to fail loudly in the real app
-rather than silently dropping your words.
+**Default strategy: paste.** It landed in every app where insertion is possible
+at all. `type` also worked everywhere but is slower and less predictable.
+`ax` is the cleanest *when it works* — native AppKit, WebKit and Chromium — but
+it is unusable in Electron (no focused element to write to) and, worse, in
+Terminal.app it returns `.success` while inserting nothing. So `ax` is a
+verified-only optimisation: try it only where the focused element exposes an
+editable value, and only trust it after reading the text back.
+
+### Password and secure fields
+
+| Field | `SECURE INPUT IS ACTIVE`? | Text landed? |
+| --- | --- | --- |
+| `sudo` at a shell `Password:` prompt | **yes** | no — correctly blocked |
+| System Settings auth sheet (add fingerprint) | no | no — all three strategies silently rejected |
+| Web password (`<input type=password>` in Dia) | no | **yes** — dots appeared; AX value masked so the spike couldn't self-verify |
+
+The `IsSecureEventInputEnabled()` guard **works** — `sudo` tripped it and the
+spike reported the field unusable instead of pretending to type into it. That is
+Phase 0's secure-input exit criterion met.
+
+But it is necessary, not sufficient. It did not fire for a browser password
+box, which then **accepted synthetic text** — dots and all. And the System
+Settings auth sheet neither flagged nor accepted, failing silently. Two
+consequences for Harps:
+
+1. **Verify every insertion by reading it back.** A success code means nothing —
+   Terminal.app's `ax` returned `.success` into the void, and the System
+   Settings sheet swallowed all three. When the text can't be confirmed in the
+   field afterward, surface "couldn't insert," never assume it worked.
+2. **Actively avoid password fields**, including web ones the OS guard misses.
+   Check the AX subrole (`AXSecureTextField`) and skip it — a browser password
+   box taking dictated text is a privacy problem, not a feature.
 
 ## Spike C — is on-device transcription fast enough?
 
@@ -121,10 +160,16 @@ proven.
 
 Phase 0 is done when:
 
-- The insertion matrix above is filled in, and at least one strategy lands in
-  all eight apps.
+- ~~The insertion matrix above is filled in, and at least one strategy lands in
+  all eight apps.~~ **Done.** `paste` lands in all eight; it is the default,
+  `ax` is a verified-only optimisation, `type` the last resort. Secure input is
+  detected. Harps must read back every insertion rather than trust a result code.
 - A 10-second utterance transcribes inside the budget, with a named engine.
-- Focus provably never moves in all three Spike A apps.
+  **Spike C still outstanding** — needs Speech Recognition granted to the
+  terminal and a live run.
+- ~~Focus provably never moves in all three Spike A apps.~~ **Done.** PASS in
+  AppKit, Chromium and Electron; the Slack `PARTIAL` was an AX read-back limit,
+  not a focus move (caret verified by eye).
 
 If Spike C misses the budget, the fallback is a smaller Whisper model or a
 different engine — and that decision happens here, not in Phase 3.
