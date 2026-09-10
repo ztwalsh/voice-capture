@@ -38,8 +38,11 @@ final class PasteTextInserter: TextInserter {
 
         try Self.sendCommandV()
 
+        // Re-fetch the general pasteboard inside the closure rather than
+        // capturing the non-`Sendable` `NSPasteboard` in this `@Sendable`
+        // block. `saved` is a dictionary of value types and crosses fine.
         DispatchQueue.main.asyncAfter(deadline: .now() + restoreDelay) {
-            Self.restore(saved, to: pasteboard)
+            Self.restore(saved, to: NSPasteboard.general)
         }
     }
 

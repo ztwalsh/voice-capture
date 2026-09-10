@@ -1,8 +1,32 @@
-import AVFoundation
+// `@preconcurrency` because AVFAudio predates strict concurrency and does not
+// mark `AVAudioConverter`, `AVAudioFile`, or `AVAudioPCMBuffer` `Sendable`.
+// They are captured in the tap's `@Sendable` callback below, which is sound
+// here — the tap thread is the only thread that touches them once recording
+// starts — but the compiler cannot see that, so downgrade those warnings.
+@preconcurrency import AVFoundation
 
 enum AudioRecorderError: Error {
     case noConverter
     case engineFailed(Error)
+}
+
+/// Feeds a single buffer to `AVAudioConverter` exactly once. A reference type
+/// marked `@unchecked Sendable` so the converter's input block — which strict
+/// concurrency treats as concurrently-executing — can carry the buffer and the
+/// one-shot flag. Sound because `convert(to:error:withInputFrom:)` calls the
+/// block synchronously on the calling thread before it returns.
+private final class OneShotInput: @unchecked Sendable {
+    private var consumed = false
+    private let buffer: AVAudioPCMBuffer
+
+    init(_ buffer: AVAudioPCMBuffer) { self.buffer = buffer }
+
+    func next(_ status: UnsafeMutablePointer<AVAudioConverterInputStatus>) -> AVAudioPCMBuffer? {
+        if consumed { status.pointee = .noDataNow; return nil }
+        consumed = true
+        status.pointee = .haveData
+        return buffer
+    }
 }
 
 /// Records from the default input device and writes 16 kHz mono float32 to a
@@ -12,16 +36,22 @@ enum AudioRecorderError: Error {
 /// This is Spike C's recording path unchanged. It proved out the conversion
 /// math; the walking skeleton just gives it a start/stop lifecycle instead of
 /// a fixed countdown.
-final class AudioRecorder {
+///
+/// `@unchecked Sendable`: `HarpsController` (its only owner) drives start/stop
+/// from the main actor, and the audio tap runs the conversion on its own
+/// real-time thread. Those two never overlap on the same state — start
+/// installs the tap, stop removes it — so the shared mutable properties are
+/// safe in practice, which the compiler cannot prove.
+final class AudioRecorder: @unchecked Sendable {
     private let engine = AVAudioEngine()
     private var file: AVAudioFile?
     private(set) var peakLevel: Float = 0
 
-    /// Called ~20 times a second while recording, with amplitude 0...1.
-    /// The walking skeleton's rectangle does nothing with this; it exists
-    /// because the panel in Phase 3 needs it and the tap is the only place
-    /// to compute it cheaply.
-    var onLevel: ((Float) -> Void)?
+    /// Called ~20 times a second while recording, with amplitude 0...1, on the
+    /// audio tap's thread — hence `@Sendable`. The walking skeleton's rectangle
+    /// does nothing with this; it exists because the panel in Phase 3 needs it
+    /// and the tap is the only place to compute it cheaply.
+    var onLevel: (@Sendable (Float) -> Void)?
 
     func start() throws -> URL {
         let input = engine.inputNode
@@ -72,13 +102,10 @@ final class AudioRecorder {
         let capacity = AVAudioFrameCount(Double(buffer.frameLength) * 16_000 / format.sampleRate) + 64
         guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
 
-        var supplied = false
+        let oneShot = OneShotInput(buffer)
         var conversionError: NSError?
         converter.convert(to: out, error: &conversionError) { _, status in
-            if supplied { status.pointee = .noDataNow; return nil }
-            supplied = true
-            status.pointee = .haveData
-            return buffer
+            oneShot.next(status)
         }
         guard conversionError == nil, out.frameLength > 0 else { return }
 

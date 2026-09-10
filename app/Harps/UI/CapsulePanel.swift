@@ -8,6 +8,11 @@ import AppKit
 /// panel must never take focus. `.nonactivatingPanel` plus `.accessory`
 /// activation policy plus `orderFrontRegardless()` (never `makeKeyAndOrderFront`,
 /// never `NSApp.activate`) is the whole trick.
+///
+/// `@MainActor` because it is all AppKit view work — `NSPanel`, `NSTextField`,
+/// `NSView` are all main-actor types, and every caller (`HarpsController`, and
+/// the transcription `Task`) is already on the main actor.
+@MainActor
 final class CapsulePanel {
     private let panel: NSPanel
     private let label: NSTextField

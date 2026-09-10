@@ -6,7 +6,6 @@ import Foundation
 /// a convenience it recomputes on every write, never a value it trusts.
 final class TranscriptStore {
     private let directory: URL
-    private let calendar = Calendar(identifier: .gregorian)
 
     init(directory: URL? = nil) {
         if let directory {

@@ -9,7 +9,10 @@ enum TranscriberError: Error {
 /// The seam PLAN.md calls for: whichever engine wins Spike C — this one,
 /// SpeechAnalyzer, or Whisper — implements this and nothing else in the app
 /// changes.
-protocol Transcriber {
+///
+/// `Sendable` because `HarpsController` calls these from the main actor into a
+/// `nonisolated async` context, so the conforming instance crosses actors.
+protocol Transcriber: Sendable {
     func prepare() async throws
     func transcribe(fileAt url: URL) async throws -> String
 }
@@ -20,7 +23,12 @@ protocol Transcriber {
 /// is stable and available today, so the walking skeleton produces a real
 /// end-to-end result immediately. Swapping in SpeechAnalyzer once Spike C
 /// confirms it is exactly one new type conforming to `Transcriber`.
-final class OnDeviceTranscriber: Transcriber {
+///
+/// `@unchecked Sendable`: `SFSpeechRecognizer` is not `Sendable` and
+/// `activeTask` is mutable, but a single transcription runs at a time and only
+/// `HarpsController`'s one `Task` ever calls in, so there is no concurrent
+/// access to reason about.
+final class OnDeviceTranscriber: Transcriber, @unchecked Sendable {
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
 
     // Held for the duration of the call. Nothing else keeps the task alive,

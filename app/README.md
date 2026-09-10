@@ -5,9 +5,10 @@ at your caret, and a line is appended to today's Markdown file. Deliberately
 ugly — a plain rectangle, one hardcoded hotkey, no settings. Its only job is to
 answer PLAN.md's Phase 2 question: does this actually work?
 
-**This was written without a Mac available to build or run it on.** Expect to
-fix a signature or two on first build — normal for code that has never been
-compiled, and far cheaper to find here than to have designed around blind.
+**Status: compiles clean and links.** Built against the macOS 26 SDK with
+Swift 6 language mode and `-strict-concurrency=complete`, both from `swiftc`
+directly and through the generated Xcode project. Not yet *run* — that needs
+the permission grants below and a person holding the hotkey.
 
 ## What this reuses from Phase 0
 
@@ -37,37 +38,33 @@ Whisper's — only the spikes' full matrices answer those.
 
 ## Set up the Xcode project
 
-This is source files, not a `.xcodeproj` — generating that file by hand
-without Xcode produces something more likely to be subtly broken than useful.
-Five minutes in Xcode's wizard is more reliable:
+The `.xcodeproj` is generated from `project.yml` by [XcodeGen], so the pbxproj
+never has to be hand-edited or committed. `project.yml` already carries every
+setting the old manual wizard steps used to spell out: the two extra frameworks
+(`Speech`, `Carbon`), App Sandbox off, `Info.plist` and entitlements wired in,
+ad-hoc signing, Swift 6 with complete strict concurrency.
 
-1. **File → New → Project → macOS → App.** Name it `Harps`. Interface:
-   doesn't matter, you'll delete the generated one. Uncheck "Use Core Data"
-   and "Include Tests."
-2. **Delete** the generated `HarpsApp.swift` and `ContentView.swift` — this
-   app has no SwiftUI lifecycle and no views.
-3. **Add the files in this directory** to the target: `main.swift`, everything
-   under `Capture/`, `UI/`, `Storage/`, and `HarpsController.swift`. Keep the
-   groups matching the folders; nothing here depends on Xcode's group
-   structure, but it'll read the same as this repo.
-4. **Info.plist** — merge the three keys from the `Info.plist` in this
-   directory into the target's generated one (Xcode's "Info" tab under target
-   settings is easier than editing the file directly): `LSUIElement`,
-   `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`.
-5. **Signing & Capabilities tab** — leave **App Sandbox off**. That's the
-   default for a new target; just don't add the capability. This matches
-   `PLAN.md`: the sandbox and the Accessibility API needed for global hotkeys
-   don't coexist usefully.
-6. **Build Phases → Link Binary With Libraries** — add `Speech.framework`
-   and `Carbon.framework` (`AppKit`, `AVFoundation`, and `ApplicationServices`
-   are linked automatically for a macOS app target).
-7. **Build and run once from Xcode**, then quit it. This is what registers
-   the binary with the system so the next step's permission prompt is for the
-   right process.
+```bash
+brew install xcodegen        # once
+cd app && xcodegen generate  # writes Harps.xcodeproj (gitignored)
+```
+
+Then either open `Harps.xcodeproj` and build, or from the command line:
+
+```bash
+xcodebuild -project app/Harps.xcodeproj -scheme Harps -configuration Debug build
+```
+
+Re-run `xcodegen generate` after adding or removing source files. Editing the
+existing `.swift` files needs no regeneration.
+
+[XcodeGen]: https://github.com/yonaskolb/XcodeGen
 
 ## Grant permissions
 
-Do this after step 7, and expect to redo it once — see the note below.
+Build and run once from Xcode first, then quit it — that registers the binary
+so the prompts below are for the right process. Expect to redo the
+Accessibility grant once — see the note below.
 
 1. **System Settings › Privacy & Security › Accessibility** — add `Harps`
    (found under `~/Library/Developer/Xcode/DerivedData/.../Build/Products/Debug/`,
@@ -108,15 +105,10 @@ Phase 2's scope, not bugs:
 - **`SFSpeechRecognizer`, not `SpeechAnalyzer`.** Same reasoning as Spike C:
   a stable API that produces a real result today. `Transcriber.swift`'s
   protocol is the seam for swapping it in.
-- **Concurrency is hand-verified, not compiler-verified.** `HarpsController`
-  explicitly hops to `@MainActor` for the one `Task` that touches the panel
-  and the pasteboard, which is correct under any Swift concurrency mode. What
-  it does *not* do is chase full Swift 6 strict-concurrency `Sendable`
-  conformance across every type — annotating that correctly without a
-  compiler in front of me would mean guessing, and a wrong guess produces
-  more confusing errors than none at all. If Xcode's new-project wizard
-  defaults to the Swift 6 language mode and complains, the fix is almost
-  certainly adding `Sendable` (or `@unchecked Sendable`, since these types
-  are only ever touched from `HarpsController`'s single call site) to
-  `AudioRecorder`, `OnDeviceTranscriber`, `PasteTextInserter`, and
-  `TranscriptStore` — not a redesign.
+- **Concurrency is compiler-verified now, but not stress-tested.** The control
+  plane — `HarpsController`, `HotkeyMonitor`, `CapsulePanel` — is `@MainActor`.
+  The off-main types (`AudioRecorder`, `OnDeviceTranscriber`) carry
+  `@unchecked Sendable` with a comment saying why it holds: `HarpsController`
+  is their only owner and the audio tap never overlaps the start/stop calls.
+  That is sound under the current single-call-site design; a second caller, or
+  concurrent captures in Phase 3, would need it revisited rather than trusted.

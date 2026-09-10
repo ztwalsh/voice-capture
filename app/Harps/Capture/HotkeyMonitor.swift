@@ -7,6 +7,10 @@ import AppKit
 /// bug in Harps can never eat a keystroke meant for the app you're typing
 /// into. `CGEventTap` can intercept and would need far more care to make
 /// that same guarantee.
+///
+/// `@MainActor` because `NSEvent`'s global monitor delivers on the main thread
+/// and the callbacks drive main-actor work (the panel, the recorder lifecycle).
+@MainActor
 final class HotkeyMonitor {
     private var monitor: Any?
     private var isDown = false

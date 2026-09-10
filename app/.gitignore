@@ -1,0 +1,5 @@
+# Generated from project.yml by `xcodegen generate` — not committed.
+*.xcodeproj
+.swiftpm/
+DerivedData/
+build/

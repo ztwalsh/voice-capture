@@ -5,6 +5,7 @@ import AppKit
 // app without pulling in SwiftUI's App lifecycle for a UI Harps doesn't have.
 // See app/README.md for how this fits into an Xcode target.
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let controller = HarpsController()
 

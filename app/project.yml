@@ -1,0 +1,60 @@
+# XcodeGen spec for the Phase 2 walking skeleton.
+#
+# The Xcode project is generated from this file rather than committed, so the
+# pbxproj never has to be hand-edited or diffed:
+#
+#   brew install xcodegen        # once
+#   cd app && xcodegen generate  # writes Harps.xcodeproj
+#
+# Then open Harps.xcodeproj, or build from the command line:
+#
+#   xcodebuild -project app/Harps.xcodeproj -scheme Harps -configuration Debug build
+#
+# See app/README.md for permissions and the run loop.
+
+name: Harps
+
+options:
+  bundleIdPrefix: dev.harps
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    # Match what the source was written and verified against.
+    SWIFT_STRICT_CONCURRENCY: complete
+    # Ad-hoc signing: enough for a local build, and it gives the bundle a
+    # stable-enough identity for the Microphone and Speech grants. The
+    # Accessibility grant is still per-signature and will need re-adding
+    # after rebuilds — app/README.md covers that trap.
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    ENABLE_HARDENED_RUNTIME: "NO"
+
+targets:
+  Harps:
+    type: application
+    platform: macOS
+    sources:
+      - path: Harps
+        # Referenced through build settings below, not bundled as resources.
+        excludes:
+          - "Info.plist"
+          - "Harps.entitlements"
+    dependencies:
+      - sdk: Speech.framework
+      - sdk: Carbon.framework
+    settings:
+      base:
+        PRODUCT_NAME: Harps
+        PRODUCT_BUNDLE_IDENTIFIER: dev.harps.Harps
+        INFOPLIST_FILE: Harps/Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+        CODE_SIGN_ENTITLEMENTS: Harps/Harps.entitlements
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        # PLAN.md: the App Sandbox and the Accessibility API do not coexist
+        # usefully. Off means simply not adding the entitlement.
+        ENABLE_APP_SANDBOX: "NO"

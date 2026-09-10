@@ -8,6 +8,12 @@ import AppKit
 /// path to finding out whether that is even true is not to build the real
 /// architecture first. Phase 3 is where this becomes a proper state machine
 /// behind the capsule design.
+///
+/// `@MainActor` because it owns the panel and the hotkey monitor and is the
+/// single call site for the capture types. That isolation is what lets the
+/// off-main work — the audio tap and the transcription `Task` — stay small
+/// and explicit rather than forcing `Sendable` plumbing through the whole app.
+@MainActor
 final class HarpsController {
     private let hotkey = HotkeyMonitor()
     private let recorder = AudioRecorder()
@@ -34,7 +40,11 @@ final class HarpsController {
             System Settings › Privacy & Security › Accessibility, then
             relaunch.
             """)
-            let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            // The SDK exposes `kAXTrustedCheckOptionPrompt` as a mutable global,
+            // which Swift 6 rejects as non-concurrency-safe. Its value is the
+            // stable string below, so use that directly.
+            let promptKey = "AXTrustedCheckOptionPrompt" as CFString
+            let opts = [promptKey: true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(opts)
             return
         }
@@ -102,7 +112,7 @@ final class HarpsController {
                 }
 
                 let elapsed = Date().timeIntervalSince(startedAt)
-                try? store.append(text: text, appName: appName, duration: duration)
+                _ = try? store.append(text: text, appName: appName, duration: duration)
                 print(String(format: "Inserted %d words into %@ (%.2fs release-to-text)",
                              text.split(separator: " ").count, appName, elapsed))
                 panel.hide()
