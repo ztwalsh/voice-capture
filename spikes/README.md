@@ -133,9 +133,20 @@ Budget: **release to text under 1.5s for a 10-second utterance.**
 
 | Engine | Audio | Transcribe | Realtime | Accuracy, by eye |
 | --- | --- | --- | --- | --- |
-| SFSpeechRecognizer (on-device) | | | | |
-| SpeechAnalyzer | | | | |
-| whisper.cpp base.en | | | | |
+| SFSpeechRecognizer (on-device), take 1 | 10.3s | 0.563s | 18.3x | Clean — "OK I'm just going to say a bunch of stuff and that stuff I think will be given back into" |
+| SFSpeechRecognizer (on-device), take 2 | 10.4s | 0.366s | 28.4x | Clean — "I have three things in my hand one is a phone one is a popsicle and" |
+| SFSpeechRecognizer (on-device), take 3 | 10.3s | 0.368s | 27.9x | Clean — "I think there are four types of people in the world tall ones short ones smart ones and" |
+| SpeechAnalyzer | | | | not tried — see note below |
+| whisper.cpp base.en | | | | not tried — see note below |
+
+Run on macOS 26.6, Apple Silicon, 2026-09-11. All three takes land far inside
+budget — 18–28x realtime, 0.37–0.56s to transcribe a ~10s clip against a 1.5s
+target. Transcripts read as faithful captures of natural, run-on speech
+(including the mid-sentence cutoff where the 10s window ends), with no
+hallucinated words on silence. `SFSpeechRecognizer` is fast enough that there
+is no case for chasing `SpeechAnalyzer` or a Whisper fallback purely on
+latency; `SpeechAnalyzer` remains the documented upgrade path in `PLAN.md` for
+accuracy, but it isn't a budget-driven need.
 
 It keeps the recording so you can run the same file through whisper.cpp and
 compare like for like:
@@ -164,9 +175,9 @@ Phase 0 is done when:
   all eight apps.~~ **Done.** `paste` lands in all eight; it is the default,
   `ax` is a verified-only optimisation, `type` the last resort. Secure input is
   detected. Harps must read back every insertion rather than trust a result code.
-- A 10-second utterance transcribes inside the budget, with a named engine.
-  **Spike C still outstanding** — needs Speech Recognition granted to the
-  terminal and a live run.
+- ~~A 10-second utterance transcribes inside the budget, with a named engine.~~
+  **Done.** `SFSpeechRecognizer` (on-device), three takes, 18–28x realtime,
+  well under the 1.5s target.
 - ~~Focus provably never moves in all three Spike A apps.~~ **Done.** PASS in
   AppKit, Chromium and Electron; the Slack `PARTIAL` was an AX read-back limit,
   not a focus move (caret verified by eye).
