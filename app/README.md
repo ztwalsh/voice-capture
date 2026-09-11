@@ -5,10 +5,13 @@ at your caret, and a line is appended to today's Markdown file. Deliberately
 ugly — a plain rectangle, one hardcoded hotkey, no settings. Its only job is to
 answer PLAN.md's Phase 2 question: does this actually work?
 
-**Status: compiles clean and links.** Built against the macOS 26 SDK with
-Swift 6 language mode and `-strict-concurrency=complete`, both from `swiftc`
-directly and through the generated Xcode project. Not yet *run* — that needs
-the permission grants below and a person holding the hotkey.
+**Status: Phase 2 exit criteria met.** Run on macOS 26.6, Apple Silicon,
+2026-09-11: hold Right Option, speak, release, the sentence lands in TextEdit,
+release-to-text latency measured at 0.53s for a 15-word sentence — well under
+`PLAN.md`'s 1.5s budget. (An early run mismeasured this at several seconds
+because the clock started on hotkey-down instead of release, folding the
+speaking time into the number; fixed in `HarpsController.swift` by moving
+`startedAt = Date()` into `endCapture()`.)
 
 ## What this reuses from Phase 0
 

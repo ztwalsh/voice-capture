@@ -57,7 +57,6 @@ final class HarpsController {
 
     private func beginCapture() {
         frontmostAppName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
-        startedAt = Date()
 
         do {
             recordingURL = try recorder.start()
@@ -70,6 +69,7 @@ final class HarpsController {
 
     private func endCapture() {
         let duration = recorder.stop()
+        startedAt = Date()
         guard let url = recordingURL else { return }
         recordingURL = nil
 
