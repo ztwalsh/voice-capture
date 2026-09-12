@@ -68,6 +68,7 @@ private struct SidebarView: View {
                     }
                 }
                 .padding(.horizontal, 12)
+                .background(ScrollbarHider())
             }
 
             Spacer(minLength: 0)

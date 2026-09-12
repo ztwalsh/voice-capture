@@ -1,4 +1,40 @@
+import AppKit
 import SwiftUI
+
+/// `.scrollIndicators(.hidden)` — the documented SwiftUI way to do this —
+/// silently does not take effect anywhere in this app's history window,
+/// confirmed live: the scrollbar stayed visible in every tab after applying
+/// it and rebuilding. Same class of bug as the capsule's Reduce Motion
+/// environment key not propagating: this app hosts SwiftUI through
+/// `NSHostingView` inside plain `NSWindow`/`NSPanel` instances without a
+/// `WindowGroup`/`App` scene, which is unusual enough that some of
+/// SwiftUI's internal environment plumbing doesn't reach it. Going straight
+/// to the underlying `NSScrollView` sidesteps whatever that gap is.
+/// Applied as a zero-size `.background()` inside a `ScrollView`'s content
+/// so `enclosingScrollView` resolves to the real scroller.
+struct ScrollbarHider: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async { Self.hide(from: view) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { Self.hide(from: nsView) }
+    }
+
+    private static func hide(from view: NSView) {
+        guard let scrollView = view.enclosingScrollView else { return }
+        // `.overlay` is macOS's own "only while scrolling" transient
+        // scroller — keeping the scroller enabled but forcing this style is
+        // what actually gives that behavior. The system apparently defaults
+        // to `.legacy` (always visible) here, plausibly for the same
+        // hosting-environment reason `.scrollIndicators(.hidden)` itself
+        // didn't take effect.
+        scrollView.scrollerStyle = .overlay
+        scrollView.autohidesScrollers = true
+    }
+}
 
 /// design.md §3's colour tokens for the window — the sidebar, cards, and the
 /// `--up` accent none of which the capsule needs. Deliberately a separate

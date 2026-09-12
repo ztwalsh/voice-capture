@@ -102,6 +102,7 @@ struct TranscriptsView: View {
     private var libraryLayout: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
+                Color.clear.frame(width: 0, height: 0).background(ScrollbarHider())
                 ForEach(groupedByDay) { group in
                     Text(Self.dayHeaderFormatter.string(from: group.day))
                         .harpsType(HarpsType.section)
@@ -192,6 +193,7 @@ struct TranscriptsView: View {
             Divider().overlay(theme.hairline)
 
             ScrollView {
+                Color.clear.frame(width: 0, height: 0).background(ScrollbarHider())
                 if let url = displayedDayFileURL, let content = model.rawContent(at: url) {
                     DocumentBodyView(content: content, theme: theme, highlight: model.searchText)
                         .frame(maxWidth: 700, alignment: .leading)
@@ -276,6 +278,7 @@ private struct MarkdownPanelView: View {
             .overlay(Rectangle().frame(height: 1).foregroundColor(theme.hairline), alignment: .bottom)
 
             ScrollView {
+                Color.clear.frame(width: 0, height: 0).background(ScrollbarHider())
                 if let content = model.rawContent(at: url) {
                     DocumentBodyView(content: content, theme: theme)
                         .padding(12)

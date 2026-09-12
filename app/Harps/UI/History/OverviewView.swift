@@ -52,6 +52,7 @@ struct OverviewView: View {
                 }
             }
             .padding(28)
+            .background(ScrollbarHider())
         }
     }
 

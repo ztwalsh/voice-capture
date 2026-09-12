@@ -73,6 +73,7 @@ struct SettingsView: View {
                 }
             }
             .padding(28)
+            .background(ScrollbarHider())
         }
     }
 
