@@ -1,17 +1,60 @@
-# Harps — Phase 2 walking skeleton
+# Harps — Phase 3: the real capsule
 
 The full loop from `../PLAN.md`: hold a hotkey, speak, release, the text lands
-at your caret, and a line is appended to today's Markdown file. Deliberately
-ugly — a plain rectangle, one hardcoded hotkey, no settings. Its only job is to
-answer PLAN.md's Phase 2 question: does this actually work?
+at your caret, and a line is appended to today's Markdown file. Phase 2 proved
+that loop works with a placeholder rectangle; Phase 3 replaces it with the
+real capsule from `design.md`/`motion.md` — states, motion, the waveform — and
+a proper state machine covering the degenerate cases design.md's error table
+lists.
 
-**Status: Phase 2 exit criteria met.** Run on macOS 26.6, Apple Silicon,
-2026-09-11: hold Right Option, speak, release, the sentence lands in TextEdit,
-release-to-text latency measured at 0.53s for a 15-word sentence — well under
-`PLAN.md`'s 1.5s budget. (An early run mismeasured this at several seconds
-because the clock started on hotkey-down instead of release, folding the
-speaking time into the number; fixed in `HarpsController.swift` by moving
-`startedAt = Date()` into `endCapture()`.)
+**Status: Phase 3's capsule and state machine are in and working on real
+hardware**, macOS 26.6, Apple Silicon, 2026-09-11–12. What changed along the
+way, from live testing rather than from reading the spec twice:
+
+- **Engine swapped from `SFSpeechRecognizer` to `SpeechAnalyzer`.**
+  `SFSpeechRecognizer` turned out to silently drop everything spoken before a
+  mid-recording pause — it appears to treat a pause as an utterance boundary
+  and reset its running hypothesis, so only the last segment survived. Not
+  caught by Spike C, which only tested unbroken utterances. `SpeechAnalyzer`
+  (`Capture/SpeechAnalyzerTranscriber.swift`) is built for long-form,
+  non-live transcription and doesn't have that failure mode. This raises the
+  deployment target to macOS 26 — see `project.yml`'s comment on why that's a
+  non-issue for an app that only ever runs on the one Mac it's built on.
+- **Waveform amplitude switched from peak to RMS.** Peak was far too
+  sensitive to background hiss — bars sat tall at idle and saturated almost
+  immediately once talking. RMS (what motion.md actually specifies) sits much
+  lower at rest.
+- **A noise gate on top of that.** Even RMS didn't fully collapse to
+  design.md's flat 2px "not picking you up" silence signal, so amplitudes
+  below a threshold snap to true zero rather than blending through a
+  moderate resting height.
+- **The waveform's smoothing runs on its own steady 20ms clock**, decoupled
+  from the audio tap's own irregular delivery timing. Driving the smoothing
+  directly off the tap's callbacks read as "stop motion" — real hardware
+  delivers buffers at bursty, uneven intervals, and there was nothing
+  interpolating between them.
+- **`NSHostingView`'s backing layer needs its background forced transparent**
+  explicitly (`hosting.layer?.backgroundColor = .clear`) — it doesn't
+  inherit that from the panel's own `isOpaque`/`backgroundColor` settings.
+- **`panel.hasShadow = false` is required.** AppKit draws a system drop
+  shadow shaped to the whole (mostly invisible) window rectangle by default,
+  which shows up as a mismatched rectangular halo layered behind the
+  capsule's own SwiftUI shadow on just the pill shape.
+- **The capsule's shadow needs real clearance below it**, not just enough
+  room for the 16px rise — a 25px-blur, 18px-offset shadow was getting hard-
+  clipped by the panel's own frame, reading as a sharp cutoff rather than a
+  soft fade.
+- **The panel repositions to the cursor's screen before every capture.**
+  `NSScreen.main` tracks the key window, which this non-activating panel
+  never becomes, so on a multi-monitor setup it stayed pinned to whichever
+  screen happened to be main at launch rather than following the user.
+- **The timer shows "0:00" immediately** rather than staying hidden for 3
+  seconds as design.md's push-to-talk spec calls for — that read as a delay
+  in practice, not a deliberate omission, once actually watched during a
+  capture.
+
+Release-to-text latency after all of the above: 0.43–0.53s for 13-to-20-word
+sentences, well under `PLAN.md`'s 1.5s budget, into both TextEdit and Ghostty.
 
 ## What this reuses from Phase 0
 
@@ -23,7 +66,7 @@ combined into one real path:
 | `Capture/HotkeyMonitor.swift` | Spike A's global-monitor approach |
 | `UI/CapsulePanel.swift` | Spike A's non-activating panel |
 | `Capture/AudioRecorder.swift` | Spike C's 16kHz mono recording path |
-| `Capture/Transcriber.swift` | Spike C's `SFSpeechRecognizer` engine, behind a protocol |
+| `Capture/Transcriber.swift` | The protocol seam Spike C's engine sits behind — now `SpeechAnalyzerTranscriber`, see Phase 3 notes above |
 | `Capture/TextInserter.swift` | Spike B's paste strategy, behind a protocol |
 | `Storage/TranscriptStore.swift` | New — the Markdown-per-day format from `PLAN.md` §2 |
 
@@ -96,18 +139,15 @@ Transcripts land in `~/Library/Application Support/Harps/transcripts/`, one
 
 ## What's known-incomplete, on purpose
 
-Phase 2's scope, not bugs:
+Not Phase 3's scope yet:
 
 - **One hotkey, hardcoded.** Right Option, push-to-talk only. No menu bar
-  item yet — that's `capture-v2.html`'s design, and it's Phase 3.
-- **The panel is a rectangle.** The real capsule — states, motion, the
-  waveform — is `design.md` and `motion.md`, built in Phase 3.
+  item or toggle mode yet — that's `capture-v2.html`'s other half, and it's
+  Phase 4/5 territory alongside the history window and settings.
 - **No settings, no history window.** Phase 4 and 5.
-- **Errors print to the console**, they don't show a friendly message beyond
-  the plain-text state the rectangle already carries.
-- **`SFSpeechRecognizer`, not `SpeechAnalyzer`.** Same reasoning as Spike C:
-  a stable API that produces a real result today. `Transcriber.swift`'s
-  protocol is the seam for swapping it in.
+- **Errors print to the console in addition to the capsule.** The capsule
+  now shows every error state from design.md's table, but there's no log
+  view beyond the raw console for anything that scrolls past.
 - **Concurrency is compiler-verified now, but not stress-tested.** The control
   plane — `HarpsController`, `HotkeyMonitor`, `CapsulePanel` — is `@MainActor`.
   The off-main types (`AudioRecorder`, `OnDeviceTranscriber`) carry

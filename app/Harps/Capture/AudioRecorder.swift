@@ -47,10 +47,11 @@ final class AudioRecorder: @unchecked Sendable {
     private var file: AVAudioFile?
     private(set) var peakLevel: Float = 0
 
-    /// Called ~20 times a second while recording, with amplitude 0...1, on the
-    /// audio tap's thread — hence `@Sendable`. The walking skeleton's rectangle
-    /// does nothing with this; it exists because the panel in Phase 3 needs it
-    /// and the tap is the only place to compute it cheaply.
+    /// Called roughly every buffer while recording (~40-90Hz depending on
+    /// hardware), with the buffer's RMS amplitude 0...1, on the audio tap's
+    /// thread — hence `@Sendable`. `CapsuleViewModel` treats this as a raw,
+    /// possibly-jittery target rather than a per-frame value to render
+    /// directly; its own steady clock does the actual smoothing.
     var onLevel: (@Sendable (Float) -> Void)?
 
     func start() throws -> URL {
@@ -112,10 +113,21 @@ final class AudioRecorder: @unchecked Sendable {
         try? file.write(from: out)
 
         if let channel = out.floatChannelData?[0] {
+            let count = Int(out.frameLength)
             var peak: Float = 0
-            for i in 0..<Int(out.frameLength) { peak = max(peak, abs(channel[i])) }
+            var sumSquares: Float = 0
+            for i in 0..<count {
+                let sample = channel[i]
+                peak = max(peak, abs(sample))
+                sumSquares += sample * sample
+            }
             peakLevel = peak
-            onLevel?(peak)
+            // motion.md's waveform spec calls for RMS over the window, not
+            // instantaneous peak — peak is far more sensitive to background
+            // hiss and brief transients, which made the capsule's waveform
+            // sit tall at idle and saturate almost immediately once talking.
+            let rms = count > 0 ? sqrt(sumSquares / Float(count)) : 0
+            onLevel?(rms)
         }
     }
 }

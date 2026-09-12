@@ -18,7 +18,11 @@ options:
   bundleIdPrefix: dev.harps
   createIntermediateGroups: true
   deploymentTarget:
-    macOS: "14.0"
+    # SpeechAnalyzer/SpeechTranscriber need macOS 26. This app only ever runs
+    # on the one Mac it's built on, so there's no real cost to raising this
+    # from 14.0 rather than carrying `@available` checks for a fallback path
+    # nothing exercises.
+    macOS: "26.0"
 
 settings:
   base:

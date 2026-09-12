@@ -3,11 +3,12 @@ import AppKit
 /// The whole loop: hotkey down starts recording, hotkey up stops it,
 /// transcribes, inserts at the caret, and appends to today's file.
 ///
-/// Phase 2 in one class on purpose — PLAN.md's exit criteria is "you dictate
-/// a real sentence into a real app and the text appears," and the shortest
-/// path to finding out whether that is even true is not to build the real
-/// architecture first. Phase 3 is where this becomes a proper state machine
-/// behind the capsule design.
+/// Phase 3 per PLAN.md: the placeholder rectangle is now the real capsule
+/// from design.md/motion.md (`CapsulePanel`/`CapsuleViewModel`), and this
+/// class drives its states properly rather than pushing raw strings at a
+/// label. The degenerate cases design.md's error table lists — no
+/// microphone, no speech, secure input, transcription failure, insertion
+/// failure — each get their own branch below instead of one generic catch.
 ///
 /// `@MainActor` because it owns the panel and the hotkey monitor and is the
 /// single call site for the capture types. That isolation is what lets the
@@ -17,7 +18,7 @@ import AppKit
 final class HarpsController {
     private let hotkey = HotkeyMonitor()
     private let recorder = AudioRecorder()
-    private let transcriber: Transcriber = OnDeviceTranscriber()
+    private let transcriber: Transcriber = SpeechAnalyzerTranscriber()
     private let inserter: TextInserter = PasteTextInserter()
     private let store = TranscriptStore()
     private let panel = CapsulePanel()
@@ -32,6 +33,7 @@ final class HarpsController {
 
     func start() {
         guard AXIsProcessTrusted() else {
+            panel.showError("Needs Accessibility access")
             print("""
             Accessibility permission is required and not yet granted.
 
@@ -60,10 +62,18 @@ final class HarpsController {
 
         do {
             recordingURL = try recorder.start()
-            panel.show(text: "● Listening")
+            // The tap thread delivers these off the main actor, ~45 times a
+            // second, from a realtime audio thread — `DispatchQueue.main.async`
+            // rather than `Task { @MainActor in }` deliberately, since
+            // spinning a structured-concurrency task per callback at that
+            // rate from a realtime thread is exactly the kind of scheduling
+            // overhead that shows up as waveform stutter.
+            recorder.onLevel = { [weak self] peak in
+                DispatchQueue.main.async { self?.panel.pushLevel(peak) }
+            }
+            panel.showListening()
         } catch {
-            panel.show(text: "No microphone")
-            hidePanelAfterDelay()
+            panel.showError("No microphone")
         }
     }
 
@@ -74,13 +84,12 @@ final class HarpsController {
         recordingURL = nil
 
         guard duration >= minimumCaptureDuration else {
-            panel.show(text: "Didn't catch anything")
-            hidePanelAfterDelay()
+            panel.showError("Didn't catch anything")
             try? FileManager.default.removeItem(at: url)
             return
         }
 
-        panel.update(text: "Transcribing…")
+        panel.showTranscribing()
 
         let appName = frontmostAppName
         // Explicitly on the main actor: an unstructured `Task {}` does not
@@ -94,20 +103,21 @@ final class HarpsController {
                 try? FileManager.default.removeItem(at: url)
 
                 guard !text.trimmingCharacters(in: .whitespaces).isEmpty else {
-                    panel.update(text: "Didn't catch anything")
-                    hidePanelAfterDelay()
+                    panel.showError("Didn't catch anything")
                     return
                 }
 
                 do {
                     try inserter.insert(text)
                 } catch TextInserterError.secureInputActive {
-                    panel.update(text: "Can't type into a password field")
-                    hidePanelAfterDelay()
+                    panel.showError("Can't type into a password field")
                     return
                 } catch {
-                    panel.update(text: "Couldn't insert — check the log")
-                    hidePanelAfterDelay()
+                    // design.md §5: insertion failing never loses the text —
+                    // it goes to the clipboard, and the message says so.
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                    panel.showError("Copied to clipboard instead")
                     return
                 }
 
@@ -115,17 +125,12 @@ final class HarpsController {
                 _ = try? store.append(text: text, appName: appName, duration: duration)
                 print(String(format: "Inserted %d words into %@ (%.2fs release-to-text)",
                              text.split(separator: " ").count, appName, elapsed))
+                // design.md §5: "Inserted" has no visual state of its own —
+                // the text landing in the target app is the confirmation.
                 panel.hide()
             } catch {
-                panel.update(text: "Couldn't transcribe that")
-                hidePanelAfterDelay()
+                panel.showError("Couldn't transcribe that")
             }
-        }
-    }
-
-    private func hidePanelAfterDelay(_ seconds: TimeInterval = 2.0) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
-            self?.panel.hide()
         }
     }
 }
