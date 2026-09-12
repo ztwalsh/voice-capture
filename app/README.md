@@ -1,11 +1,27 @@
-# Harps — Phase 3: the real capsule
+# Harps — Phase 4: the history window
 
 The full loop from `../PLAN.md`: hold a hotkey, speak, release, the text lands
 at your caret, and a line is appended to today's Markdown file. Phase 2 proved
-that loop works with a placeholder rectangle; Phase 3 replaces it with the
-real capsule from `design.md`/`motion.md` — states, motion, the waveform — and
-a proper state machine covering the degenerate cases design.md's error table
-lists.
+that loop works with a placeholder rectangle; Phase 3 replaced it with the
+real capsule from `design.md`/`motion.md`; Phase 4 adds the window you open to
+get your transcripts back.
+
+**Status: the full design.md §7 window, not just PLAN.md's narrower Phase 4
+exit criteria.** Sidebar with Overview/Transcripts/Settings, a captures-per-
+day chart, Library and Document layouts, search across both (including
+match highlighting and day-filtering in Document mode), a `.md` panel, copy/
+delete/reveal-in-Finder on every capture, and a Settings page. Confirmed
+functionally working on real hardware, 2026-09-12 — search, both layouts,
+and all three card actions tested directly. Visual fidelity to design.md's
+exact type/spacing/hover-state spec is a known gap, not yet a priority pass:
+this uses system fonts (not Geist/Geist Mono, which the window doesn't
+bundle), approximate spacing, no hover-revealed actions, and a chart with no
+crosshair/tooltip. That polish is intentionally deferred rather than done.
+
+There was no way to open this window before now — the hotkey alone can't do
+it — so this also adds a minimal `NSStatusItem` menu bar icon
+(`UI/StatusItemController.swift`) with "Open Harps" and "Quit", pulled
+forward from Phase 5's fuller menu bar item/popover out of necessity.
 
 **Status: Phase 3's capsule and state machine are in and working on real
 hardware**, macOS 26.6, Apple Silicon, 2026-09-11–12. What changed along the
