@@ -10,6 +10,13 @@ import AppKit
 /// microphone, no speech, secure input, transcription failure, insertion
 /// failure — each get their own branch below instead of one generic catch.
 ///
+/// Phase 5 adds live Accessibility monitoring rather than a one-time check
+/// at launch: PLAN.md's onboarding requirement is to "recover gracefully if
+/// permission is revoked later," which only means something if the app
+/// also *starts* working the moment permission is granted without needing
+/// a relaunch — both directions of that transition are handled by
+/// `checkAccessibility()` below, polled every 2s.
+///
 /// `@MainActor` because it owns the panel and the hotkey monitor and is the
 /// single call site for the capture types. That isolation is what lets the
 /// off-main work — the audio tap and the transcription `Task` — stay small
@@ -31,30 +38,51 @@ final class HarpsController {
     private var frontmostAppName = "Unknown"
     private var startedAt = Date()
 
-    func start() {
-        guard AXIsProcessTrusted() else {
-            panel.showError("Needs Accessibility access")
-            print("""
-            Accessibility permission is required and not yet granted.
+    private var isRunning = false
+    private var hasPromptedForAccessibility = false
+    private var permissionPollTask: Task<Void, Never>?
 
-            Grant it to the app you launched (or, if running via
-            `swift run`/Xcode's debugger, to the parent process) under
-            System Settings › Privacy & Security › Accessibility, then
-            relaunch.
-            """)
+    /// Set by `AppDelegate` to open the onboarding window — this class
+    /// knows *when* permissions matter, not how to show onboarding UI.
+    var onNeedsPermissions: (() -> Void)?
+
+    func start() {
+        checkAccessibility()
+        permissionPollTask?.cancel()
+        permissionPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self, !Task.isCancelled else { return }
+                self.checkAccessibility()
+            }
+        }
+    }
+
+    private func checkAccessibility() {
+        let trusted = AXIsProcessTrusted()
+        if trusted, !isRunning {
+            isRunning = true
+            hotkey.onDown = { [weak self] in self?.beginCapture() }
+            hotkey.onUp = { [weak self] in self?.endCapture() }
+            hotkey.start()
+            AppLog.shared.info("Harps is running. Hold Right Option anywhere to dictate.")
+        } else if !trusted, isRunning {
+            isRunning = false
+            hotkey.stop()
+            AppLog.shared.error("Accessibility access was revoked — capture stopped.")
+            panel.showError("Needs Accessibility access")
+            onNeedsPermissions?()
+        } else if !trusted, !hasPromptedForAccessibility {
+            hasPromptedForAccessibility = true
+            panel.showError("Needs Accessibility access")
+            onNeedsPermissions?()
             // The SDK exposes `kAXTrustedCheckOptionPrompt` as a mutable global,
             // which Swift 6 rejects as non-concurrency-safe. Its value is the
             // stable string below, so use that directly.
             let promptKey = "AXTrustedCheckOptionPrompt" as CFString
             let opts = [promptKey: true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(opts)
-            return
         }
-
-        hotkey.onDown = { [weak self] in self?.beginCapture() }
-        hotkey.onUp = { [weak self] in self?.endCapture() }
-        hotkey.start()
-        print("Harps is running. Hold Right Option anywhere to dictate.")
     }
 
     private func beginCapture() {
@@ -73,6 +101,7 @@ final class HarpsController {
             }
             panel.showListening()
         } catch {
+            AppLog.shared.error("Couldn't start recording: \(error.localizedDescription)")
             panel.showError("No microphone")
         }
     }
@@ -85,7 +114,7 @@ final class HarpsController {
 
         guard duration >= minimumCaptureDuration else {
             panel.showError("Didn't catch anything")
-            try? FileManager.default.removeItem(at: url)
+            finishWithRecording(at: url)
             return
         }
 
@@ -100,7 +129,7 @@ final class HarpsController {
             do {
                 try await transcriber.prepare()
                 let text = try await transcriber.transcribe(fileAt: url)
-                try? FileManager.default.removeItem(at: url)
+                finishWithRecording(at: url)
 
                 guard !text.trimmingCharacters(in: .whitespaces).isEmpty else {
                     panel.showError("Didn't catch anything")
@@ -115,6 +144,7 @@ final class HarpsController {
                 } catch {
                     // design.md §5: insertion failing never loses the text —
                     // it goes to the clipboard, and the message says so.
+                    AppLog.shared.error("Insertion into \(appName) failed: \(error.localizedDescription)")
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(text, forType: .string)
                     panel.showError("Copied to clipboard instead")
@@ -123,14 +153,29 @@ final class HarpsController {
 
                 let elapsed = Date().timeIntervalSince(startedAt)
                 _ = try? store.append(text: text, appName: appName, duration: duration)
-                print(String(format: "Inserted %d words into %@ (%.2fs release-to-text)",
-                             text.split(separator: " ").count, appName, elapsed))
+                AppLog.shared.info(String(format: "Inserted %d words into %@ (%.2fs release-to-text)",
+                                           text.split(separator: " ").count, appName, elapsed))
                 // design.md §5: "Inserted" has no visual state of its own —
                 // the text landing in the target app is the confirmation.
                 panel.hide()
             } catch {
+                AppLog.shared.error("Transcription failed: \(error.localizedDescription)")
                 panel.showError("Couldn't transcribe that")
             }
         }
+    }
+
+    /// design.md's privacy posture: audio has no use after transcription
+    /// and is deleted by default. `keepAudioForDebug` is the one settings
+    /// row that actually changes app behavior — when it's on, the recording
+    /// moves to a debug folder instead of being deleted.
+    private func finishWithRecording(at url: URL) {
+        guard SettingsStore.shared.keepAudioForDebug else {
+            try? FileManager.default.removeItem(at: url)
+            return
+        }
+        let directory = SettingsStore.debugAudioDirectory
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? FileManager.default.moveItem(at: url, to: directory.appendingPathComponent(url.lastPathComponent))
     }
 }

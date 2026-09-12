@@ -40,9 +40,11 @@ final class HistoryViewModel: ObservableObject {
     @Published private(set) var captures: [Capture] = []
 
     private let store: TranscriptStore
+    let onOpenSetup: () -> Void
 
-    init(store: TranscriptStore) {
+    init(store: TranscriptStore, onOpenSetup: @escaping () -> Void = {}) {
         self.store = store
+        self.onOpenSetup = onOpenSetup
         reload()
     }
 

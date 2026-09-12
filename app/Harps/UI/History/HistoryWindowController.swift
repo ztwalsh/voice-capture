@@ -12,8 +12,8 @@ import SwiftUI
 final class HistoryWindowController: NSWindowController {
     private let model: HistoryViewModel
 
-    init(store: TranscriptStore) {
-        model = HistoryViewModel(store: store)
+    init(store: TranscriptStore, onOpenSetup: @escaping () -> Void = {}) {
+        model = HistoryViewModel(store: store, onOpenSetup: onOpenSetup)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1140, height: 720),

@@ -8,12 +8,24 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let controller = HarpsController()
-    private let historyWindow = HistoryWindowController(store: TranscriptStore())
+    private let onboardingWindow = OnboardingWindowController()
+    private lazy var historyWindow = HistoryWindowController(
+        store: TranscriptStore(),
+        onOpenSetup: { [weak self] in self?.onboardingWindow.show() }
+    )
     private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // A revoked-permission notice from `HarpsController` and the user's
+        // own "Permissions…" menu item both just open this same window —
+        // it always shows live state, so there's nothing more to wire up
+        // for either case.
+        controller.onNeedsPermissions = { [weak self] in self?.onboardingWindow.show() }
         controller.start()
-        statusItem = StatusItemController { [weak self] in self?.historyWindow.show() }
+        statusItem = StatusItemController(
+            onOpenHistory: { [weak self] in self?.historyWindow.show() },
+            onOpenSetup: { [weak self] in self?.onboardingWindow.show() }
+        )
     }
 }
 

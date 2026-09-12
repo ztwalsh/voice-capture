@@ -10,9 +10,11 @@ import AppKit
 final class StatusItemController {
     private let statusItem: NSStatusItem
     private let onOpenHistory: () -> Void
+    private let onOpenSetup: () -> Void
 
-    init(onOpenHistory: @escaping () -> Void) {
+    init(onOpenHistory: @escaping () -> Void, onOpenSetup: @escaping () -> Void) {
         self.onOpenHistory = onOpenHistory
+        self.onOpenSetup = onOpenSetup
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             let mark = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { rect in
@@ -35,6 +37,7 @@ final class StatusItemController {
 
         let menu = NSMenu()
         menu.addItem(withTitle: "Open Harps", action: #selector(openHistory), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Permissions…", action: #selector(openSetup), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Harps", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem.menu = menu
@@ -42,6 +45,10 @@ final class StatusItemController {
 
     @objc private func openHistory() {
         onOpenHistory()
+    }
+
+    @objc private func openSetup() {
+        onOpenSetup()
     }
 
     @objc private func quit() {

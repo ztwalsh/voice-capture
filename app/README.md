@@ -1,10 +1,46 @@
-# Harps — Phase 4: the history window
+# Harps
 
 The full loop from `../PLAN.md`: hold a hotkey, speak, release, the text lands
 at your caret, and a line is appended to today's Markdown file. Phase 2 proved
 that loop works with a placeholder rectangle; Phase 3 replaced it with the
-real capsule from `design.md`/`motion.md`; Phase 4 adds the window you open to
-get your transcripts back.
+real capsule from `design.md`/`motion.md`; Phase 4 added the window you open
+to get your transcripts back; Phase 5 makes it something you'd actually
+install and use daily rather than run from Xcode.
+
+**Status: all five of PLAN.md's phases have a working first pass**, all
+confirmed on real hardware. What follows is written phase-by-phase as it was
+built, oldest first — treat the top of the file as current and the sections
+below it as the history of how it got there.
+
+## Phase 5 — onboarding, real settings, logging, and a build script
+
+- **Onboarding** (`UI/Onboarding/`) checks Microphone, Speech Recognition,
+  and Accessibility live — polled every second, not cached — and offers the
+  right action for each: the two that use a normal system prompt get a
+  "Grant" button, Accessibility (which can't be requested with a dialog) gets
+  "Open Settings". Reachable from the menu bar's "Permissions…" or
+  automatically whenever `HarpsController` notices Accessibility isn't
+  granted.
+- **`HarpsController` now polls Accessibility every 2s instead of checking
+  once at launch.** PLAN.md's onboarding requirement is to "recover
+  gracefully if permission is revoked later," which only means something if
+  the app also *starts* working the moment permission is granted without a
+  relaunch — confirmed both directions on real hardware: toggling
+  Accessibility off mid-session stops capture and reopens onboarding;
+  toggling it back on resumes the hotkey with no relaunch.
+- **Real settings**, backed by `Storage/SettingsStore.swift`: launch at login
+  (`SMAppService`) and keep-audio-for-debugging are genuine, working
+  controls. Hotkey/model/insertion-strategy stay informational text in
+  Settings — each has exactly one implementation, so a picker with one
+  option would be UI theater.
+- **Logging through `OSLog`** (`Storage/AppLog.swift`) replaces every
+  `print()`. Errors and key events also land in a small in-memory ring
+  buffer shown as "Recent Activity" on the Settings page, so seeing what
+  went wrong doesn't require Console.app.
+- **`build.sh`** regenerates the Xcode project and produces an ad-hoc-signed,
+  runnable `Harps.app` in `app/build/` without opening Xcode.
+
+## Phase 4 — the history window
 
 **Status: the full design.md §7 window, not just PLAN.md's narrower Phase 4
 exit criteria.** Sidebar with Overview/Transcripts/Settings, a captures-per-
@@ -23,7 +59,9 @@ it — so this also adds a minimal `NSStatusItem` menu bar icon
 (`UI/StatusItemController.swift`) with "Open Harps" and "Quit", pulled
 forward from Phase 5's fuller menu bar item/popover out of necessity.
 
-**Status: Phase 3's capsule and state machine are in and working on real
+## Phase 3 — the real capsule
+
+**Status: the capsule and state machine are in and working on real
 hardware**, macOS 26.6, Apple Silicon, 2026-09-11–12. What changed along the
 way, from live testing rather than from reading the spec twice:
 
@@ -120,6 +158,10 @@ xcodebuild -project app/Harps.xcodeproj -scheme Harps -configuration Debug build
 Re-run `xcodegen generate` after adding or removing source files. Editing the
 existing `.swift` files needs no regeneration.
 
+Or skip both steps with `./build.sh`, which regenerates the project and
+produces an ad-hoc-signed, runnable `Harps.app` in `app/build/` — PLAN.md
+Phase 5's build script.
+
 [XcodeGen]: https://github.com/yonaskolb/XcodeGen
 
 ## Grant permissions
@@ -142,32 +184,36 @@ remove and re-add Harps in the Accessibility list rather than debugging the
 code. (Microphone and Speech Recognition grants aren't affected the same way;
 it's specifically Accessibility that's this fragile.)
 
-## Run it
+## Using Harps
 
-Hold **Right Option**, speak a full sentence, release, watch it land wherever
-your cursor was. The terminal running Xcode's console prints the release-to-
-text latency on every successful capture — that number against the 1.5s
-budget in `PLAN.md` is the other half of Phase 2's exit criteria, alongside
-"a real sentence lands in a real app."
+Hold **Right Option** anywhere, speak, release — the text lands wherever
+your cursor was. Click the caret icon in the menu bar for **Open Harps**
+(the history window: search, browse, copy, delete, reveal in Finder),
+**Permissions…** (live status for all three grants), or **Quit Harps**.
 
-Transcripts land in `~/Library/Application Support/Harps/transcripts/`, one
-`.md` file per day.
+**Your data.** Everything lives in
+`~/Library/Application Support/Harps/`: `transcripts/YYYY-MM-DD.md`, one
+plain Markdown file per day, readable and editable in any text editor —
+there is no database and no export step, because the file *is* the export.
+Delete a day file to delete that day's history; nothing else references it.
+
+**Permissions.** Accessibility, Microphone, and Speech Recognition. None of
+it leaves the Mac — Speech Recognition here means on-device transcription,
+not a network call. Revoking any of them is detected live and stops capture
+until it's granted again; no relaunch needed either direction.
 
 ## What's known-incomplete, on purpose
 
-Not Phase 3's scope yet:
-
-- **One hotkey, hardcoded.** Right Option, push-to-talk only. No menu bar
-  item or toggle mode yet — that's `capture-v2.html`'s other half, and it's
-  Phase 4/5 territory alongside the history window and settings.
-- **No settings, no history window.** Phase 4 and 5.
-- **Errors print to the console in addition to the capsule.** The capsule
-  now shows every error state from design.md's table, but there's no log
-  view beyond the raw console for anything that scrolls past.
-- **Concurrency is compiler-verified now, but not stress-tested.** The control
+- **One hotkey, hardcoded.** Right Option, push-to-talk only — no toggle
+  mode or the fuller menu-bar popover from `capture-v2.html` (record button,
+  recent captures inline). The current menu bar item is deliberately minimal.
+- **Hotkey/model/insertion strategy aren't switchable.** Each has exactly one
+  implementation, shown as informational text in Settings rather than a
+  picker with one option.
+- **Concurrency is compiler-verified, but not stress-tested.** The control
   plane — `HarpsController`, `HotkeyMonitor`, `CapsulePanel` — is `@MainActor`.
-  The off-main types (`AudioRecorder`, `OnDeviceTranscriber`) carry
+  The off-main types (`AudioRecorder`, `SpeechAnalyzerTranscriber`) carry
   `@unchecked Sendable` with a comment saying why it holds: `HarpsController`
   is their only owner and the audio tap never overlaps the start/stop calls.
-  That is sound under the current single-call-site design; a second caller, or
-  concurrent captures in Phase 3, would need it revisited rather than trusted.
+  That is sound under the current single-call-site design; a second caller,
+  or concurrent captures, would need it revisited rather than trusted.

@@ -1,4 +1,4 @@
-# XcodeGen spec for the Phase 2 walking skeleton.
+# XcodeGen spec for Harps.
 #
 # The Xcode project is generated from this file rather than committed, so the
 # pbxproj never has to be hand-edited or diffed:
@@ -50,6 +50,7 @@ targets:
     dependencies:
       - sdk: Speech.framework
       - sdk: Carbon.framework
+      - sdk: ServiceManagement.framework
     settings:
       base:
         PRODUCT_NAME: Harps
