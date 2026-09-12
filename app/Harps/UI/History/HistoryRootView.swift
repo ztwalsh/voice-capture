@@ -55,8 +55,7 @@ private struct SidebarView: View {
             .padding(.top, 8)
 
             Text("RECENT")
-                .font(.system(size: 9.5, design: .monospaced))
-                .tracking(1.2)
+                .harpsType(HarpsType.section)
                 .foregroundColor(theme.textFaint)
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
@@ -84,7 +83,8 @@ private struct SidebarView: View {
                 .background(theme.text, in: RoundedRectangle(cornerRadius: 7))
                 .foregroundColor(theme.bg)
             Text("Harps")
-                .font(.system(size: 13.5, weight: .semibold))
+                .font(.custom("Geist-SemiBold", size: 13.5))
+                .tracking(-0.02 * 13.5)
                 .foregroundColor(theme.text)
             Spacer()
         }
@@ -104,7 +104,7 @@ private struct SidebarView: View {
                     .frame(width: 16)
                     .opacity(selected ? 1 : 0.62)
                 Text(destination.rawValue)
-                    .font(.system(size: 13, weight: selected ? .medium : .regular))
+                    .font(.custom(selected ? "Geist-Medium" : "Geist-Regular", size: 13))
                 Spacer()
             }
             .foregroundColor(selected ? theme.text : theme.textMuted)
@@ -124,12 +124,12 @@ private struct SidebarView: View {
             HStack(spacing: 6) {
                 Text("→").foregroundColor(theme.textFaint)
                 Text(Self.dayFormatter.string(from: day))
-                    .font(.system(size: 12.5))
+                    .harpsType(HarpsType.bodySmall)
                     .foregroundColor(theme.textMuted)
                 Spacer()
                 if shortcutIndex <= 9 {
                     Text("⌘\(shortcutIndex)")
-                        .font(.system(size: 10, design: .monospaced))
+                        .harpsType(HarpsType.metaSmall)
                         .foregroundColor(theme.textFaint)
                 }
             }
@@ -143,7 +143,7 @@ private struct SidebarView: View {
     private var footer: some View {
         HStack(spacing: 6) {
             Text(model.transcriptsDirectory.path)
-                .font(.system(size: 10, design: .monospaced))
+                .harpsType(HarpsType.metaSmall)
                 .foregroundColor(theme.textFaint)
                 .lineLimit(1)
                 .truncationMode(.head)

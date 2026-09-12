@@ -25,11 +25,11 @@ struct CaptureCardView: View {
                 Spacer()
                 actions
             }
-            .font(.system(size: 10.5, design: .monospaced))
+            .harpsType(HarpsType.meta)
             .foregroundColor(theme.labelMono)
 
             Text(capture.text)
-                .font(.system(size: 13.5))
+                .harpsType(HarpsType.body)
                 .foregroundColor(theme.text)
                 .lineLimit(expanded ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true)

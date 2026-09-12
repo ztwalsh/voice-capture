@@ -17,25 +17,25 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Settings")
-                    .font(.system(size: 17, weight: .semibold))
+                    .harpsType(HarpsType.title)
                     .foregroundColor(theme.text)
                     .padding(.bottom, 20)
 
                 row(label: "Hotkey", explanation: "Push-to-talk trigger, held anywhere in macOS.") {
-                    Text("⌥ Right Option").font(.system(size: 12.5, design: .monospaced))
+                    Text("⌥ Right Option").harpsType(HarpsType.metaSmall)
                 }
                 row(label: "Model", explanation: "The on-device engine used to transcribe.") {
-                    Text("SpeechAnalyzer").font(.system(size: 12.5))
+                    Text("SpeechAnalyzer").harpsType(HarpsType.bodySmall)
                 }
                 row(label: "Insertion strategy", explanation: "How text lands at your cursor.") {
-                    Text("Paste").font(.system(size: 12.5))
+                    Text("Paste").harpsType(HarpsType.bodySmall)
                 }
                 row(label: "Transcript folder", explanation: "Where your dictated text is kept.") {
                     Button(model.transcriptsDirectory.path) {
                         NSWorkspace.shared.activateFileViewerSelecting([model.transcriptsDirectory])
                     }
                     .buttonStyle(.plain)
-                    .font(.system(size: 11.5, design: .monospaced))
+                    .harpsType(HarpsType.caption)
                     .foregroundColor(theme.textMuted)
                 }
                 row(label: "Launch at login", explanation: "Start Harps automatically when you sign in.") {
@@ -53,8 +53,7 @@ struct SettingsView: View {
 
                 if !log.recentEntries.isEmpty {
                     Text("RECENT ACTIVITY")
-                        .font(.system(size: 9.5, design: .monospaced))
-                        .tracking(1.2)
+                        .harpsType(HarpsType.section)
                         .foregroundColor(theme.textFaint)
                         .padding(.top, 24)
                         .padding(.bottom, 8)
@@ -62,10 +61,10 @@ struct SettingsView: View {
                         ForEach(log.recentEntries.prefix(20)) { entry in
                             HStack(alignment: .top, spacing: 8) {
                                 Text(Self.timeFormatter.string(from: entry.date))
-                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .harpsType(HarpsType.meta)
                                     .foregroundColor(theme.textFaint)
                                 Text(entry.message)
-                                    .font(.system(size: 11.5))
+                                    .harpsType(HarpsType.caption)
                                     .foregroundColor(entry.level == .error ? theme.live : theme.textMuted)
                             }
                         }
@@ -86,10 +85,10 @@ struct SettingsView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .harpsType(HarpsType.bodyMedium)
                     .foregroundColor(theme.text)
                 Text(explanation)
-                    .font(.system(size: 11.5))
+                    .harpsType(HarpsType.caption)
                     .foregroundColor(theme.textSubtle)
             }
             Spacer()
@@ -102,7 +101,7 @@ struct SettingsView: View {
 
     private func statement(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .medium))
+            .font(.custom("Geist-Medium", size: 12))
             .foregroundColor(theme.textMuted)
             .padding(.vertical, 10)
     }

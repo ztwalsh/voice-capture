@@ -35,7 +35,7 @@ struct TranscriptsView: View {
     private var header: some View {
         HStack(spacing: 14) {
             Text("Transcripts")
-                .font(.system(size: 17, weight: .semibold))
+                .harpsType(HarpsType.title)
                 .foregroundColor(theme.text)
 
             pillTabs
@@ -74,7 +74,7 @@ struct TranscriptsView: View {
                     model.transcriptsLayout = layout
                 } label: {
                     Text(layout.rawValue)
-                        .font(.system(size: 12, weight: selected ? .medium : .regular))
+                        .font(.custom(selected ? "Geist-Medium" : "Geist-Regular", size: 12))
                         .foregroundColor(selected ? theme.text : theme.textMuted)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 5)
@@ -92,8 +92,7 @@ struct TranscriptsView: View {
             LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(groupedByDay) { group in
                     Text(Self.dayHeaderFormatter.string(from: group.day))
-                        .font(.system(size: 9.5, design: .monospaced))
-                        .tracking(1.2)
+                        .harpsType(HarpsType.section)
                         .foregroundColor(theme.textFaint)
                         .padding(.top, 10)
                     ForEach(group.captures) { capture in
@@ -111,7 +110,7 @@ struct TranscriptsView: View {
                 }
                 if model.filteredCaptures.isEmpty {
                     Text(model.searchText.isEmpty ? "Nothing dictated yet." : "No matches for \"\(model.searchText)\".")
-                        .font(.system(size: 13))
+                        .harpsType(HarpsType.bodySmall)
                         .foregroundColor(theme.textFaint)
                         .padding(.top, 20)
                 }
@@ -165,7 +164,7 @@ struct TranscriptsView: View {
                         model.selectedDayFileURL = url
                     } label: {
                         Text(Self.dayHeaderFormatter.string(from: day))
-                            .font(.system(size: 12.5))
+                            .harpsType(HarpsType.bodySmall)
                             .foregroundColor(model.selectedDayFileURL == url ? theme.text : theme.textMuted)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 8)
@@ -203,9 +202,7 @@ struct TranscriptsView: View {
 }
 
 /// design.md §7: "the whole day set in Geist Mono ... frontmatter shown as
-/// frontmatter, and the `##` markers left visible but dimmed." Uses the
-/// system mono face rather than Geist Mono, which the window doesn't bundle
-/// — the capsule's fonts aren't wired up for AppKit-hosted text like this.
+/// frontmatter, and the `##` markers left visible but dimmed."
 private struct DocumentBodyView: View {
     let content: String
     let theme: WindowTheme
@@ -215,7 +212,7 @@ private struct DocumentBodyView: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(content.components(separatedBy: "\n").enumerated()), id: \.offset) { _, line in
                 Text(attributedLine(line))
-                    .font(.system(size: 12.5, design: .monospaced))
+                    .font(.custom("GeistMono-Regular", size: 12.5))
                     .foregroundColor(color(for: line))
                     .textSelection(.enabled)
             }
@@ -255,10 +252,10 @@ private struct MarkdownPanelView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(url.lastPathComponent)
-                    .font(.system(size: 12, weight: .medium))
+                    .harpsType(HarpsType.bodyMedium)
                 if let bytes = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int {
                     Text(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))
-                        .font(.system(size: 10.5, design: .monospaced))
+                        .harpsType(HarpsType.meta)
                         .foregroundColor(theme.textFaint)
                 }
                 Spacer()

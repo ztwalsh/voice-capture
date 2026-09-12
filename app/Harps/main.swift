@@ -32,6 +32,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+// Registered before any window controller is constructed — several are
+// created eagerly as `AppDelegate` properties, ahead of
+// `applicationDidFinishLaunching`, and their SwiftUI content should never
+// have a chance to resolve `Font.custom` before these are available.
+FontLoader.registerBundledFonts()
+
 let app = NSApplication.shared
 
 // No Dock icon, no menu bar item beyond the one this app adds itself, and —

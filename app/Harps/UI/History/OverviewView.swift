@@ -14,7 +14,7 @@ struct OverviewView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 Text("Overview")
-                    .font(.system(size: 17, weight: .semibold))
+                    .harpsType(HarpsType.title)
                     .foregroundColor(theme.text)
 
                 statRow
@@ -32,8 +32,7 @@ struct OverviewView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("RECENT CAPTURES")
-                        .font(.system(size: 9.5, design: .monospaced))
-                        .tracking(1.2)
+                        .harpsType(HarpsType.section)
                         .foregroundColor(theme.textFaint)
                     ForEach(model.captures.prefix(4)) { capture in
                         CaptureCardView(
@@ -47,7 +46,7 @@ struct OverviewView: View {
                     }
                     if model.captures.isEmpty {
                         Text("Nothing dictated yet. Hold the hotkey anywhere to start.")
-                            .font(.system(size: 13))
+                            .harpsType(HarpsType.bodySmall)
                             .foregroundColor(theme.textFaint)
                     }
                 }
@@ -82,30 +81,29 @@ struct OverviewView: View {
     private func statBlock(_ label: String, value: String, delta: Double?, comparison: String?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 11))
+                .harpsType(HarpsType.label)
                 .foregroundColor(theme.textSubtle)
             Text(value)
-                .font(.system(size: 27, weight: .semibold))
-                .tracking(-0.3)
+                .harpsType(HarpsType.display)
                 .foregroundColor(theme.text)
             if let delta, let comparison {
                 HStack(spacing: 4) {
                     if delta > 0 {
                         Image(systemName: "arrow.up.right")
                         Text("\(Int(delta))%")
-                            .font(.system(size: 11, weight: .medium))
+                            .harpsType(HarpsType.label)
                     } else {
                         Text("—")
-                            .font(.system(size: 11, weight: .medium))
+                            .harpsType(HarpsType.label)
                     }
                     Text(comparison)
-                        .font(.system(size: 11))
+                        .harpsType(HarpsType.label)
                         .foregroundColor(theme.textFaint)
                 }
                 .foregroundColor(delta > 0 ? theme.up : theme.textFaint)
             } else {
                 Text(" ")
-                    .font(.system(size: 11))
+                    .harpsType(HarpsType.label)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -121,7 +119,7 @@ struct OverviewView: View {
             .stroke(theme.textMuted, style: StrokeStyle(lineWidth: 1.5, dash: dashed ? [3, 3] : []))
             .frame(width: 16, height: 8)
             Text(label)
-                .font(.system(size: 10.5))
+                .harpsType(HarpsType.meta)
                 .foregroundColor(theme.textSubtle)
         }
     }

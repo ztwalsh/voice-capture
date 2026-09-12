@@ -312,7 +312,7 @@ private struct CapsuleShapeView: View {
 
             if case .listening = model.state {
                 Text(model.timerText)
-                    .font(.system(size: 11, design: .monospaced))
+                    .harpsType(HarpsType.meta)
                     .monospacedDigit()
                     .foregroundColor(theme.labelMono)
                     .frame(width: 30, alignment: .trailing)
@@ -345,7 +345,7 @@ private struct CapsuleShapeView: View {
             ShimmerLabel(text: "Transcribing", theme: theme, reduceMotion: reduceMotion)
         case .error(let message):
             Text(message)
-                .font(.system(size: 11, weight: .medium))
+                .harpsType(HarpsType.label)
                 .foregroundColor(theme.textRGBA.color)
                 .lineLimit(1)
         case .dormant:
@@ -454,14 +454,14 @@ private struct ShimmerLabel: View {
     var body: some View {
         if reduceMotion {
             Text(text)
-                .font(.system(size: 11, weight: .medium))
+                .harpsType(HarpsType.label)
                 .foregroundColor(theme.textSubtle)
         } else {
             TimelineView(.animation) { context in
                 let phase = context.date.timeIntervalSinceReferenceDate
                     .truncatingRemainder(dividingBy: 2.0) / 2.0
                 Text(text)
-                    .font(.system(size: 11, weight: .medium))
+                    .harpsType(HarpsType.label)
                     .foregroundStyle(
                         LinearGradient(stops: stops(at: phase), startPoint: .leading, endPoint: .trailing)
                     )
