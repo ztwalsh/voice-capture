@@ -75,11 +75,22 @@ final class CapsulePanel {
                                       y: frame.minY + 92 - CapsuleRootView.bottomPadding))
     }
 
-    func showListening() {
+    /// Forwarded to the capsule's own stop control, which only exists in
+    /// toggle mode. Set once by `HarpsController`.
+    var onStopRequested: (() -> Void)? {
+        get { model.onStopTapped }
+        set { model.onStopTapped = newValue }
+    }
+
+    func showListening(mode: CaptureMode = .pushToTalk) {
         orderOutWorkItem?.cancel()
         repositionToCursorScreen()
         panel.orderFrontRegardless()
-        model.showListening()
+        // The panel is click-through everywhere else so it can never
+        // interfere with whatever you were doing — toggle mode's stop
+        // button is the one exception, and only while it's actually shown.
+        panel.ignoresMouseEvents = (mode != .toggle)
+        model.showListening(mode: mode)
     }
 
     /// Peak amplitude 0...1 from `AudioRecorder`'s tap. No-ops outside the
@@ -89,6 +100,7 @@ final class CapsulePanel {
     }
 
     func showTranscribing() {
+        panel.ignoresMouseEvents = true
         model.showTranscribing()
     }
 
@@ -99,6 +111,7 @@ final class CapsulePanel {
         orderOutWorkItem?.cancel()
         repositionToCursorScreen()
         panel.orderFrontRegardless()
+        panel.ignoresMouseEvents = true
         model.showError(message)
         scheduleOrderOut(after: 3.0 + 0.26)
     }
@@ -107,6 +120,7 @@ final class CapsulePanel {
     /// text landing in the target app is the confirmation — so this just
     /// closes the capsule.
     func hide() {
+        panel.ignoresMouseEvents = true
         model.hide()
         scheduleOrderOut(after: 0.26)
     }

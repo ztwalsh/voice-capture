@@ -21,11 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // it always shows live state, so there's nothing more to wire up
         // for either case.
         controller.onNeedsPermissions = { [weak self] in self?.onboardingWindow.show() }
-        controller.start()
-        statusItem = StatusItemController(
+        let item = StatusItemController(
             onOpenHistory: { [weak self] in self?.historyWindow.show() },
-            onOpenSetup: { [weak self] in self?.onboardingWindow.show() }
+            onOpenSetup: { [weak self] in self?.onboardingWindow.show() },
+            onToggleCapture: { [weak self] in self?.controller.handleMenuBarToggle() }
         )
+        statusItem = item
+        controller.onRecordingChanged = { [weak item] recording in item?.setRecording(recording) }
+        controller.start()
     }
 }
 

@@ -12,6 +12,16 @@ enum CaptureState: Equatable {
     case error(String)
 }
 
+/// design.md §5: "Two modes, and they are not the same interaction." A
+/// button can't be held, so the menu bar means toggle — start and stop are
+/// two separate clicks, which is why toggle mode carries a visible timer
+/// from the first tick and a reachable stop control that push-to-talk,
+/// bound to a key you're already holding, does not need.
+enum CaptureMode: Equatable {
+    case pushToTalk
+    case toggle
+}
+
 /// A colour, its own alpha included, so waveform interpolation can lerp alpha
 /// too — dark mode's `--text-faint` is a low-alpha white, and dropping alpha
 /// during the lerp collapses the whole bar to solid white. motion.md calls
@@ -72,6 +82,7 @@ private struct Theme {
 @MainActor
 final class CapsuleViewModel: ObservableObject {
     @Published private(set) var state: CaptureState = .dormant
+    @Published private(set) var mode: CaptureMode = .pushToTalk
     @Published private(set) var isVisible = false
     @Published private(set) var levels: [Double] = Array(repeating: 0, count: CapsuleViewModel.barCount)
     @Published private(set) var elapsedSeconds = 0
@@ -111,9 +122,15 @@ final class CapsuleViewModel: ObservableObject {
     private var dismissTask: Task<Void, Never>?
     private var startedAt = Date()
 
-    func showListening() {
+    /// Set once by `CapsulePanel`, forwarded to whichever action ends a
+    /// toggle capture — the capsule's own stop control needs a way to reach
+    /// back to `HarpsController` without owning capture logic itself.
+    var onStopTapped: (() -> Void)?
+
+    func showListening(mode: CaptureMode = .pushToTalk) {
         dismissTask?.cancel()
         reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        self.mode = mode
         levels = Array(repeating: 0, count: Self.barCount)
         targetLevel = 0
         smoothedLevel = 0
@@ -123,6 +140,8 @@ final class CapsuleViewModel: ObservableObject {
         // deliberate omission — showing "0:00" immediately and letting the
         // counter itself catch up on its own 200ms cadence feels more
         // honest about what's happening than hiding the clock outright.
+        // Toggle mode always showed it immediately regardless, since a
+        // toggle can run long and unattended.
         showTimer = true
         startedAt = Date()
         state = .listening
@@ -250,7 +269,14 @@ struct CapsuleRootView: View {
                 .animation(entryExitAnimation, value: model.isVisible)
         }
         .frame(width: Self.contentSize.width, height: Self.contentSize.height)
-        .allowsHitTesting(false)
+        // Click-through everywhere except the toggle mode's stop button —
+        // `CapsulePanel` already gates real mouse delivery at the AppKit
+        // level via `ignoresMouseEvents`, so this only needs to not
+        // additionally block the one control that's ever interactive.
+        // An unconditional `false` here was doing exactly that: the stop
+        // button never received its tap regardless of the panel's own
+        // setting.
+        .allowsHitTesting(model.mode == .toggle && model.state == .listening)
     }
 
     /// Entry is a deliberate 350ms; exit is a snappy 250ms — motion.md's
@@ -292,6 +318,10 @@ private struct CapsuleShapeView: View {
                     .frame(width: 30, alignment: .trailing)
                     .opacity(model.showTimer ? 1 : 0)
                     .animation(.easeInOut(duration: 0.15), value: model.showTimer)
+
+                if model.mode == .toggle {
+                    stopButton
+                }
             }
         }
         .padding(.leading, 20)
@@ -330,19 +360,48 @@ private struct CapsuleShapeView: View {
 
     private func shadowColor(opacity: Double) -> Color { Color.black.opacity(opacity) }
 
-    /// design.md §5: 248 listening, 176 transcribing, error sized to the
-    /// message between 200 and 320. `nil` (error) lets the HStack's own
-    /// intrinsic size decide, bounded by `minWidth`/`maxWidth` below.
+    /// design.md §5: 248 listening in push-to-talk, 286 in toggle (room for
+    /// the stop control), 176 transcribing, error sized to the message
+    /// between 200 and 320. `nil` (error) lets the HStack's own intrinsic
+    /// size decide, bounded by `minWidth`/`maxWidth` below.
     private var fixedWidth: CGFloat? {
         switch model.state {
         case .dormant, .transcribing: return 176
-        case .listening: return 248
+        case .listening: return model.mode == .toggle ? 286 : 248
         case .error: return nil
         }
     }
     private var minWidth: CGFloat? { if case .error = model.state { return 200 }; return nil }
     private var maxWidth: CGFloat? { if case .error = model.state { return 320 }; return nil }
-    private var trailingPadding: CGFloat { 18 }
+
+    /// design.md's CSS gives the capsule 20px of trailing padding by
+    /// default, tightened to 6px in toggle mode while listening — the stop
+    /// button carries its own visual margin, so the outer padding shrinks
+    /// to keep the whole right edge from looking over-padded.
+    private var trailingPadding: CGFloat {
+        if case .listening = model.state, model.mode == .toggle { return 6 }
+        return 18
+    }
+
+    /// design.md §5: a 32px round stop control, the toggle mode's reachable
+    /// way out — push-to-talk needs none, since releasing the key already
+    /// is one.
+    private var stopButton: some View {
+        Button {
+            model.onStopTapped?()
+        } label: {
+            Circle()
+                .fill(theme.bg)
+                .overlay(Circle().strokeBorder(theme.hairline, lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(theme.textRGBA.color)
+                        .frame(width: 9, height: 9)
+                )
+                .frame(width: 32, height: 32)
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 /// design.md's waveform: 30 bars, 3px wide with a 2px gap, 2 to 24px tall.

@@ -42,9 +42,27 @@ final class HarpsController {
     private var hasPromptedForAccessibility = false
     private var permissionPollTask: Task<Void, Never>?
 
+    /// Which trigger started the capture in progress, if any — `nil` means
+    /// idle. Guards against the hotkey and the menu bar fighting over the
+    /// same recorder, and lets the menu bar's click handler know whether a
+    /// click should start a toggle capture or stop the one already running.
+    private var activeMode: CaptureMode?
+
     /// Set by `AppDelegate` to open the onboarding window — this class
     /// knows *when* permissions matter, not how to show onboarding UI.
     var onNeedsPermissions: (() -> Void)?
+
+    /// design.md §5: the menu bar icon is `--live` for the entire duration
+    /// of a capture, in either mode — set by `AppDelegate` to
+    /// `StatusItemController.setRecording`.
+    var onRecordingChanged: ((Bool) -> Void)?
+
+    init() {
+        // The capsule's own stop control only appears in toggle mode; wiring
+        // it here rather than at the call site keeps `CapsulePanel` ignorant
+        // of what "stop" actually means.
+        panel.onStopRequested = { [weak self] in self?.stopToggleCapture() }
+    }
 
     func start() {
         checkAccessibility()
@@ -58,11 +76,29 @@ final class HarpsController {
         }
     }
 
+    /// design.md §5: the menu bar click toggles a capture — start on the
+    /// first click, stop on the second. If a push-to-talk capture happens
+    /// to be running (an edge case with no real design spec), the click is
+    /// ignored rather than fighting the key you're already holding.
+    func handleMenuBarToggle() {
+        guard isRunning else { return }
+        if let activeMode {
+            if activeMode == .toggle { endCapture() }
+        } else {
+            beginCapture(mode: .toggle)
+        }
+    }
+
+    private func stopToggleCapture() {
+        guard activeMode == .toggle else { return }
+        endCapture()
+    }
+
     private func checkAccessibility() {
         let trusted = AXIsProcessTrusted()
         if trusted, !isRunning {
             isRunning = true
-            hotkey.onDown = { [weak self] in self?.beginCapture() }
+            hotkey.onDown = { [weak self] in self?.beginCapture(mode: .pushToTalk) }
             hotkey.onUp = { [weak self] in self?.endCapture() }
             hotkey.start()
             AppLog.shared.info("Harps is running. Hold Right Option anywhere to dictate.")
@@ -85,7 +121,9 @@ final class HarpsController {
         }
     }
 
-    private func beginCapture() {
+    private func beginCapture(mode: CaptureMode) {
+        guard activeMode == nil else { return }
+        activeMode = mode
         frontmostAppName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
 
         do {
@@ -99,14 +137,18 @@ final class HarpsController {
             recorder.onLevel = { [weak self] peak in
                 DispatchQueue.main.async { self?.panel.pushLevel(peak) }
             }
-            panel.showListening()
+            panel.showListening(mode: mode)
+            onRecordingChanged?(true)
         } catch {
+            activeMode = nil
             AppLog.shared.error("Couldn't start recording: \(error.localizedDescription)")
             panel.showError("No microphone")
         }
     }
 
     private func endCapture() {
+        activeMode = nil
+        onRecordingChanged?(false)
         let duration = recorder.stop()
         startedAt = Date()
         guard let url = recordingURL else { return }
