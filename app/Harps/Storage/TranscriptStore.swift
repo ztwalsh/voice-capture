@@ -21,15 +21,24 @@ struct Capture: Identifiable, Equatable, Hashable {
 /// person typed as the only thing that truly matters. Frontmatter counts are
 /// a convenience it recomputes on every write, never a value it trusts.
 final class TranscriptStore {
-    private let directory: URL
+    private let overrideDirectory: URL?
 
     init(directory: URL? = nil) {
-        if let directory {
-            self.directory = directory
-        } else {
-            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            self.directory = support.appendingPathComponent("Harps/transcripts", isDirectory: true)
+        overrideDirectory = directory
+    }
+
+    /// Re-read on every access rather than cached at init — Settings can
+    /// change this while the app is running, and both `HarpsController`'s
+    /// store and the history window's need to pick that up without a
+    /// relaunch. Reads `UserDefaults` directly rather than through
+    /// `SettingsStore` since this type isn't `@MainActor` itself.
+    private var directory: URL {
+        if let overrideDirectory { return overrideDirectory }
+        if let customPath = UserDefaults.standard.string(forKey: SettingsStore.Keys.transcriptsDirectory) {
+            return URL(fileURLWithPath: customPath, isDirectory: true)
         }
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return support.appendingPathComponent("Harps/transcripts", isDirectory: true)
     }
 
     /// Appends one capture to today's file and returns the path written to.
@@ -97,6 +106,24 @@ final class TranscriptStore {
                   let day = Self.dateFormatter.date(from: url.deletingPathExtension().lastPathComponent)
             else { return [] }
             return Self.parseCaptures(from: content, dayFileURL: url, day: day).reversed()
+        }
+    }
+
+    /// Deletes whole day files older than `retention`'s cutoff. Filenames
+    /// encode the day directly (`yyyy-MM-dd.md`), so this never needs to
+    /// open a file to know its age. `.never` is a no-op — called once per
+    /// launch from `HarpsController.start()`.
+    func purgeExpired(retention: RetentionPeriod) {
+        guard let days = retention.days,
+              let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()),
+              let urls = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        else { return }
+
+        for url in urls where url.pathExtension == "md" {
+            guard let day = Self.dateFormatter.date(from: url.deletingPathExtension().lastPathComponent),
+                  day < cutoff
+            else { continue }
+            try? FileManager.default.removeItem(at: url)
         }
     }
 

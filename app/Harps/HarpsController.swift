@@ -65,6 +65,7 @@ final class HarpsController {
     }
 
     func start() {
+        store.purgeExpired(retention: SettingsStore.shared.retention)
         checkAccessibility()
         permissionPollTask?.cancel()
         permissionPollTask = Task { [weak self] in

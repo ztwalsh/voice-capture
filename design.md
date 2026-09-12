@@ -64,8 +64,15 @@ the text appears and the capsule leaves.
 Both appearances are first-class. Nothing is designed for one and flipped.
 
 ```
+/* ── Neutral scale ──────────────────────────── */
+neutral/50   #fafafa
+neutral/800  #1c1c24
+neutral/850  #13131c
+neutral/900  #0d0d16
+neutral/950  #0c0c0d
+
 /* ── Light ─────────────────────────────────── */
---bg          #ffffff     /* window ground                    */
+--bg          #fafafa     /* window ground — neutral/50       */
 --side        #fbfbfc     /* sidebar, panels, status bar      */
 --sel         #ececed     /* selected row, pressed control    */
 --trough      #f4f4f5     /* inputs, chips, inactive tabs     */
@@ -77,24 +84,28 @@ Both appearances are first-class. Nothing is designed for one and flipped.
 --label-mono  #6f7180     /* mono metadata — a cool grey      */
 
 /* ── Dark ──────────────────────────────────── */
---bg          #0c0c0d
---side        #09090a
---sel         #1d1d20
---trough      #151517
+--side        #0a0a13     /* one step darker than neutral/900, same blue lean — neutral/950 has almost no blue in it, confirmed too close to plain black live */
+--bg          #0d0d16     /* neutral/900 */
+--trough      #13131c     /* neutral/850 */
+--sel         #1c1c24     /* neutral/800 — lightest */
 --hairline    rgba(255,255,255,0.075)
---text        #fafafa
+--text        #fafafa     /* neutral/50 */
 --text-muted  rgba(255,255,255,0.56)
 --text-subtle rgba(255,255,255,0.44)
 --text-faint  rgba(255,255,255,0.30)
 --label-mono  rgba(255,255,255,0.48)
 
-/* ── The two accents ───────────────────────── */
---live   #E5484D / #FF6369   /* microphone is hot. Nothing else */
---up     #1E9E63 / #4ADE80   /* a delta improved. Overview only */
+/* ── The two accents — one value, both appearances ─ */
+--live   #130CEE   /* indigo/500. microphone is hot. Nothing else — ownable, not a system-red */
+--up     #4ADE80   /* green/400. a delta improved. Overview only */
 ```
 
-The greys carry a slight cool bias, most visible in `--label-mono`. That is
-deliberate — a pure neutral reads as unconsidered.
+The neutral scale carries a deliberate blue tint (`--side`/`--sel`/`--trough` in
+dark mode lean toward `#0d0d16`/`#1c1c24`/`#13131c` rather than pure grey,
+and `--bg` in light mode is `#fafafa`, not `#ffffff`) — a pure neutral reads
+as unconsidered. `--live` and `--up` are each one value now, not a
+light/dark pair: a single ownable accent that doesn't shift character
+between appearances.
 
 ### Elevation
 
@@ -207,8 +218,8 @@ not polish:
 | Timer | Appears after 3s | Visible from the first tick |
 | Menu bar icon | `--live` throughout | `--live` throughout |
 
-The red menu bar icon is the one signal that survives every window being covered,
-which is why it is not optional in either mode.
+The `--live` menu bar icon is the one signal that survives every window being
+covered, which is why it is not optional in either mode.
 
 ### States
 

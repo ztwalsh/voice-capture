@@ -184,11 +184,11 @@ struct OnboardingView: View {
     private func statusIcon(_ state: PermissionState, theme: WindowTheme) -> some View {
         switch state {
         case .granted:
-            Image(systemName: "checkmark.circle.fill").foregroundColor(theme.up)
+            CentralIconView(svg: CentralIcons.checkCircle, color: theme.up).frame(width: 15, height: 15)
         case .notDetermined:
-            Image(systemName: "circle").foregroundColor(theme.textFaint)
+            CentralIconView(svg: CentralIcons.circle, color: theme.textFaint).frame(width: 15, height: 15)
         case .denied:
-            Image(systemName: "exclamationmark.circle.fill").foregroundColor(theme.live)
+            CentralIconView(svg: CentralIcons.exclamationCircle, color: theme.live).frame(width: 15, height: 15)
         }
     }
 

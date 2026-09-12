@@ -80,17 +80,12 @@ final class StatusItemController {
     }
 
     /// The caret mark from design.md §4. Template style (adopts the menu
-    /// bar's own colour) at rest; a fixed `--live` red, matching whichever
-    /// appearance is active, for the duration of a capture — a template
-    /// image can't carry colour, so recording swaps to a non-template one.
+    /// bar's own colour) at rest; a fixed `--live` indigo, the same in both
+    /// appearances, for the duration of a capture — a template image can't
+    /// carry colour, so recording swaps to a non-template one.
     private static func icon(recording: Bool) -> NSImage {
         let color: NSColor = recording
-            ? NSColor(name: nil) { appearance in
-                let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                return isDark
-                    ? NSColor(red: 0xff / 255, green: 0x63 / 255, blue: 0x69 / 255, alpha: 1)
-                    : NSColor(red: 0xe5 / 255, green: 0x48 / 255, blue: 0x4d / 255, alpha: 1)
-            }
+            ? NSColor(red: 0x13 / 255, green: 0x0c / 255, blue: 0xee / 255, alpha: 1)
             : .labelColor
 
         let image = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { _ in

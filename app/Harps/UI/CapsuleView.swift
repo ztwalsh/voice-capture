@@ -53,21 +53,21 @@ private struct Theme {
     init(_ colorScheme: ColorScheme) {
         isDark = colorScheme == .dark
         if isDark {
-            bg = Color(red: 0x0c / 255, green: 0x0c / 255, blue: 0x0d / 255)
+            bg = Color(red: 0x0d / 255, green: 0x0d / 255, blue: 0x16 / 255) // neutral/900, matches the window's --bg
             hairline = Color.white.opacity(0.075)
             textRGBA = RGBA(r: 0xfa / 255, g: 0xfa / 255, b: 0xfa / 255, a: 1)
             textSubtle = Color.white.opacity(0.44)
             textFaintRGBA = RGBA(r: 1, g: 1, b: 1, a: 0.30)
             labelMono = Color.white.opacity(0.48)
-            live = Color(red: 0xff / 255, green: 0x63 / 255, blue: 0x69 / 255)
+            live = Color(red: 0x13 / 255, green: 0x0c / 255, blue: 0xee / 255) // indigo/500 — "more ownable" than red
         } else {
-            bg = Color.white
+            bg = Color(red: 0xfa / 255, green: 0xfa / 255, blue: 0xfa / 255) // neutral/50
             hairline = Color.black.opacity(0.075)
             textRGBA = RGBA(r: 0x0a / 255, g: 0x0a / 255, b: 0x0a / 255, a: 1)
             textSubtle = Color(red: 0x86 / 255, green: 0x86 / 255, blue: 0x8a / 255)
             textFaintRGBA = RGBA(r: 0xa8 / 255, g: 0xa8 / 255, b: 0xac / 255, a: 1)
             labelMono = Color(red: 0x6f / 255, green: 0x71 / 255, blue: 0x80 / 255)
-            live = Color(red: 0xe5 / 255, green: 0x48 / 255, blue: 0x4d / 255)
+            live = Color(red: 0x13 / 255, green: 0x0c / 255, blue: 0xee / 255) // indigo/500
         }
     }
 

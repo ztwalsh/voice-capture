@@ -24,6 +24,11 @@ final class HistoryWindowController: NSWindowController {
         window.title = "Harps"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        // AppKit draws its own separator under the titlebar/traffic-light
+        // area by default, which showed up right alongside the header's own
+        // bottom hairline as a "double divider" — one light rule is enough,
+        // and it's the one the header already draws.
+        window.titlebarSeparatorStyle = .none
         window.minSize = NSSize(width: 760, height: 480)
         window.setFrameAutosaveName("HarpsHistoryWindow")
         window.center()
