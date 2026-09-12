@@ -167,6 +167,16 @@ final class TranscriptStore {
         let lines = body(of: content).components(separatedBy: "\n")
         var captures: [Capture] = []
         var i = 0
+        // The id needs to be unique per *row*, not per (time, app) — two
+        // captures in the same minute in the same app (easy to hit when
+        // testing, or just dictating twice back to back) previously
+        // collided on id, which made SwiftUI treat the two rows as one
+        // identity: hovering one visually highlighted the other, since
+        // per-row @State (like CaptureCardView's isHovering) got attributed
+        // to whichever view SwiftUI thought "this identity" currently was.
+        // The parse position is trivially unique and stable across
+        // re-parses of the same unchanged file.
+        var index = 0
         while i < lines.count {
             guard let (time, appName, seconds) = parseHeading(lines[i]) else { i += 1; continue }
             i += 1
@@ -177,9 +187,10 @@ final class TranscriptStore {
             }
             let text = bodyLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { continue }
-            captures.append(Capture(id: "\(dayFileURL.lastPathComponent)#\(time)#\(appName)",
+            captures.append(Capture(id: "\(dayFileURL.lastPathComponent)#\(index)",
                                      dayFileURL: dayFileURL, day: day, time: time,
                                      appName: appName, durationSeconds: seconds, text: text))
+            index += 1
         }
         return captures
     }
