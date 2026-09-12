@@ -96,7 +96,9 @@ private struct SidebarView: View {
     private func destinationRow(_ destination: Destination) -> some View {
         let selected = model.destination == destination
         return Button {
-            model.destination = destination
+            withAnimation(.easeOut(duration: 0.15)) {
+                model.destination = destination
+            }
         } label: {
             HStack(spacing: 9) {
                 Image(systemName: destination.symbolName)

@@ -66,19 +66,31 @@ struct TranscriptsView: View {
         }
     }
 
+    /// motion.md: "the pill tweens width and position together" — a single
+    /// `matchedGeometryEffect`-driven background sliding between the two
+    /// tab labels, rather than each tab drawing its own static highlight.
+    @Namespace private var pillNamespace
+
     private var pillTabs: some View {
         HStack(spacing: 2) {
             ForEach(TranscriptsLayout.allCases) { layout in
                 let selected = model.transcriptsLayout == layout
                 Button {
-                    model.transcriptsLayout = layout
+                    withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.25)) {
+                        model.transcriptsLayout = layout
+                    }
                 } label: {
                     Text(layout.rawValue)
                         .font(.custom(selected ? "Geist-Medium" : "Geist-Regular", size: 12))
                         .foregroundColor(selected ? theme.text : theme.textMuted)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 5)
-                        .background(selected ? theme.sel : Color.clear, in: Capsule())
+                        .background {
+                            if selected {
+                                Capsule().fill(theme.sel)
+                                    .matchedGeometryEffect(id: "pill", in: pillNamespace)
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
             }
