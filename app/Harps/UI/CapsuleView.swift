@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The capsule's states, per design.md §5. `dormant` never actually renders —
@@ -76,6 +77,18 @@ final class CapsuleViewModel: ObservableObject {
     @Published private(set) var elapsedSeconds = 0
     @Published private(set) var showTimer = false
     @Published private(set) var shakeToken = 0
+    /// Read directly from `NSWorkspace` rather than through SwiftUI's
+    /// `\.accessibilityReduceMotion` environment key — that key did not
+    /// propagate correctly into this view's hosting `NSPanel`, plausibly
+    /// because it's a non-activating panel in an accessory-policy app that
+    /// never becomes key or main, which is unusual enough that SwiftUI's
+    /// normal environment plumbing for this value doesn't reach it.
+    /// `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion` was
+    /// confirmed correct with a standalone check when the environment value
+    /// was not. Refreshed at the start of each capture rather than kept
+    /// live via notification, since that's the only point it needs to be
+    /// current.
+    @Published private(set) var reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
     static let barCount = 30
     /// motion.md's normalization range: a −50dB floor, a −6dB ceiling. That
@@ -100,6 +113,7 @@ final class CapsuleViewModel: ObservableObject {
 
     func showListening() {
         dismissTask?.cancel()
+        reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         levels = Array(repeating: 0, count: Self.barCount)
         targetLevel = 0
         smoothedLevel = 0
@@ -175,6 +189,7 @@ final class CapsuleViewModel: ObservableObject {
         dismissTask?.cancel()
         tickTask?.cancel()
         waveformTask?.cancel()
+        reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         showTimer = false
         state = .error(message)
         isVisible = true
@@ -211,7 +226,7 @@ final class CapsuleViewModel: ObservableObject {
 struct CapsuleRootView: View {
     @ObservedObject var model: CapsuleViewModel
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var reduceMotion: Bool { model.reduceMotion }
 
     /// Extra room around the 44px capsule for its shadow, the 16px rise, and
     /// shake overshoot — none of it should be clipped by the panel's frame.
