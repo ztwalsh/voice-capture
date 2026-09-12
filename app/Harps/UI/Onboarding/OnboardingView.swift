@@ -111,80 +111,98 @@ final class OnboardingModel: ObservableObject {
 
 /// PLAN.md: "Onboarding is a first-class feature, not a polish item." One
 /// row per grant, live status, and the right action for how each kind of
-/// permission is actually requested on macOS.
+/// permission is actually requested on macOS. Styled with the same
+/// `WindowTheme`/`HarpsType` tokens as the history window rather than plain
+/// system defaults — this is as much a real Harps surface as any other.
 struct OnboardingView: View {
     @ObservedObject var model: OnboardingModel
     let onDone: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let theme = WindowTheme(colorScheme)
         VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Set up Harps")
-                    .font(.system(size: 17, weight: .semibold))
-                Text("Three permissions, granted once. Harps never sends anything off this Mac.")
-                    .font(.system(size: 12.5))
-                    .foregroundColor(.secondary)
+            HStack(alignment: .top, spacing: 10) {
+                CaretMark()
+                    .frame(width: 16, height: 16)
+                    .padding(6)
+                    .background(theme.text, in: RoundedRectangle(cornerRadius: 8))
+                    .foregroundColor(theme.bg)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Set up Harps")
+                        .harpsType(HarpsType.subtitle)
+                        .foregroundColor(theme.text)
+                    Text("Three permissions, granted once. Harps never sends anything off this Mac.")
+                        .harpsType(HarpsType.caption)
+                        .foregroundColor(theme.textSubtle)
+                }
             }
 
             VStack(spacing: 0) {
                 ForEach(PermissionKind.allCases) { kind in
-                    row(for: kind)
+                    row(for: kind, theme: theme)
                     if kind != PermissionKind.allCases.last {
-                        Divider()
+                        Rectangle().frame(height: 1).foregroundColor(theme.hairline)
                     }
                 }
             }
             .padding(4)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+            .background(theme.trough, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(theme.hairline))
 
             HStack {
                 Spacer()
                 Button(model.allGranted ? "Done" : "I'll finish later", action: onDone)
+                    .buttonStyle(HarpsPrimaryButtonStyle(theme: theme))
                     .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
         .frame(width: 460)
+        .background(theme.bg)
         .onAppear { model.startPolling() }
         .onDisappear { model.stopPolling() }
     }
 
     @ViewBuilder
-    private func row(for kind: PermissionKind) -> some View {
+    private func row(for kind: PermissionKind, theme: WindowTheme) -> some View {
         let state = model.states[kind] ?? .notDetermined
         HStack(spacing: 12) {
-            statusIcon(state)
+            statusIcon(state, theme: theme)
             VStack(alignment: .leading, spacing: 2) {
-                Text(kind.rawValue).font(.system(size: 13, weight: .medium))
-                Text(kind.explanation).font(.system(size: 11)).foregroundColor(.secondary)
+                Text(kind.rawValue).harpsType(HarpsType.bodyMedium).foregroundColor(theme.text)
+                Text(kind.explanation).harpsType(HarpsType.caption).foregroundColor(theme.textSubtle)
             }
             Spacer()
-            actionButton(kind, state: state)
+            actionButton(kind, state: state, theme: theme)
         }
         .padding(10)
+        .animation(.easeOut(duration: 0.2), value: state)
     }
 
     @ViewBuilder
-    private func statusIcon(_ state: PermissionState) -> some View {
+    private func statusIcon(_ state: PermissionState, theme: WindowTheme) -> some View {
         switch state {
         case .granted:
-            Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+            Image(systemName: "checkmark.circle.fill").foregroundColor(theme.up)
         case .notDetermined:
-            Image(systemName: "circle").foregroundColor(.secondary)
+            Image(systemName: "circle").foregroundColor(theme.textFaint)
         case .denied:
-            Image(systemName: "exclamationmark.circle.fill").foregroundColor(.orange)
+            Image(systemName: "exclamationmark.circle.fill").foregroundColor(theme.live)
         }
     }
 
     @ViewBuilder
-    private func actionButton(_ kind: PermissionKind, state: PermissionState) -> some View {
+    private func actionButton(_ kind: PermissionKind, state: PermissionState, theme: WindowTheme) -> some View {
         switch state {
         case .granted:
             EmptyView()
         case .notDetermined:
             Button("Grant") { model.request(kind) }
+                .buttonStyle(HarpsSecondaryButtonStyle(theme: theme))
         case .denied:
             Button("Open Settings") { model.openSystemSettings(for: kind) }
+                .buttonStyle(HarpsSecondaryButtonStyle(theme: theme))
         }
     }
 }

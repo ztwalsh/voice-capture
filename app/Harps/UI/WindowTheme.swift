@@ -77,3 +77,39 @@ struct CaretMark: View {
         }
     }
 }
+
+/// design.md's palette is deliberately monochrome outside of `--live` and
+/// `--up` — "colour carries meaning, not chrome" is the whole point of §2's
+/// principles. The system's default prominent-button blue has no home in
+/// that language, so every primary action in this app uses a solid
+/// `--text`-on-`--bg` fill instead — the same high-contrast tile treatment
+/// already used for the caret mark itself.
+struct HarpsPrimaryButtonStyle: ButtonStyle {
+    let theme: WindowTheme
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.custom("Geist-Medium", size: 12.5))
+            .foregroundColor(theme.bg)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(theme.text.opacity(configuration.isPressed ? 0.85 : 1),
+                        in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+/// The lower-emphasis counterpart — `--trough` fill with a hairline border,
+/// the same treatment design.md's popover record button and window controls
+/// use.
+struct HarpsSecondaryButtonStyle: ButtonStyle {
+    let theme: WindowTheme
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.custom("Geist-Medium", size: 12))
+            .foregroundColor(theme.text)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(configuration.isPressed ? theme.sel : theme.trough,
+                        in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.hairline))
+    }
+}

@@ -46,6 +46,7 @@ struct SettingsView: View {
                 }
                 row(label: "Permissions", explanation: "Microphone, Speech Recognition, and Accessibility.") {
                     Button("Review…", action: model.onOpenSetup)
+                        .buttonStyle(HarpsSecondaryButtonStyle(theme: theme))
                 }
 
                 statement("Runs on device. Nothing leaves this Mac.")
