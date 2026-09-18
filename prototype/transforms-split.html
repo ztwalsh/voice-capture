@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harps — Transforms, split</title>
+<!--
+  Option 3 of 3: master-detail, no modal at all — a narrow list on the left
+  (same shape as the Transcripts sidebar's day list) and the editor lives
+  permanently in the main pane, always showing whatever's selected. Best
+  for someone who's actually iterating on a transform's wording, since nothing
+  covers the app and there's room for a live before/after preview. Trade-off:
+  the most screen space of the three, and the least "just a settings row."
+-->
+<style>
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('./fonts/geist.woff2') format('woff2'); }
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('./fonts/geist-mono.woff2') format('woff2'); }
+
+:root {
+  color-scheme: dark;
+  --bg: #0d0d16; --side: #0a0a13; --sel: #1c1c24; --trough: #13131c;
+  --hairline: rgba(255,255,255,0.075);
+  --text: #fafafa; --text-muted: rgba(255,255,255,0.56);
+  --text-subtle: rgba(255,255,255,0.44); --text-faint: rgba(255,255,255,0.30);
+  --up: #4ADE80; --live: #130CEE;
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; font-family: var(--font-sans); color: var(--text);
+  overflow: hidden; -webkit-font-smoothing: antialiased;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(900px 620px at 14% 10%,  var(--desk-c), transparent 62%),
+    radial-gradient(760px 520px at 88% 22%,  var(--desk-d), transparent 58%),
+    radial-gradient(1000px 700px at 62% 96%, var(--desk-a), transparent 60%),
+    var(--desk-b);
+}
+.win { width: min(1140px, 94vw); height: min(720px, 90vh); background: var(--bg); border-radius: 14px;
+  box-shadow: 0 24px 70px 0 rgba(0,0,0,0.62), 0 0 0 1px rgba(255,255,255,0.09); overflow: hidden; display: flex; }
+
+.side { flex: none; width: 236px; background: var(--side); border-right: 1px solid var(--hairline); display: flex; flex-direction: column; padding: 0 10px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 18px 10px 22px; }
+.mark { width: 30px; height: 30px; border-radius: 9px; flex: none; background: var(--text); color: var(--bg); display: flex; align-items: center; justify-content: center; }
+.wordmark { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.tls { display: flex; gap: 7px; padding: 14px 10px 0; }
+.tl { width: 11px; height: 11px; border-radius: 50%; background: var(--text-faint); opacity: .4; }
+.navsec { display: flex; flex-direction: column; gap: 2px; padding-top: 26px; }
+.nav { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 9px; cursor: pointer; color: var(--text-muted); font-size: 14px; font-weight: 450; }
+.nav svg { flex: none; opacity: .62; }
+.nav[aria-selected="true"] { background: var(--sel); color: var(--text); font-weight: 500; }
+.nav[aria-selected="true"] svg { opacity: 1; }
+.side-foot { margin-top: auto; border-top: 1px solid var(--hairline); padding: 10px; }
+
+/* transform list — middle column, same shape as Transcripts' day list */
+.tlist-col { flex: none; width: 240px; border-right: 1px solid var(--hairline); display: flex; flex-direction: column; }
+.tlist-head { padding: 20px 18px 12px; border-bottom: 1px solid var(--hairline); }
+.tlist-head h1 { font-size: 16px; font-weight: 600; margin: 0 0 3px; letter-spacing: -0.01em; }
+.tlist-head p { font-size: 11.5px; color: var(--text-faint); margin: 0; }
+.tlist { flex: 1; overflow-y: auto; padding: 8px; }
+.trow { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 8px; cursor: pointer; color: var(--text-muted); }
+.trow.active { background: var(--sel); color: var(--text); }
+.trow .t-info { flex: 1; min-width: 0; }
+.trow .t-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trow.off .t-name { color: var(--text-faint); }
+.trow .t-tag { font-family: var(--font-mono); font-size: 9px; color: var(--text-faint); }
+.tlist-foot { padding: 10px; border-top: 1px solid var(--hairline); }
+.add-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--text-faint); font-size: 13px; }
+.add-row:hover { background: var(--sel); color: var(--text-subtle); }
+
+.sw { width: 32px; height: 19px; border-radius: 999px; background: var(--trough); border: 1px solid var(--hairline); position: relative; flex: none; cursor: pointer; transition: background-color .2s cubic-bezier(.22,1,.36,1); }
+.sw::after { content: ''; position: absolute; top: 1.5px; left: 1.5px; width: 15px; height: 15px; border-radius: 50%; background: var(--text-faint); transition: transform .2s cubic-bezier(.22,1,.36,1), background-color .2s; }
+.sw.on { background: var(--text); border-color: var(--text); }
+.sw.on::after { transform: translateX(13px); background: var(--side); }
+
+/* editor — main pane */
+.editor { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.e-head { padding: 20px 32px; border-bottom: 1px solid var(--hairline); display: flex; align-items: center; justify-content: space-between; }
+.e-head input { background: transparent; border: none; outline: none; color: var(--text); font-size: 19px; font-weight: 600; font-family: var(--font-sans); letter-spacing: -0.01em; width: 100%; }
+.e-head input:disabled { color: var(--text-faint); }
+.e-body { flex: 1; overflow-y: auto; padding: 24px 32px 40px; max-width: 620px; }
+.e-body label { display: block; font-size: 11px; color: var(--text-faint); margin: 0 0 8px; font-family: var(--font-mono); letter-spacing: .04em; text-transform: uppercase; }
+.e-body textarea { width: 100%; min-height: 160px; background: var(--trough); border: 1px solid var(--hairline); border-radius: 10px; padding: 14px; color: var(--text); font-family: var(--font-sans); font-size: 13.5px; line-height: 1.65; resize: vertical; outline: none; }
+.e-body textarea:disabled { color: var(--text-subtle); }
+.locked-note { display: flex; align-items: center; gap: 7px; margin-top: 10px; font-size: 12px; color: var(--text-faint); }
+
+.preview { margin-top: 28px; border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
+.preview-head { padding: 8px 14px; background: var(--trough); font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); letter-spacing: .04em; text-transform: uppercase; border-bottom: 1px solid var(--hairline); }
+.preview-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.preview-line { font-size: 13px; line-height: 1.55; }
+.preview-line .k { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 3px; }
+.preview-line.before .k { color: var(--text-faint); }
+.preview-line.before span:last-child { color: var(--text-subtle); }
+.preview-line.after span:last-child { color: var(--text); }
+
+.e-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; }
+.btn-primary { background: var(--text); color: var(--bg); border: none; padding: 8px 18px; border-radius: 8px; font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.btn-danger { background: transparent; border: none; color: var(--text-faint); font-family: var(--font-sans); font-size: 12.5px; cursor: pointer; }
+.btn-danger:hover { color: var(--live); }
+.btn-danger:disabled { color: var(--text-faint); opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="side">
+    <div class="tls"><span class="tl"></span><span class="tl"></span><span class="tl"></span></div>
+    <div class="brand">
+      <div class="mark"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5.6 2.6h4.8M5.6 13.4h4.8M8 2.6v10.8"/></svg></div>
+      <div class="wordmark">Harps</div>
+    </div>
+    <div class="navsec">
+      <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8.5 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 8.5H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 15.5H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Overview</div>
+      <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12.1716 3H8C6.34315 3 5 4.34315 5 6V18C5 19.6569 6.34315 21 8 21H16C17.6569 21 19 19.6569 19 18V9.82843C19 9.29799 18.7893 8.78929 18.4142 8.41421L13.5858 3.58579C13.2107 3.21071 12.702 3 12.1716 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M13 3.5V7C13 8.10457 13.8954 9 15 9H18.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 13H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 17H15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Transcripts</div>
+      <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 10C16.6575 10 18 8.6575 18 7C18 5.3425 16.6575 4 15 4C13.3425 4 12 5.3425 12 7C12 8.6575 13.3425 10 15 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 7H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 7H18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 20C10.6575 20 12 18.6575 12 17C12 15.3425 10.6575 14 9 14C7.3425 14 6 15.3425 6 17C6 18.6575 7.3425 20 9 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 17H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 17H12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Settings</div>
+      <div class="nav" aria-selected="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Transforms</div>
+    </div>
+    <div class="side-foot">
+      <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M17.9961 14C19.6529 14 20.9961 12.6569 20.9961 11C20.9961 9.34318 19.6529 8.00003 17.9961 8.00003M12.8254 18C12.4136 19.1652 11.3023 20 9.99609 20C8.33924 20 6.99609 18.6569 6.99609 17V15.5M6.99829 6.50003V15.5M17.9961 7.10616V14.8939C17.9961 16.9253 16.0195 18.3694 14.0842 17.752L5.08424 14.8805C3.84044 14.4837 2.99609 13.328 2.99609 12.0225V9.97759C2.99609 8.67203 3.84044 7.51636 5.08424 7.11953L14.0842 4.2481C16.0195 3.63065 17.9961 5.07476 17.9961 7.10616Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Feedback</div>
+    </div>
+  </div>
+
+  <div class="tlist-col">
+    <div class="tlist-head">
+      <h1>Transforms</h1>
+      <p>Applied in order, after transcription</p>
+    </div>
+    <div class="tlist" id="tlist"></div>
+    <div class="tlist-foot">
+      <div class="add-row" onclick="selectNew()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        New Transform
+      </div>
+    </div>
+  </div>
+
+  <div class="editor">
+    <div class="e-head">
+      <input id="e-name" placeholder="Transform name" />
+    </div>
+    <div class="e-body">
+      <label>Instructions</label>
+      <textarea id="e-instr" placeholder="Describe what this transform should do to the raw transcript..."></textarea>
+      <div class="locked-note" id="locked-note" style="display:none">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8"/></svg>
+        Built-in default — you can turn it off, but not edit its wording.
+      </div>
+
+      <div class="preview">
+        <div class="preview-head">Example</div>
+        <div class="preview-body">
+          <div class="preview-line before"><span class="k">Raw transcript</span><span>"So, um, I think — I think we should, uh, we should push the launch back a week, back a week, to give QA more time."</span></div>
+          <div class="preview-line after"><span class="k">After this transform</span><span id="preview-after">"I think we should push the launch back a week to give QA more time."</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TRANSFORMS = [
+  { id: 'cleanup', name: 'General Clean-up', tag: 'Default', on: true, locked: true,
+    body: 'Remove filler words like "um" and "uh", collapse repeated or restarted words, and tighten up out-loud thinking — but never change the meaning, facts, or tone of what was actually said.',
+    after: '"I think we should push the launch back a week to give QA more time."' },
+  { id: 'bullets', name: 'Meeting Notes → Bullets', tag: null, on: false, locked: false,
+    body: 'Reformat the transcript into concise bullet points, one idea per line. Preserve names, dates, and numbers exactly.',
+    after: '• Push the launch back one week\n• Reason: give QA more time' },
+  { id: 'formal', name: 'Formal Tone', tag: null, on: true, locked: false,
+    body: 'Rewrite in a more formal, professional tone suitable for an email. Keep it concise — do not add new content.',
+    after: '"I recommend delaying the launch by one week to allow additional time for QA."' },
+  { id: 'noprofanity', name: 'Remove Profanity', tag: null, on: false, locked: false,
+    body: 'Replace any profanity with a milder equivalent word. Leave everything else unchanged.',
+    after: '"So I think we should push the launch back a week to give QA more time."' },
+];
+
+let selectedId = TRANSFORMS[0].id;
+
+function render() {
+  const list = document.getElementById('tlist');
+  list.innerHTML = TRANSFORMS.map(t => `
+    <div class="trow ${t.id === selectedId ? 'active' : ''} ${t.on ? '' : 'off'}" onclick="select('${t.id}')">
+      <div class="t-info">
+        <div class="t-name">${t.name}</div>
+        ${t.tag ? `<div class="t-tag">${t.tag}</div>` : ''}
+      </div>
+      <span class="sw ${t.on ? 'on' : ''}" onclick="event.stopPropagation(); toggle('${t.id}')"></span>
+    </div>
+  `).join('');
+
+  const t = TRANSFORMS.find(t => t.id === selectedId);
+  document.getElementById('e-name').value = t.name;
+  document.getElementById('e-name').disabled = t.locked;
+  document.getElementById('e-instr').value = t.body;
+  document.getElementById('e-instr').disabled = t.locked;
+  document.getElementById('locked-note').style.display = t.locked ? 'flex' : 'none';
+  document.getElementById('preview-after').textContent = t.after;
+}
+
+function select(id) { selectedId = id; render(); }
+function selectNew() {
+  const id = 'new-' + Date.now();
+  TRANSFORMS.push({ id, name: '', tag: null, on: true, locked: false, body: '', after: '(preview appears once you add instructions)' });
+  selectedId = id;
+  render();
+  document.getElementById('e-name').focus();
+}
+function toggle(id) {
+  const t = TRANSFORMS.find(t => t.id === id);
+  t.on = !t.on;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

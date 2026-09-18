@@ -54,6 +54,25 @@ enum RetentionPeriod: String, CaseIterable, Identifiable {
     }
 }
 
+/// How the global hotkey itself starts/stops a capture — added on direct
+/// user feedback that holding a key down isn't everyone's preference.
+/// `.holdToRecord` is `HotkeyMonitor`'s original down/up behavior
+/// (push-to-talk); `.pressToToggle` routes the hotkey's key-up through the
+/// same toggle path the menu bar click already uses
+/// (`HarpsController.handleMenuBarToggle`), so a tap starts the capture and
+/// a second tap ends it — no holding required.
+enum HotkeyInvocationMode: String, CaseIterable, Identifiable {
+    case holdToRecord, pressToToggle
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .holdToRecord: return "Hold to record"
+        case .pressToToggle: return "Press to start/end"
+        }
+    }
+}
+
 /// PLAN.md Phase 5's settings list started out longer than what was
 /// actually switchable — model and insertion strategy still have exactly
 /// one implementation each, so they stay honest, informational chips in
@@ -93,6 +112,18 @@ final class SettingsStore: ObservableObject {
         didSet { UserDefaults.standard.set(retention.rawValue, forKey: Keys.retention) }
     }
 
+    /// Read fresh on every hotkey event by `HarpsController`, same as
+    /// `hotkey` above — changing it takes effect immediately, no restart.
+    @Published var invocationMode: HotkeyInvocationMode {
+        didSet { UserDefaults.standard.set(invocationMode.rawValue, forKey: Keys.invocationMode) }
+    }
+
+    /// The sidebar's user-resized width. Clamped in `HistoryLayout`, not
+    /// here — this is just the persisted raw value.
+    @Published var sidebarWidth: Double {
+        didSet { UserDefaults.standard.set(sidebarWidth, forKey: Keys.sidebarWidth) }
+    }
+
     /// `nil` means the default `~/Library/Application Support/Harps/transcripts`.
     /// `TranscriptStore` reads this directly from `UserDefaults` rather than
     /// through this class, since it isn't itself `@MainActor` — this
@@ -113,7 +144,9 @@ final class SettingsStore: ObservableObject {
         static let hotkey = "hotkey"
         static let appearance = "appearance"
         static let retention = "retentionPeriod"
+        static let invocationMode = "hotkeyInvocationMode"
         static let transcriptsDirectory = "customTranscriptsDirectoryPath"
+        static let sidebarWidth = "sidebarWidth"
     }
 
     private init() {
@@ -122,8 +155,12 @@ final class SettingsStore: ObservableObject {
         hotkey = UserDefaults.standard.string(forKey: Keys.hotkey).flatMap(ModifierHotkey.init(rawValue:)) ?? .rightOption
         appearance = UserDefaults.standard.string(forKey: Keys.appearance).flatMap(AppAppearance.init(rawValue:)) ?? .system
         retention = UserDefaults.standard.string(forKey: Keys.retention).flatMap(RetentionPeriod.init(rawValue:)) ?? .never
+        invocationMode = UserDefaults.standard.string(forKey: Keys.invocationMode)
+            .flatMap(HotkeyInvocationMode.init(rawValue:)) ?? .holdToRecord
         customTranscriptsDirectory = UserDefaults.standard.string(forKey: Keys.transcriptsDirectory)
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let storedWidth = UserDefaults.standard.double(forKey: Keys.sidebarWidth)
+        sidebarWidth = storedWidth == 0 ? 236 : storedWidth
         NSApp.appearance = appearance.nsAppearance
     }
 

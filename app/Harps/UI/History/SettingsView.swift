@@ -29,6 +29,10 @@ struct SettingsView: View {
                     }
                     .fixedSize()
                 }
+                row(label: "Invocation", explanation: "Hold the hotkey to record, or tap once to start and again to stop.") {
+                    SegmentedPicker(options: HotkeyInvocationMode.allCases, label: \.label,
+                                     selection: $settings.invocationMode, theme: theme)
+                }
                 row(label: "Appearance", explanation: "Light, dark, or match the system.") {
                     SegmentedPicker(options: AppAppearance.allCases, label: \.label,
                                      selection: $settings.appearance, theme: theme)

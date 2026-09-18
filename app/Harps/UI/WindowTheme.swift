@@ -55,6 +55,13 @@ struct WindowTheme {
     let labelMono: Color
     let up: Color
     let live: Color
+    /// A destructive/red accent — added because `live` (used for the "Delete"
+    /// confirmation text) is actually an indigo/blue "recording" accent, not
+    /// red, and read wrong for a destructive action. Radix red/9, one value
+    /// shared across both appearances (same treatment as `up`/`live`) since
+    /// it already has enough contrast against both the near-white and
+    /// near-black backgrounds this app uses.
+    let danger: Color
 
     init(_ colorScheme: ColorScheme) {
         isDark = colorScheme == .dark
@@ -81,6 +88,7 @@ struct WindowTheme {
             labelMono = Color.white.opacity(0.48)
             up = Color(red: 0x4a / 255, green: 0xde / 255, blue: 0x80 / 255) // green/400
             live = Color(red: 0x13 / 255, green: 0x0c / 255, blue: 0xee / 255) // indigo/500
+            danger = Color(red: 0xe5 / 255, green: 0x48 / 255, blue: 0x4d / 255) // red/9, same both appearances
         } else {
             bg = Color(red: 0xfa / 255, green: 0xfa / 255, blue: 0xfa / 255) // neutral/50
             side = Color(red: 0xfb / 255, green: 0xfb / 255, blue: 0xfc / 255)
@@ -94,6 +102,7 @@ struct WindowTheme {
             labelMono = Color(red: 0x6f / 255, green: 0x71 / 255, blue: 0x80 / 255)
             up = Color(red: 0x4a / 255, green: 0xde / 255, blue: 0x80 / 255) // green/400, same both appearances
             live = Color(red: 0x13 / 255, green: 0x0c / 255, blue: 0xee / 255) // indigo/500, same both appearances
+            danger = Color(red: 0xe5 / 255, green: 0x48 / 255, blue: 0x4d / 255) // red/9, same both appearances
         }
     }
 }
@@ -327,7 +336,7 @@ struct AppTagChip: View {
 /// the icon pass. Caller applies emphasis via `.opacity()`, same as the
 /// `library-v2.html` reference's `.nav[aria-selected="true"] svg { opacity: 1 }`.
 struct SidebarIcon: View {
-    enum Kind { case overview, transcripts, settings }
+    enum Kind { case overview, transcripts, settings, transforms }
     let kind: Kind
     let color: Color
 
@@ -340,6 +349,7 @@ struct SidebarIcon: View {
         case .overview: return CentralIcons.grid
         case .transcripts: return CentralIcons.fileText
         case .settings: return CentralIcons.settingsSlider
+        case .transforms: return CentralIcons.sparkle
         }
     }
 }
@@ -353,25 +363,103 @@ struct HarpsActionIcon: View {
     let tooltip: String
     let theme: WindowTheme
     let action: () -> Void
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
-            CentralIconView(svg: svg, color: theme.textFaint)
+            // Grey at rest, full-contrast on hover — per direct feedback,
+            // matches the same treatment as `ToolbarIconButton` below.
+            CentralIconView(svg: svg, color: isHovering ? theme.text : theme.textFaint)
                 .frame(width: 13, height: 13)
         }
         .buttonStyle(HarpsCardActionButtonStyle(theme: theme))
         .help(tooltip)
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .onHover { isHovering = $0 }
     }
 }
 
 struct HarpsCardActionButtonStyle: ButtonStyle {
     let theme: WindowTheme
     func makeBody(configuration: Configuration) -> some View {
+        HarpsCardActionButtonBody(theme: theme, configuration: configuration)
+    }
+}
+
+/// A separate `View` (rather than doing this inline in `makeBody`) purely so
+/// `isHovering` has somewhere to live — `ButtonStyle.makeBody` itself can't
+/// hold `@State`. Drives the row-action hover background shared by
+/// `HarpsActionIcon`'s icon buttons and the toolbar's plain-text
+/// Cancel/Delete buttons; icon *color* hover (Central Icons take their
+/// stroke color as an explicit parameter, not the environment
+/// `foregroundColor`) is handled separately at each icon-button call site.
+private struct HarpsCardActionButtonBody: View {
+    let theme: WindowTheme
+    let configuration: ButtonStyleConfiguration
+    @State private var isHovering = false
+
+    var body: some View {
         configuration.label
-            .foregroundColor(configuration.isPressed ? theme.text : theme.textFaint)
+            .foregroundColor(configuration.isPressed || isHovering ? theme.text : theme.textFaint)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(configuration.isPressed ? theme.sel : Color.clear, in: RoundedRectangle(cornerRadius: 5))
+            .background(
+                configuration.isPressed || isHovering ? theme.sel : Color.clear,
+                in: RoundedRectangle(cornerRadius: 5)
+            )
+            .animation(.easeOut(duration: 0.12), value: isHovering)
+            .onHover { isHovering = $0 }
+    }
+}
+
+/// Document view's floating toolbar's copy/delete icons — grey at rest,
+/// full-contrast on hover, same treatment as `HarpsActionIcon` above (kept
+/// separate since this toolbar's icons are visually larger). Takes its icon
+/// as a builder (rather than a plain `svg` string) so the copy button can
+/// hand it a two-icon crossfade instead of a single static glyph.
+private struct ToolbarIconButton<Icon: View>: View {
+    let tooltip: String
+    let theme: WindowTheme
+    let action: () -> Void
+    @ViewBuilder let icon: (Color) -> Icon
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            icon(isHovering ? theme.text : theme.textFaint)
+                .frame(width: 17, height: 17)
+                .padding(5)
+        }
+        .buttonStyle(HarpsCardActionButtonStyle(theme: theme))
+        .help(tooltip)
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .onHover { isHovering = $0 }
+    }
+}
+
+/// The toolbar's Cancel/Delete text pair — same grey-at-rest,
+/// full-contrast-on-hover idea as `ToolbarIconButton`, since a `Text` label
+/// sets its own `foregroundColor` directly and so isn't reachable by
+/// `HarpsCardActionButtonStyle`'s own hover color (see its comment).
+private struct ToolbarTextButton: View {
+    let title: String
+    let theme: WindowTheme
+    let restingColor: Color
+    let hoverColor: Color
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.custom("Geist-Medium", size: 12))
+                .foregroundColor(isHovering ? hoverColor : restingColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+        }
+        .buttonStyle(HarpsCardActionButtonStyle(theme: theme))
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .onHover { isHovering = $0 }
     }
 }
 
@@ -395,6 +483,13 @@ struct DocumentBodyView: View {
     var onCopy: ((Capture, String) -> Void)?
     var onDelete: ((Capture) -> Void)?
 
+    /// Shared across every `CaptureDocumentBlock` below so only one
+    /// capture's text can be selected (and show its floating toolbar) at a
+    /// time — without this, each block tracks its own selection in total
+    /// isolation, and clicking/dragging into a new one leaves every
+    /// previously-selected block still highlighted with its toolbar showing.
+    @StateObject private var selection = DocumentSelectionCoordinator()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(Array(frontmatterLines.enumerated()), id: \.offset) { _, line in
@@ -406,7 +501,7 @@ struct DocumentBodyView: View {
                 CaptureDocumentBlock(
                     capture: capture, theme: theme, highlight: highlight,
                     isFirst: index == 0 && frontmatterLines.isEmpty,
-                    onCopy: onCopy, onDelete: onDelete
+                    onCopy: onCopy, onDelete: onDelete, selection: selection
                 )
             }
         }
@@ -419,6 +514,12 @@ struct DocumentBodyView: View {
         else { return [] }
         return Array(lines[0...closingIndex])
     }
+}
+
+/// Tracks which single capture, if any, currently owns a text selection in
+/// Document view. See `DocumentBodyView`.
+private final class DocumentSelectionCoordinator: ObservableObject {
+    @Published var activeCaptureID: String?
 }
 
 /// One capture's heading + body in Document view. The body is a
@@ -434,9 +535,25 @@ private struct CaptureDocumentBlock: View {
     let isFirst: Bool
     let onCopy: ((Capture, String) -> Void)?
     let onDelete: ((Capture) -> Void)?
+    @ObservedObject var selection: DocumentSelectionCoordinator
 
     @State private var selectedRange = NSRange(location: 0, length: 0)
     @State private var selectionRect: CGRect?
+    @State private var justCopied = false
+    @State private var confirmingDelete = false
+
+    /// True once some *other* capture has taken over the selection — tells
+    /// this block's `SelectableText` to drop its own, so only one capture
+    /// is ever highlighted at a time.
+    private var shouldDeselect: Bool {
+        guard let activeID = selection.activeCaptureID else { return false }
+        return activeID != capture.id
+    }
+
+    private var isShowingToolbar: Bool {
+        selection.activeCaptureID == capture.id
+            && selectionRect != nil && selectedRange.length > 0 && (onCopy != nil || onDelete != nil)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -450,14 +567,23 @@ private struct CaptureDocumentBlock: View {
                     font: .init(name: "GeistMono-Regular", size: 13.5) ?? .systemFont(ofSize: 13.5),
                     textColor: NSColor(theme.textMuted),
                     lineSpacing: 6,
-                    highlight: highlight
+                    highlight: highlight,
+                    forceDeselect: shouldDeselect
                 ) { range, rect in
                     selectedRange = range
                     selectionRect = rect
+                    if range.length > 0 {
+                        selection.activeCaptureID = capture.id
+                    } else {
+                        // Selection cleared (deselected, or another block
+                        // took over) — don't leave a stale "Delete?" prompt
+                        // armed for next time this toolbar reappears.
+                        confirmingDelete = false
+                    }
                 }
                 .fixedSize(horizontal: false, vertical: true)
 
-                if let selectionRect, selectedRange.length > 0, onCopy != nil || onDelete != nil {
+                if let selectionRect, isShowingToolbar {
                     toolbar
                         .offset(x: max(selectionRect.minX, 0), y: selectionRect.maxY + 6)
                         .transition(.opacity.combined(with: .offset(y: -4)))
@@ -465,18 +591,48 @@ private struct CaptureDocumentBlock: View {
             }
         }
         .animation(.easeOut(duration: 0.12), value: selectionRect != nil)
+        // The toolbar floats below its own text via `.offset`, which doesn't
+        // expand this block's layout bounds — without a higher `zIndex` while
+        // it's showing, the *next* capture's heading (a later sibling in the
+        // enclosing `ForEach`, and so painted after this block) draws right
+        // on top of it instead of the toolbar sitting above.
+        .zIndex(isShowingToolbar ? 1 : 0)
     }
 
     private var toolbar: some View {
         HStack(spacing: 3) {
-            if let onCopy {
-                toolbarButton(CentralIcons.copy, tooltip: "Copy") {
-                    let text = capture.text as NSString
-                    onCopy(capture, text.substring(with: selectedRange))
+            if confirmingDelete {
+                deleteConfirmation
+            } else {
+                if let onCopy {
+                    ToolbarIconButton(tooltip: justCopied ? "Copied" : "Copy", theme: theme) {
+                        let text = capture.text as NSString
+                        onCopy(capture, text.substring(with: selectedRange))
+                        showCopiedConfirmation()
+                    } icon: { color in
+                        // A morph rather than a hard swap: both icons sit
+                        // stacked, crossfading and popping in/out of scale
+                        // as `justCopied` flips — per direct request
+                        // ("morph animation between those two icons...
+                        // instead of a straight switch").
+                        ZStack {
+                            CentralIconView(svg: CentralIcons.copy, color: color)
+                                .opacity(justCopied ? 0 : 1)
+                                .scaleEffect(justCopied ? 0.5 : 1)
+                            CentralIconView(svg: CentralIcons.check, color: color)
+                                .opacity(justCopied ? 1 : 0)
+                                .scaleEffect(justCopied ? 1 : 0.5)
+                        }
+                        .animation(.spring(response: 0.32, dampingFraction: 0.62), value: justCopied)
+                    }
                 }
-            }
-            if let onDelete {
-                toolbarButton(CentralIcons.trash, tooltip: "Delete") { onDelete(capture) }
+                if onDelete != nil {
+                    ToolbarIconButton(tooltip: "Delete", theme: theme) {
+                        withAnimation(.easeOut(duration: 0.15)) { confirmingDelete = true }
+                    } icon: { color in
+                        CentralIconView(svg: CentralIcons.trash, color: color)
+                    }
+                }
             }
         }
         .padding(5)
@@ -485,14 +641,31 @@ private struct CaptureDocumentBlock: View {
         .shadow(color: .black.opacity(0.16), radius: 8, y: 3)
     }
 
-    private func toolbarButton(_ svg: String, tooltip: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            CentralIconView(svg: svg, color: theme.text)
-                .frame(width: 17, height: 17)
-                .padding(5)
+    /// The trash icon "morphs into" this pair on tap, per direct request
+    /// ("just have the trashcan morph into two buttons that say 'delete'
+    /// and 'cancel'") — a lightweight confirm step before an irreversible
+    /// action, without a whole separate alert/sheet for it.
+    private var deleteConfirmation: some View {
+        HStack(spacing: 4) {
+            ToolbarTextButton(
+                title: "Cancel", theme: theme, restingColor: theme.textFaint, hoverColor: theme.text
+            ) {
+                withAnimation(.easeOut(duration: 0.15)) { confirmingDelete = false }
+            }
+            ToolbarTextButton(
+                title: "Delete", theme: theme, restingColor: theme.danger, hoverColor: theme.danger
+            ) {
+                onDelete?(capture)
+            }
         }
-        .buttonStyle(HarpsCardActionButtonStyle(theme: theme))
-        .help(tooltip)
+        .transition(.scale(scale: 0.9).combined(with: .opacity))
+    }
+
+    private func showCopiedConfirmation() {
+        justCopied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            justCopied = false
+        }
     }
 
     private var heading: some View {

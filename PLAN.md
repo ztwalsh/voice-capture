@@ -386,6 +386,177 @@ The unglamorous work that separates a demo from something you use daily.
 **Exit criteria:** you install it fresh on a clean account and it works without
 you remembering anything.
 
+### Phase 6 — Transforms
+
+A user-defined post-processing step, run on every capture between
+transcription and insertion, entirely on-device via Apple's Foundation
+Models framework (macOS 26's on-device Apple Intelligence LLM — the app
+already requires macOS 26 for SpeechAnalyzer, so this adds no new minimum
+version). Ships with one built-in, non-editable default — **General
+Clean-up** (strips filler words, false starts, and repeated words without
+changing meaning) — and lets the user write, edit, enable/disable, and
+delete their own on top of it. Design approved against a clickable
+prototype: `prototype/transforms-list.html` — a bordered list (name,
+description, toggle, hover-reveal delete), a "New Transform" button above
+the table, and both "new" and "edit existing" opening as their own page
+with a "← Transforms" breadcrumb rather than a modal.
+
+**Data model** (new `Harps/Storage/TransformStore.swift`, same shape as
+`SettingsStore`/`TranscriptStore`):
+
+```swift
+struct Transform: Identifiable, Codable, Equatable {
+    let id: String
+    var name: String
+    var instructions: String
+    var isEnabled: Bool
+    let isBuiltIn: Bool   // General Clean-up only, for now
+}
+```
+
+Persisted as a JSON file (`~/Library/Application Support/Harps/transforms.json`),
+not `UserDefaults` — consistent with this app's "the file is the source of
+truth" posture elsewhere (transcripts, not a database), and it means a
+transform's wording survives being inspected or hand-edited the same way a
+day file does. `TransformStore` seeds the file with the General Clean-up
+default on first run if it doesn't exist yet. Order in the array is
+execution order — General Clean-up seeded first; reordering (drag to
+resequence) is a plausible v2, not required for v1.
+
+**The transform pass** (new `Harps/Capture/TransformEngine.swift`):
+
+```swift
+import FoundationModels   // exact API surface: verify against the macOS 26 SDK at implementation time
+
+enum TransformEngine {
+    static func apply(_ transforms: [Transform], to text: String) async -> String {
+        guard case .available = SystemLanguageModel.default.availability else {
+            return text   // Apple Intelligence off/ineligible/not-ready: pass through unchanged, never block on it
+        }
+        var current = text
+        for transform in transforms where transform.isEnabled {
+            do {
+                let session = LanguageModelSession(instructions: transform.instructions)
+                let response = try await session.respond(to: current)
+                current = response.content
+            } catch {
+                AppLog.shared.error("Transform \"\(transform.name)\" failed: \(error.localizedDescription)")
+                // keep `current` as it was going into this transform and move on —
+                // one bad transform should never lose the whole capture
+            }
+        }
+        return current
+    }
+}
+```
+
+Wired into `HarpsController.endCapture()` right after
+`transcriber.transcribe(fileAt:)` returns and before `inserter.insert(_:)`
+and `store.append(...)` — the transformed text is both what gets typed and
+what gets saved to the day file, so Document view and what landed at the
+cursor never disagree. Runs inside the same `Task { @MainActor in }` the
+transcription call already lives in.
+
+**Settings/navigation** (extends the existing `HistoryRootView` sidebar and
+`Destination` enum in `HistoryViewModel.swift`, the same way Feedback was
+added as a permanent row rather than nested inside Settings):
+
+- New `.transforms` case, its own icon (fetch a Central Icons sparkle/wand
+  glyph the same way the others were pulled, at
+  `round-outlined-radius-3-stroke-2`).
+- New `TransformsView.swift` (list) + `TransformEditorView.swift`
+  (name field + `EditableTextBox` for instructions, reusing the exact
+  component built for Feedback — same need: a multi-line editable box with
+  no phantom scrollbar). A small local view model (`TransformsViewModel`,
+  same shape as `FeedbackViewModel`) owns `destination: .list | .editor(Transform?)`
+  for the breadcrumb navigation, `nil` meaning "new."
+- Delete icon reuses `HarpsActionIcon`/`CentralIcons.trash`, matching the
+  hover-reveal pattern already used on capture-card rows. Locked (built-in)
+  rows never show it; the editor page hides its own Delete button and
+  disables both fields the same way, with the same "built-in default" note
+  the prototype's split-view draft used.
+
+**Availability / degrading gracefully:** Foundation Models requires Apple
+Intelligence enabled and eligible hardware — not guaranteed even on a
+Mac that meets the macOS 26 floor. When `SystemLanguageModel.default.availability`
+isn't `.available`, `TransformsView` shows a plain notice ("Requires Apple
+Intelligence — turn it on in System Settings") and the row toggles become
+inert, but capture/transcription/insertion keep working exactly as before —
+this feature must never be a new way for dictation itself to break.
+
+**Open questions for whoever picks this up:**
+1. Exact `FoundationModels` API names (`SystemLanguageModel`,
+   `LanguageModelSession`, `.respond(to:)`) are from public WWDC25
+   material, not verified against this repo's actual SDK — confirm first.
+2. Latency: an on-device LLM pass adds real time between "released the
+   hotkey" and "text appears." Whether the capsule's existing
+   "Transcribing…" state should just cover this too, or needs its own
+   label, is a UX call to make once it's actually running end to end.
+3. Whether the *saved* transcript should be the transformed text (this
+   plan's default) or the raw transcript with transforms applied only at
+   insertion time — the former keeps Document view and what got typed in
+   sync; the latter preserves the unedited original for the record. Worth
+   deciding deliberately rather than defaulting silently.
+
+**Exit criteria:** General Clean-up is on by default and visibly improves a
+rambling capture; a hand-written custom transform can be created, edited,
+disabled, and deleted; the feature no-ops safely with Apple Intelligence off.
+
+### Phase 7 — Three small UX changes
+
+Three independent, small pieces of feedback — none touches the others, and
+none depends on Phase 6. The menu bar's own click behavior (left-click
+toggles a capture, right-click shows the menu) stays exactly as it is —
+none of these change it.
+
+**1. Resizable sidebar.** `HistoryRootView.swift`'s root `HStack` currently
+hardcodes `SidebarView(...).frame(width: 236)`, with a plain
+`Rectangle().fill(theme.hairline).frame(width: 1)` as the divider between it
+and the main pane. Replace that divider with a small hit-target view (a few
+points wide, hairline drawn in the center) that:
+- Shows a resize cursor on hover (`.onHover { hovering in hovering ?
+  NSCursor.resizeLeftRight.push() : NSCursor.pop() }` — SwiftUI has no
+  built-in "resize cursor" modifier, so this goes straight to AppKit the
+  same way `ScrollbarHider` already does elsewhere in this app).
+- Tracks a live width via `DragGesture`, clamped to a sane range (e.g.
+  180–360pt — narrow enough that nav labels wouldn't truncate, wide enough
+  that it can't swallow the main pane).
+- Persists the chosen width to `UserDefaults` (new key on `SettingsStore`,
+  same pattern as everything else there) so it survives a relaunch.
+
+**2. Icons on the menu bar's dropdown menu items.** `StatusItemController`'s
+right-click menu ("Open Harps", "Permissions…", "Quit Harps") is plain text
+today — `NSMenuItem` supports an `.image`. SF Symbols (`NSImage(systemSymbolName:accessibilityDescription:)`)
+are the better fit here specifically, not this app's own Central Icons set:
+a native menu's item icons are a macOS system-chrome convention, not part of
+the app's own visual surface the way the window/capsule are, and SF Symbols
+already auto-adapt to the menu's light/dark/selected state for free.
+
+**3. Clicking the app's icon in the Dock or Finder/Applications opens the
+dashboard.** Not the menu bar icon — the actual app icon, when Harps is
+already running and the user double-clicks `Harps.app` again (in
+Applications, or via a Dock tile if someone drags it there). AppKit's hook
+for exactly this is `NSApplicationDelegate.applicationShouldHandleReopen(_:hasVisibleWindows:)`
+— implement it in `main.swift`'s `AppDelegate` to call `historyWindow.show()`
+and return `true`. This fires regardless of the Dock icon being hidden
+(`.accessory` activation policy only withholds the Dock tile and Cmd-Tab
+presence, not this delegate callback — confirmed by how `HistoryWindowController`
+already activates and takes key window status normally today).
+   - Open question: should a *cold* launch (double-click while not already
+     running) also open the dashboard immediately, or only a *reopen*
+     (already running)? The simple version — always show it on
+     `applicationDidFinishLaunching` too — is easy but would also pop the
+     window on every login-item auto-start via `SMAppService`, which is
+     probably not wanted. Recommendation: only wire the reopen case for
+     v1 (unambiguous, matches what was actually asked for) and leave
+     cold-launch behavior alone; revisit only if it turns out people expect
+     a fresh launch to show the window too.
+
+**Exit criteria:** dragging the sidebar's edge resizes it live and the width
+sticks across a relaunch; the menu bar's dropdown items have icons; clicking
+the Dock/Finder app icon while Harps is already running brings the history
+window forward.
+
 ### Sequencing
 
 Phase 0 gates everything, because its answers can change the architecture.

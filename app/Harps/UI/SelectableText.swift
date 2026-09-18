@@ -15,6 +15,10 @@ struct SelectableText: NSViewRepresentable {
     let textColor: NSColor
     let lineSpacing: CGFloat
     var highlight: String = ""
+    /// Set true to force this text view's own selection to clear — used
+    /// when a sibling block becomes the one holding a selection, so only
+    /// one capture's text can be highlighted (and show a toolbar) at once.
+    var forceDeselect: Bool = false
     var onSelectionChange: (NSRange, CGRect?) -> Void = { _, _ in }
 
     func makeNSView(context: Context) -> AutoHeightTextView {
@@ -33,6 +37,9 @@ struct SelectableText: NSViewRepresentable {
 
     func updateNSView(_ textView: AutoHeightTextView, context: Context) {
         context.coordinator.onSelectionChange = onSelectionChange
+        if forceDeselect, textView.selectedRange().length > 0 {
+            textView.setSelectedRange(NSRange(location: 0, length: 0))
+        }
         guard textView.attributedString().string != text
                 || textView.lastHighlight != highlight
         else { return }
@@ -74,11 +81,16 @@ struct SelectableText: NSViewRepresentable {
                   let layoutManager = textView.layoutManager,
                   let container = textView.textContainer
             else {
-                onSelectionChange(range, nil)
+                // Dispatched async since this can fire from `updateNSView`
+                // itself (the `forceDeselect` clear below) — mutating the
+                // SwiftUI state that closure owns synchronously, mid-update,
+                // is undefined behavior.
+                DispatchQueue.main.async { [onSelectionChange] in onSelectionChange(range, nil) }
                 return
             }
             let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
-            onSelectionChange(range, layoutManager.boundingRect(forGlyphRange: glyphRange, in: container))
+            let rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: container)
+            DispatchQueue.main.async { [onSelectionChange] in onSelectionChange(range, rect) }
         }
     }
 }

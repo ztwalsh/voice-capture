@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.mainMenu = Self.makeMainMenu()
+
         // A revoked-permission notice from `HarpsController` and the user's
         // own "Permissions…" menu item both just open this same window —
         // it always shows live state, so there's nothing more to wire up
@@ -29,6 +31,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
         controller.onRecordingChanged = { [weak item] recording in item?.setRecording(recording) }
         controller.start()
+
+        // Clicking the Dock/Finder icon on a *cold* launch (Harps wasn't
+        // already running) never goes through `applicationShouldHandleReopen`
+        // below — that only fires for an already-running app. Without this,
+        // a cold launch left `.accessory`'s policy in place and never became
+        // the frontmost app, so the menu bar kept showing whatever was
+        // frontmost before — indistinguishable from "nothing happened" to
+        // the user clicking the icon. Showing the window here covers that
+        // case the same way `applicationShouldHandleReopen` covers reopen.
+        historyWindow.show()
+    }
+
+    /// Fires when the user double-clicks `Harps.app` again in Finder/Applications
+    /// (or a Dock tile, if someone drags one there) while it's already
+    /// running — PLAN.md Phase 7. `.accessory` activation policy only
+    /// withholds the Dock tile and Cmd-Tab presence, not this callback, so
+    /// this fires regardless of there being a Dock icon to click.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        historyWindow.show()
+        return true
+    }
+
+    /// Confirmed live (screenshot in hand): with no `NSApp.mainMenu` at
+    /// all — true for this whole app until now, since it's a bare AppKit
+    /// agent with no Xcode-generated menu bar — activating and bringing a
+    /// window forward still left the *previous* app's own File/Edit/Window
+    /// menu items showing in the menu bar. macOS has nothing of Harps' own
+    /// to display there without this, so it just leaves whatever was
+    /// already up. A minimal menu (just Quit, really) is enough to give it
+    /// something.
+    private static func makeMainMenu() -> NSMenu {
+        let mainMenu = NSMenu()
+
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+        let appMenu = NSMenu()
+        appMenuItem.submenu = appMenu
+        appMenu.addItem(
+            withTitle: "About Harps",
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            keyEquivalent: ""
+        )
+        appMenu.addItem(.separator())
+        appMenu.addItem(
+            withTitle: "Quit Harps",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        )
+
+        let editMenuItem = NSMenuItem()
+        mainMenu.addItem(editMenuItem)
+        let editMenu = NSMenu(title: "Edit")
+        editMenuItem.submenu = editMenu
+        // Standard Cmd-C/V/X/A/Z bindings — without these, text fields in
+        // the history window (search, the Feedback box, Transform editor)
+        // silently lose the usual edit shortcuts once a real menu bar is
+        // present, since AppKit normally wires them through the Edit menu.
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
+        return mainMenu
     }
 }
 

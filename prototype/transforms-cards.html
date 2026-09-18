@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harps — Transforms, cards</title>
+<!--
+  Option 2 of 3: a card grid instead of a list. More visual weight per
+  transform (room for a distinct icon per card), and a dashed "add" card
+  makes creating a new one feel like part of the collection rather than a
+  button bolted below a list. Trade-off: fewer transforms visible at once
+  than the list option.
+-->
+<style>
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('./fonts/geist.woff2') format('woff2'); }
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('./fonts/geist-mono.woff2') format('woff2'); }
+
+:root {
+  color-scheme: dark;
+  --bg: #0d0d16; --side: #0a0a13; --sel: #1c1c24; --trough: #13131c;
+  --hairline: rgba(255,255,255,0.075);
+  --text: #fafafa; --text-muted: rgba(255,255,255,0.56);
+  --text-subtle: rgba(255,255,255,0.44); --text-faint: rgba(255,255,255,0.30);
+  --up: #4ADE80; --live: #130CEE;
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; font-family: var(--font-sans); color: var(--text);
+  overflow: hidden; -webkit-font-smoothing: antialiased;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(900px 620px at 14% 10%,  var(--desk-c), transparent 62%),
+    radial-gradient(760px 520px at 88% 22%,  var(--desk-d), transparent 58%),
+    radial-gradient(1000px 700px at 62% 96%, var(--desk-a), transparent 60%),
+    var(--desk-b);
+}
+.win { width: min(1140px, 94vw); height: min(720px, 90vh); background: var(--bg); border-radius: 14px;
+  box-shadow: 0 24px 70px 0 rgba(0,0,0,0.62), 0 0 0 1px rgba(255,255,255,0.09); overflow: hidden; display: flex; }
+
+.side { flex: none; width: 236px; background: var(--side); border-right: 1px solid var(--hairline); display: flex; flex-direction: column; padding: 0 10px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 18px 10px 22px; }
+.mark { width: 30px; height: 30px; border-radius: 9px; flex: none; background: var(--text); color: var(--bg); display: flex; align-items: center; justify-content: center; }
+.wordmark { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.tls { display: flex; gap: 7px; padding: 14px 10px 0; }
+.tl { width: 11px; height: 11px; border-radius: 50%; background: var(--text-faint); opacity: .4; }
+.navsec { display: flex; flex-direction: column; gap: 2px; padding-top: 26px; }
+.nav { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 9px; cursor: pointer; color: var(--text-muted); font-size: 14px; font-weight: 450; }
+.nav svg { flex: none; opacity: .62; }
+.nav[aria-selected="true"] { background: var(--sel); color: var(--text); font-weight: 500; }
+.nav[aria-selected="true"] svg { opacity: 1; }
+.side-foot { margin-top: auto; border-top: 1px solid var(--hairline); padding: 10px; }
+
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.head { padding: 20px 32px; border-bottom: 1px solid var(--hairline); }
+.head h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.015em; margin: 0 0 4px; }
+.head p { font-size: 13px; color: var(--text-subtle); margin: 0; max-width: 520px; line-height: 1.5; }
+.body { flex: 1; overflow-y: auto; padding: 24px 32px 40px; }
+
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 700px; margin: 0 auto; }
+.card { background: var(--trough); border: 1px solid var(--hairline); border-radius: 12px; padding: 16px; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
+.card:hover { background: var(--sel); }
+.card .c-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.card .icon { width: 30px; height: 30px; border-radius: 8px; background: var(--sel); display: flex; align-items: center; justify-content: center; color: var(--text); }
+.card.off .icon { color: var(--text-faint); }
+.card .name-line { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+.card .name { font-size: 14px; font-weight: 500; }
+.card.off .name { color: var(--text-subtle); }
+.card .tag { font-family: var(--font-mono); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); border: 1px solid var(--hairline); border-radius: 5px; padding: 1.5px 5px; }
+.card .desc { font-size: 12px; color: var(--text-subtle); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.6em; }
+
+.sw { width: 34px; height: 20px; border-radius: 999px; background: var(--sel); position: relative; flex: none; cursor: pointer; transition: background-color .2s cubic-bezier(.22,1,.36,1); }
+.sw::after { content: ''; position: absolute; top: 1.5px; left: 1.5px; width: 17px; height: 17px; border-radius: 50%; background: var(--bg); box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s cubic-bezier(.22,1,.36,1); }
+.sw.on { background: var(--text); }
+.sw.on::after { transform: translateX(14px); background: var(--side); }
+
+.card.add { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; border-style: dashed; color: var(--text-faint); min-height: 118px; }
+.card.add:hover { color: var(--text-subtle); border-color: var(--text-faint); background: var(--trough); }
+.card.add span { font-size: 13px; font-weight: 500; }
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 10; }
+.overlay.open { display: flex; }
+.modal { width: 520px; max-width: 90%; background: var(--bg); border: 1px solid var(--hairline); border-radius: 12px; box-shadow: 0 24px 60px rgba(0,0,0,.5); padding: 22px; }
+.modal .m-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.modal .m-head input { background: transparent; border: none; outline: none; color: var(--text); font-size: 17px; font-weight: 600; font-family: var(--font-sans); width: 100%; }
+.modal label { display: block; font-size: 11.5px; color: var(--text-faint); margin: 0 0 6px; font-family: var(--font-mono); letter-spacing: .03em; text-transform: uppercase; }
+.modal textarea { width: 100%; min-height: 140px; background: var(--trough); border: 1px solid var(--hairline); border-radius: 8px; padding: 12px; color: var(--text); font-family: var(--font-sans); font-size: 13.5px; line-height: 1.6; resize: vertical; outline: none; }
+.modal .m-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+.modal .close-x { cursor: pointer; color: var(--text-faint); }
+.btn-primary { background: var(--text); color: var(--bg); border: none; padding: 8px 16px; border-radius: 8px; font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.btn-danger { background: transparent; border: none; color: var(--text-faint); font-family: var(--font-sans); font-size: 12.5px; cursor: pointer; }
+.btn-danger:hover { color: var(--live); }
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="side">
+    <div class="tls"><span class="tl"></span><span class="tl"></span><span class="tl"></span></div>
+    <div class="brand">
+      <div class="mark"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5.6 2.6h4.8M5.6 13.4h4.8M8 2.6v10.8"/></svg></div>
+      <div class="wordmark">Harps</div>
+    </div>
+    <div class="navsec">
+      <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8.5 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 8.5H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 15.5H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Overview</div>
+      <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12.1716 3H8C6.34315 3 5 4.34315 5 6V18C5 19.6569 6.34315 21 8 21H16C17.6569 21 19 19.6569 19 18V9.82843C19 9.29799 18.7893 8.78929 18.4142 8.41421L13.5858 3.58579C13.2107 3.21071 12.702 3 12.1716 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M13 3.5V7C13 8.10457 13.8954 9 15 9H18.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 13H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 17H15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Transcripts</div>
+      <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 10C16.6575 10 18 8.6575 18 7C18 5.3425 16.6575 4 15 4C13.3425 4 12 5.3425 12 7C12 8.6575 13.3425 10 15 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 7H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 7H18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 20C10.6575 20 12 18.6575 12 17C12 15.3425 10.6575 14 9 14C7.3425 14 6 15.3425 6 17C6 18.6575 7.3425 20 9 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 17H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 17H12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Settings</div>
+      <div class="nav" aria-selected="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Transforms</div>
+    </div>
+    <div class="side-foot">
+      <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M17.9961 14C19.6529 14 20.9961 12.6569 20.9961 11C20.9961 9.34318 19.6529 8.00003 17.9961 8.00003M12.8254 18C12.4136 19.1652 11.3023 20 9.99609 20C8.33924 20 6.99609 18.6569 6.99609 17V15.5M6.99829 6.50003V15.5M17.9961 7.10616V14.8939C17.9961 16.9253 16.0195 18.3694 14.0842 17.752L5.08424 14.8805C3.84044 14.4837 2.99609 13.328 2.99609 12.0225V9.97759C2.99609 8.67203 3.84044 7.51636 5.08424 7.11953L14.0842 4.2481C16.0195 3.63065 17.9961 5.07476 17.9961 7.10616Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Feedback</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="head">
+      <h1>Transforms</h1>
+      <p>Run automatically on every capture, in order, right after transcription. Turn any off, or write your own.</p>
+    </div>
+    <div class="body">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="m-head">
+      <input id="m-name" placeholder="Transform name" />
+      <span class="close-x" onclick="closeEditor()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </span>
+    </div>
+    <label>Instructions</label>
+    <textarea id="m-body" placeholder="Describe what this transform should do to the raw transcript..."></textarea>
+    <div class="m-foot">
+      <button class="btn-danger" id="m-delete" onclick="deleteCurrent()">Delete</button>
+      <button class="btn-primary" onclick="closeEditor()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ICONS = {
+  cleanup: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+  bullets: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  formal: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9h8M8 13h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  noprofanity: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+const TRANSFORMS = [
+  { id: 'cleanup', name: 'General Clean-up', tag: 'Default', on: true, locked: true,
+    desc: 'Removes filler words (um, uh), repeated words, and false starts.',
+    body: 'Remove filler words like "um" and "uh", collapse repeated or restarted words, and tighten up out-loud thinking — but never change the meaning, facts, or tone of what was actually said.' },
+  { id: 'bullets', name: 'Meeting Notes → Bullets', tag: null, on: false, locked: false,
+    desc: 'Reformats a rambling recap into short bullet points.',
+    body: 'Reformat the transcript into concise bullet points, one idea per line. Preserve names, dates, and numbers exactly.' },
+  { id: 'formal', name: 'Formal Tone', tag: null, on: true, locked: false,
+    desc: 'Rewrites casual phrasing into a more professional register.',
+    body: 'Rewrite in a more formal, professional tone suitable for an email. Keep it concise — do not add new content.' },
+  { id: 'noprofanity', name: 'Remove Profanity', tag: null, on: false, locked: false,
+    desc: 'Swaps out swear words for milder alternatives.',
+    body: 'Replace any profanity with a milder equivalent word. Leave everything else unchanged.' },
+];
+
+let editingId = null;
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = TRANSFORMS.map(t => `
+    <div class="card ${t.on ? '' : 'off'}" onclick="openEditor('${t.id}')">
+      <div class="c-top">
+        <div class="icon">${ICONS[t.id] || ''}</div>
+        <span class="sw ${t.on ? 'on' : ''}" onclick="event.stopPropagation(); toggle('${t.id}')"></span>
+      </div>
+      <div class="name-line"><span class="name">${t.name}</span>${t.tag ? `<span class="tag">${t.tag}</span>` : ''}</div>
+      <div class="desc">${t.desc}</div>
+    </div>
+  `).join('') + `
+    <div class="card add" onclick="openEditor(null)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>New Transform</span>
+    </div>
+  `;
+}
+
+function toggle(id) {
+  const t = TRANSFORMS.find(t => t.id === id);
+  t.on = !t.on;
+  render();
+}
+
+function openEditor(id) {
+  editingId = id;
+  const t = TRANSFORMS.find(t => t.id === id);
+  document.getElementById('m-name').value = t ? t.name : '';
+  document.getElementById('m-body').value = t ? t.body : '';
+  document.getElementById('m-delete').style.display = (t && !t.locked) ? 'inline' : 'none';
+  document.getElementById('overlay').classList.add('open');
+}
+function closeEditor() { document.getElementById('overlay').classList.remove('open'); editingId = null; }
+function deleteCurrent() {
+  const i = TRANSFORMS.findIndex(t => t.id === editingId);
+  if (i > -1) TRANSFORMS.splice(i, 1);
+  render(); closeEditor();
+}
+
+render();
+</script>
+</body>
+</html>

@@ -32,10 +32,24 @@ final class StatusItemController {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
-        menu.addItem(withTitle: "Open Harps", action: #selector(openHistory), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Permissions…", action: #selector(openSetup), keyEquivalent: "").target = self
+        // SF Symbols, not this app's own Central Icons set — a native
+        // menu's item icons are macOS system chrome, not part of the app's
+        // own visual surface the way the window/capsule are, and SF
+        // Symbols already adapt to the menu's light/dark/selected state
+        // for free.
+        let openItem = menu.addItem(withTitle: "Open Harps", action: #selector(openHistory), keyEquivalent: "")
+        openItem.target = self
+        openItem.image = NSImage(systemSymbolName: "rectangle.stack", accessibilityDescription: nil)
+
+        let permissionsItem = menu.addItem(withTitle: "Permissions…", action: #selector(openSetup), keyEquivalent: "")
+        permissionsItem.target = self
+        permissionsItem.image = NSImage(systemSymbolName: "lock.shield", accessibilityDescription: nil)
+
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit Harps", action: #selector(quit), keyEquivalent: "q").target = self
+
+        let quitItem = menu.addItem(withTitle: "Quit Harps", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+        quitItem.image = NSImage(systemSymbolName: "power", accessibilityDescription: nil)
     }
 
     /// design.md §5: `--live` on the menu bar icon for the entire capture,

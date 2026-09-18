@@ -18,6 +18,11 @@ enum CentralIcons {
 
     static let checkCircle = #"<path d="M15 9.5L10.5 15L8.5 13M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
+    /// `checkCircle`'s own checkmark stroke, lifted out on its own — same
+    /// path, no ring, for spots (like the copy-confirmation icon) where a
+    /// plain checkmark reads better than one boxed in a circle.
+    static let check = #"<path d="M15 9.5L10.5 15L8.5 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>"#
+
     static let circle = #"<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>"#
 
     static let exclamationCircle = #"<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 8V12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="15.7996" r="1.2" fill="currentColor"/>"#
@@ -30,6 +35,12 @@ enum CentralIcons {
 
     static let chevronDown = #"<path d="M8 10L10.9393 12.9393C11.5251 13.5251 12.4749 13.5251 13.0607 12.9393L16 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
+    /// The same sparkle path already shown (and approved) in
+    /// `prototype/transforms-list.html`'s sidebar mockup, not a fresh pull
+    /// from Central Icons — keeping the shipped nav icon identical to what
+    /// was actually clicked through avoids a last-minute mismatch.
+    static let sparkle = #"<path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>"#
+
     static let grid = #"<path d="M8.5 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 8.5H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 15.5H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
     static let fileText = #"<path d="M12.1716 3H8C6.34315 3 5 4.34315 5 6V18C5 19.6569 6.34315 21 8 21H16C17.6569 21 19 19.6569 19 18V9.82843C19 9.29799 18.7893 8.78929 18.4142 8.41421L13.5858 3.58579C13.2107 3.21071 12.702 3 12.1716 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M13 3.5V7C13 8.10457 13.8954 9 15 9H18.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 13H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 17H15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
@@ -41,6 +52,8 @@ enum CentralIcons {
     static let microphone = #"<path d="M12.0013 19V21M12.0013 19C8.32307 19 6.14811 16.7451 5.01562 15M12.0013 19C15.6795 19 17.8545 16.7451 18.987 15M16.0013 7V11C16.0013 13.2091 14.2104 15 12.0013 15C9.79215 15 8.00129 13.2091 8.00129 11V7C8.00129 4.79086 9.79215 3 12.0013 3C14.2104 3 16.0013 4.79086 16.0013 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
     static let stopCircle = #"<path d="M9.5 10.5C9.5 9.94772 9.94772 9.5 10.5 9.5H13.5C14.0523 9.5 14.5 9.94772 14.5 10.5V13.5C14.5 14.0523 14.0523 14.5 13.5 14.5H10.5C9.94772 14.5 9.5 14.0523 9.5 13.5V10.5Z" fill="currentColor"/><path d="M2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12Z" stroke="currentColor" stroke-width="2"/>"#
+
+    static let plus = #"<path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
     static let send = #"<path d="M12.5916 20.8249C13.0032 22.2656 15.0401 22.279 15.4706 20.8438L19.9483 5.91824C20.2915 4.77403 19.2247 3.70722 18.0805 4.05048L3.15492 8.52816C1.7198 8.95869 1.7332 10.9956 3.17385 11.4072L9.69747 13.2711C10.1958 13.4135 10.5853 13.803 10.7277 14.3013L12.5916 20.8249Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 }

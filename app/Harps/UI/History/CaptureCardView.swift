@@ -18,6 +18,7 @@ struct CaptureCardView: View {
     /// motion.md's texts-reveal: staggered blurred rise on first appearance,
     /// applied per-row rather than to the list as a whole.
     @State private var hasAppeared = false
+    @State private var justCopied = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -75,7 +76,15 @@ struct CaptureCardView: View {
 
     private var actions: some View {
         HStack(spacing: 2) {
-            HarpsActionIcon(svg: CentralIcons.copy, tooltip: "Copy", theme: theme, action: onCopy)
+            HarpsActionIcon(
+                svg: justCopied ? CentralIcons.checkCircle : CentralIcons.copy,
+                tooltip: justCopied ? "Copied" : "Copy",
+                theme: theme
+            ) {
+                onCopy()
+                justCopied = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { justCopied = false }
+            }
             HarpsActionIcon(svg: CentralIcons.finder, tooltip: "Show in Finder", theme: theme, action: onReveal)
             HarpsActionIcon(svg: CentralIcons.trash, tooltip: "Delete", theme: theme, action: onDelete)
         }

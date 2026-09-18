@@ -44,7 +44,7 @@
   --stagger-ease: ease-in-out;
 
   /* surfaces */
-  --bg:        #ffffff;
+  --bg:        #fafafa;
   --side:      #fbfbfc;
   --sel:       #ececed;
   --trough:    #f4f4f5;
@@ -55,9 +55,9 @@
   --text-subtle: #86868a;
   --text-faint:  #a8a8ac;
   --label-mono:  #6f7180;
-  /* accents — delta only, and the record dot */
-  --up:   #1E9E63;
-  --live: #E5484D;
+  /* accents — one value each, shared across appearances now */
+  --up:   #4ADE80;
+  --live: #130CEE;
   --mark: rgba(255, 214, 0, 0.40);
 
   --elev-win: 0 24px 70px 0 rgba(0,0,0,0.18), 0 6px 18px 0 rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.08);
@@ -68,23 +68,23 @@
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   color-scheme: dark;
-  --bg: #0c0c0d; --side: #09090a; --sel: #1d1d20; --trough: #151517;
+  --bg: #0d0d16; --side: #0a0a13; --sel: #1c1c24; --trough: #13131c;
   --hairline: rgba(255,255,255,0.075);
   --text: #fafafa; --text-muted: rgba(255,255,255,0.56);
   --text-subtle: rgba(255,255,255,0.44); --text-faint: rgba(255,255,255,0.30);
   --label-mono: rgba(255,255,255,0.48);
-  --up: #4ADE80; --live: #FF6369; --mark: rgba(255, 214, 0, 0.26);
+  --up: #4ADE80; --live: #130CEE; --mark: rgba(255, 214, 0, 0.26);
   --elev-win: 0 24px 70px 0 rgba(0,0,0,0.62), 0 0 0 1px rgba(255,255,255,0.09);
   --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
 } }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0c0c0d; --side: #09090a; --sel: #1d1d20; --trough: #151517;
+  --bg: #0d0d16; --side: #0a0a13; --sel: #1c1c24; --trough: #13131c;
   --hairline: rgba(255,255,255,0.075);
   --text: #fafafa; --text-muted: rgba(255,255,255,0.56);
   --text-subtle: rgba(255,255,255,0.44); --text-faint: rgba(255,255,255,0.30);
   --label-mono: rgba(255,255,255,0.48);
-  --up: #4ADE80; --live: #FF6369; --mark: rgba(255, 214, 0, 0.26);
+  --up: #4ADE80; --live: #130CEE; --mark: rgba(255, 214, 0, 0.26);
   --elev-win: 0 24px 70px 0 rgba(0,0,0,0.62), 0 0 0 1px rgba(255,255,255,0.09);
   --desk-a: #2a3340; --desk-b: #171a20; --desk-c: #3a4657; --desk-d: #4a3f3a;
 }
@@ -174,10 +174,12 @@ body {
 }
 .head h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
 .head .grow { flex: 1; }
+.search-wrap { position: relative; display: inline-flex; align-items: center; }
+.search-icon { position: absolute; left: 11px; color: var(--text-faint); pointer-events: none; }
 .search {
   width: 210px; height: 30px; border-radius: 9px;
   border: 1px solid var(--hairline); background: var(--trough);
-  padding: 0 11px; font-family: var(--font-sans); font-size: 13px;
+  padding: 0 11px 0 30px; font-family: var(--font-sans); font-size: 13px;
   color: var(--text); outline: none;
 }
 .search::placeholder { color: var(--text-faint); }
@@ -265,8 +267,8 @@ figure.chart { margin: 0; position: relative; }
 .card:hover .acts { opacity: 1; }
 .act {
   appearance: none; border: 0; background: transparent; cursor: pointer;
-  font-family: var(--font-mono); font-size: 10px; color: var(--text-faint);
-  padding: 2px 5px; border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-faint); padding: 5px; border-radius: 5px;
 }
 .act:hover { color: var(--text); background: var(--sel); }
 .card-body { font-size: 13.5px; line-height: 21px; overflow: hidden; }
@@ -413,13 +415,11 @@ html.force-reduce .md { filter: none !important; }
     <div class="secline">Recent</div>
     <div class="days" id="days"></div>
 
-    <div class="side-foot">
-      <span class="grow" id="footPath">transcripts/</span>
-      <span class="gear" title="Settings">
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3">
-          <circle cx="8" cy="8" r="2.2"/><path d="M8 1.2v1.6M8 13.2v1.6M14.8 8h-1.6M2.8 8H1.2M12.8 3.2l-1.1 1.1M4.3 11.7l-1.1 1.1M12.8 12.8l-1.1-1.1M4.3 4.3L3.2 3.2"/>
-        </svg>
-      </span>
+    <div class="side-foot" style="display:block;font-family:var(--font-sans);font-size:14px">
+      <div class="nav" aria-selected="false" style="margin:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M17.9961 14C19.6529 14 20.9961 12.6569 20.9961 11C20.9961 9.34318 19.6529 8.00003 17.9961 8.00003M12.8254 18C12.4136 19.1652 11.3023 20 9.99609 20C8.33924 20 6.99609 18.6569 6.99609 17V15.5M6.99829 6.50003V15.5M17.9961 7.10616V14.8939C17.9961 16.9253 16.0195 18.3694 14.0842 17.752L5.08424 14.8805C3.84044 14.4837 2.99609 13.328 2.99609 12.0225V9.97759C2.99609 8.67203 3.84044 7.51636 5.08424 7.11953L14.0842 4.2481C16.0195 3.63065 17.9961 5.07476 17.9961 7.10616Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Feedback</span>
+      </div>
     </div>
   </aside>
 
@@ -427,13 +427,15 @@ html.force-reduce .md { filter: none !important; }
     <div class="head">
       <h1 id="title">Overview</h1>
       <div class="grow"></div>
-      <input class="search" id="search" type="search" placeholder="Search transcripts" aria-label="Search transcripts">
+      <span class="search-wrap">
+        <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 18C14.866 18 18 14.866 18 11C18 7.13401 14.866 4 11 4C7.13401 4 4 7.13401 4 11C4 14.866 7.13401 18 11 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 20L16.05 16.05" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input class="search" id="search" type="search" placeholder="Search transcripts" aria-label="Search transcripts">
+      </span>
       <div class="t-tabs" id="tabs" role="tablist" hidden>
         <span class="t-tabs-pill" id="pill"></span>
         <button class="t-tab" role="tab" data-layout="library"  aria-selected="true">Library</button>
         <button class="t-tab" role="tab" data-layout="document" aria-selected="false">Document</button>
       </div>
-      <button class="mdbtn" id="mdBtn" aria-pressed="false">.md</button>
     </div>
 
     <div class="panes">
@@ -501,13 +503,16 @@ html.force-reduce .md { filter: none !important; }
   const XLAB  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const sum = a => a.reduce((x,y) => x+y, 0);
 
+  // Icon paths are copied verbatim from the app's own CentralIcon.swift —
+  // the exact Central Icons fragments (round-outlined-radius-3-stroke-2,
+  // 24x24 grid) the real sidebar renders, not redrawn approximations.
   const NAV = [
     ['overview', 'Overview',
-      '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1.5" y="1.5" width="5.6" height="5.6" rx="1.6"/><rect x="8.9" y="1.5" width="5.6" height="5.6" rx="1.6" opacity=".55"/><rect x="1.5" y="8.9" width="5.6" height="5.6" rx="1.6" opacity=".55"/><rect x="8.9" y="8.9" width="5.6" height="5.6" rx="1.6"/></svg>'],
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8.5 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 8.5H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 15.5H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'],
     ['transcripts', 'Transcripts',
-      '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="2.5" y="1.8" width="11" height="12.4" rx="2"/><path d="M5.2 5.4h5.6M5.2 8h5.6M5.2 10.6h3.4"/></svg>'],
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12.1716 3H8C6.34315 3 5 4.34315 5 6V18C5 19.6569 6.34315 21 8 21H16C17.6569 21 19 19.6569 19 18V9.82843C19 9.29799 18.7893 8.78929 18.4142 8.41421L13.5858 3.58579C13.2107 3.21071 12.702 3 12.1716 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M13 3.5V7C13 8.10457 13.8954 9 15 9H18.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 13H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 17H15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'],
     ['settings', 'Settings',
-      '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4.6h4M9 4.6h5M2 11.4h5M10 11.4h4"/><circle cx="7.4" cy="4.6" r="1.8"/><circle cx="8.6" cy="11.4" r="1.8"/></svg>']
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 10C16.6575 10 18 8.6575 18 7C18 5.3425 16.6575 4 15 4C13.3425 4 12 5.3425 12 7C12 8.6575 13.3425 10 15 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 7H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 7H18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 20C10.6575 20 12 18.6575 12 17C12 15.3425 10.6575 14 9 14C7.3425 14 6 15.3425 6 17C6 18.6575 7.3425 20 9 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 17H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 17H12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>']
   ];
 
   let section = 'overview', selected = 0, query = '';
@@ -673,7 +678,11 @@ html.force-reduce .md { filter: none !important; }
     top.className = 'card-top';
     top.innerHTML = '<span class="mono-meta">' + time + '</span><span class="chip">' + app +
       '</span><span class="dur">' + dur + 's · ' + words(text) + 'w</span>' +
-      '<span class="acts"><button class="act">copy</button><button class="act">delete</button></span>';
+      '<span class="acts">' +
+        '<button class="act" title="Copy"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M15 9V5.25C15 4.00736 13.9926 3 12.75 3H5.25C4.00736 3 3 4.00736 3 5.25V12.75C3 13.9926 4.00736 15 5.25 15H9M11.25 9H18.75C19.9926 9 21 10.0074 21 11.25V18.75C21 19.9926 19.9926 21 18.75 21H11.25C10.0074 21 9 19.9926 9 18.75V11.25C9 10.0074 10.0074 9 11.25 9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' +
+        '<button class="act" title="Show in Finder"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M13.25 13H11.25C11.429 9.92032 11.9121 6.95315 12.6834 4M8 9V10M16 9V10M8 15.5C11 17.5 13 17.5 16 15.5M12.6834 4H7C5.34315 4 4 5.34315 4 7V17C4 18.6569 5.34315 20 7 20H17C18.6569 20 20 18.6569 20 17V7C20 5.34315 18.6569 4 17 4H12.6834Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' +
+        '<button class="act" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 6.5L5.80734 18.2064C5.91582 19.7794 7.22348 21 8.80023 21H15.1998C16.7765 21 18.0842 19.7794 18.1927 18.2064L19 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3.5 6H20.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.07092 5.74621C8.42348 3.89745 10.0485 2.5 12 2.5C13.9515 2.5 15.5765 3.89745 15.9291 5.74621" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' +
+      '</span>';
     const body = document.createElement('div');
     body.className = 'card-body clamped';
     body.innerHTML = highlight(text);
@@ -791,11 +800,10 @@ html.force-reduce .md { filter: none !important; }
     if (query && section !== 'transcripts') section = 'transcripts';
     render();
   });
-  $('mdBtn').addEventListener('click', e => {
-    const open = $('md').dataset.open !== 'true';
-    $('md').dataset.open = String(open);
-    e.currentTarget.setAttribute('aria-pressed', String(open));
-  });
+  // The raw `.md` panel was dropped from the real app — Document view
+  // already shows the real file, so keeping both was redundant. Left
+  // unreachable here rather than torn out entirely, since nothing renders
+  // it without the button that used to open it.
   $('reduceBtn').addEventListener('click', e => {
     const on = document.documentElement.classList.toggle('force-reduce');
     e.currentTarget.setAttribute('aria-pressed', String(on));

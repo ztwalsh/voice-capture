@@ -1,11 +1,15 @@
 import AppKit
 
-/// The three destinations design.md §7 names: "Three destinations, not
-/// eight." Overview, Transcripts, Settings.
+/// design.md §7's original "three destinations, not eight" — Overview,
+/// Transcripts, Settings — plus Transforms (PLAN.md Phase 6), added the
+/// same deliberate way Feedback was: shown in the clickable prototype
+/// (`prototype/transforms-list.html`) as its own sidebar row before it was
+/// ever wired into the real nav, not slipped in as a Settings sub-page.
 enum Destination: String, CaseIterable, Identifiable {
     case overview = "Overview"
     case transcripts = "Transcripts"
     case settings = "Settings"
+    case transforms = "Transforms"
     var id: String { rawValue }
 }
 
@@ -44,6 +48,17 @@ enum TranscriptsLayout: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// `TransformsView`'s own navigation state, lifted up to `HistoryViewModel`
+/// (rather than kept as local `@State` inside the view) specifically so the
+/// shared window header can read it and render "Transforms / General
+/// Clean-up" as a real breadcrumb — confirmed by direct feedback that the
+/// in-page "‹ Transforms" link was redundant once the header does that job.
+enum TransformsDestination: Equatable {
+    case list
+    /// `nil` means creating a new transform.
+    case editor(Transform?)
+}
+
 /// Owns the history window's state. Re-reads from disk on `reload()` rather
 /// than watching the filesystem — the user is expected to edit these files
 /// by hand at any time, and a personal-scale capture history is small
@@ -60,6 +75,7 @@ final class HistoryViewModel: ObservableObject {
     /// permanent bottom-of-sidebar row, not a fourth "real" destination
     /// design.md's "three destinations, not eight" would have to answer for.
     @Published var showingFeedback = false
+    @Published var transformsDestination: TransformsDestination = .list
     @Published var transcriptsLayout: TranscriptsLayout = .library
     @Published var searchText = "" {
         didSet {

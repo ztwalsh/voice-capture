@@ -7,6 +7,12 @@ enum HistoryLayout {
     /// the traffic-light buttons — confirmed still too tight at 64
     /// (matching the main header) on real hardware.
     static let sidebarHeaderHeight: CGFloat = 92
+    /// Narrow enough that nav labels would start truncating below this —
+    /// no upper bound, per direct request ("expand as much as the user
+    /// wants"). The window's own `minSize` (760pt wide, set on
+    /// `HistoryWindowController`'s window) is the only thing that still
+    /// keeps the main pane from being fully swallowed.
+    static let sidebarMinWidth: CGFloat = 180
 }
 
 /// design.md §7's shape, refined to match `prototype/library-v2.html`: a
@@ -17,6 +23,7 @@ enum HistoryLayout {
 /// having both was redundant rather than complementary.
 struct HistoryRootView: View {
     @ObservedObject var model: HistoryViewModel
+    @ObservedObject private var settings = SettingsStore.shared
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var searchFocused: Bool
 
@@ -24,10 +31,10 @@ struct HistoryRootView: View {
         let theme = WindowTheme(colorScheme)
         HStack(spacing: 0) {
             SidebarView(model: model, theme: theme)
-                .frame(width: 236)
+                .frame(width: CGFloat(settings.sidebarWidth))
                 .background(theme.side)
 
-            Rectangle().fill(theme.hairline).frame(width: 1)
+            SidebarResizeHandle(theme: theme)
 
             VStack(spacing: 0) {
                 WindowHeaderView(model: model, theme: theme, searchFocused: $searchFocused)
@@ -62,6 +69,8 @@ struct HistoryRootView: View {
                 TranscriptsView(model: model, theme: theme)
             case .settings:
                 SettingsView(model: model, theme: theme)
+            case .transforms:
+                TransformsView(model: model, theme: theme)
             }
         }
     }
@@ -77,13 +86,11 @@ private struct WindowHeaderView: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Text(title)
-                .harpsType(HarpsType.title)
-                .foregroundColor(theme.text)
+            titleView
 
             Spacer()
 
-            if model.destination != .settings && !model.showingFeedback {
+            if model.destination != .settings && model.destination != .transforms && !model.showingFeedback {
                 searchField
             }
 
@@ -96,11 +103,41 @@ private struct WindowHeaderView: View {
         .overlay(Rectangle().frame(height: 1).foregroundColor(theme.hairline), alignment: .bottom)
     }
 
+    /// A real breadcrumb when editing/creating a transform ("Transforms /
+    /// General Clean-up," the first segment clickable to go back) — per
+    /// direct feedback, replacing an in-page "‹ Transforms" link that did
+    /// the same job redundantly. Every other destination is still just a
+    /// plain title.
+    @ViewBuilder
+    private var titleView: some View {
+        if model.destination == .transforms, case .editor(let transform) = model.transformsDestination {
+            HStack(spacing: 6) {
+                Text("Transforms")
+                    .harpsType(HarpsType.title)
+                    .foregroundColor(theme.text)
+                    .onTapGesture {
+                        withAnimation(.easeOut(duration: 0.15)) { model.transformsDestination = .list }
+                    }
+                Text("/")
+                    .harpsType(HarpsType.body)
+                    .foregroundColor(theme.textFaint)
+                Text(transform?.name.isEmpty == false ? transform!.name : "New Transform")
+                    .harpsType(HarpsType.body)
+                    .foregroundColor(theme.text)
+            }
+        } else {
+            Text(title)
+                .harpsType(HarpsType.title)
+                .foregroundColor(theme.text)
+        }
+    }
+
     private var title: String {
         if model.showingFeedback { return "Feedback" }
         switch model.destination {
         case .overview: return "Overview"
         case .settings: return "Settings"
+        case .transforms: return "Transforms"
         case .transcripts:
             guard let day = model.selectedDay else { return "Transcripts" }
             return RelativeDay.label(for: day)
@@ -174,6 +211,7 @@ private struct SidebarView: View {
             VStack(alignment: .leading, spacing: 2) {
                 destinationRow(.overview, icon: .overview)
                 destinationRow(.transcripts, icon: .transcripts)
+                destinationRow(.transforms, icon: .transforms)
                 destinationRow(.settings, icon: .settings)
             }
             .padding(.horizontal, 10)
@@ -228,6 +266,7 @@ private struct SidebarView: View {
             withAnimation(.easeOut(duration: 0.15)) {
                 model.destination = destination
                 model.showingFeedback = false
+                model.transformsDestination = .list
             }
         } label: {
             HStack(spacing: 11) {
@@ -301,6 +340,45 @@ private struct SidebarView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 10)
         .overlay(Rectangle().frame(height: 1).foregroundColor(theme.hairline), alignment: .top)
+    }
+}
+
+/// A wider-than-it-looks drag handle for the sidebar/main-pane divider —
+/// drawn as a plain 1pt hairline (matching every other divider in this
+/// window) but hit-tested over a few extra points on each side, since a
+/// literal 1pt-wide drag target is nearly impossible to grab reliably.
+/// SwiftUI has no built-in "resize cursor" modifier, so the hover cursor
+/// goes straight to AppKit via `NSCursor`, same as `ScrollbarHider`
+/// elsewhere in this app going straight to `NSScrollView` for the same
+/// class of reason.
+private struct SidebarResizeHandle: View {
+    let theme: WindowTheme
+    @ObservedObject private var settings = SettingsStore.shared
+    @State private var widthAtDragStart: CGFloat?
+
+    var body: some View {
+        Rectangle()
+            .fill(theme.hairline)
+            .frame(width: 1)
+            .frame(width: 7)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                if hovering {
+                    NSCursor.resizeLeftRight.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { value in
+                        let start = widthAtDragStart ?? CGFloat(settings.sidebarWidth)
+                        if widthAtDragStart == nil { widthAtDragStart = start }
+                        let proposed = start + value.translation.width
+                        settings.sidebarWidth = Double(max(proposed, HistoryLayout.sidebarMinWidth))
+                    }
+                    .onEnded { _ in widthAtDragStart = nil }
+            )
     }
 }
 

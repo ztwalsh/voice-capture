@@ -1,0 +1,3 @@
+# Playwright MCP scratch output (screenshots/snapshots taken while
+# reviewing prototypes live) — never source, regenerated constantly.
+.playwright-mcp/

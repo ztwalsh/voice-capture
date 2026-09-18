@@ -95,12 +95,31 @@ final class HarpsController {
         endCapture()
     }
 
+    /// `SettingsStore.invocationMode` read fresh here, not cached — same
+    /// reasoning as `HotkeyMonitor` reading `hotkey` fresh on every event:
+    /// a Settings change takes effect on the very next press, no restart.
+    private func handleHotkeyDown() {
+        guard SettingsStore.shared.invocationMode == .holdToRecord else { return }
+        beginCapture(mode: .pushToTalk)
+    }
+
+    /// In "press to start/end" mode the hotkey's key-*up* is the whole
+    /// signal — a full tap, not a hold — so this reuses the exact same
+    /// toggle path the menu bar click already drives rather than
+    /// duplicating its start/stop logic.
+    private func handleHotkeyUp() {
+        switch SettingsStore.shared.invocationMode {
+        case .holdToRecord: endCapture()
+        case .pressToToggle: handleMenuBarToggle()
+        }
+    }
+
     private func checkAccessibility() {
         let trusted = AXIsProcessTrusted()
         if trusted, !isRunning {
             isRunning = true
-            hotkey.onDown = { [weak self] in self?.beginCapture(mode: .pushToTalk) }
-            hotkey.onUp = { [weak self] in self?.endCapture() }
+            hotkey.onDown = { [weak self] in self?.handleHotkeyDown() }
+            hotkey.onUp = { [weak self] in self?.handleHotkeyUp() }
             hotkey.start()
             AppLog.shared.info("Harps is running. Hold Right Option anywhere to dictate.")
         } else if !trusted, isRunning {
@@ -171,13 +190,22 @@ final class HarpsController {
         Task { @MainActor in
             do {
                 try await transcriber.prepare()
-                let text = try await transcriber.transcribe(fileAt: url)
+                var text = try await transcriber.transcribe(fileAt: url)
                 finishWithRecording(at: url)
 
                 guard !text.trimmingCharacters(in: .whitespaces).isEmpty else {
                     panel.showError("Didn't catch anything")
                     return
                 }
+
+                // PLAN.md Phase 6: runs after transcription, before
+                // insertion — the transformed text is both what gets typed
+                // and what gets saved to the day file below, so Document
+                // view and what actually landed at the cursor never
+                // disagree. No-ops (returns `text` unchanged) if Apple
+                // Intelligence isn't available, or if there are no enabled
+                // transforms.
+                text = await TransformEngine.apply(TransformStore.shared.enabledTransforms, to: text)
 
                 do {
                     try inserter.insert(text)

@@ -42,6 +42,17 @@ final class OnboardingModel: ObservableObject {
     @Published var states: [PermissionKind: PermissionState] = [:]
     private var pollTask: Task<Void, Never>?
 
+    /// The full welcome → permission-by-permission wizard is a one-time
+    /// first-run story, not something a returning user (or a permission
+    /// getting revoked later) should sit through again — a second Mac
+    /// should feel like "oh right, grant the three things," not a replayed
+    /// intro. `OnboardingWindowController` reads this to decide which view
+    /// to show.
+    static var hasCompletedOnboarding: Bool {
+        get { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") }
+        set { UserDefaults.standard.set(newValue, forKey: "hasCompletedOnboarding") }
+    }
+
     var allGranted: Bool {
         PermissionKind.allCases.allSatisfy { states[$0] == .granted }
     }
@@ -204,5 +215,209 @@ struct OnboardingView: View {
             Button("Open Settings") { model.openSystemSettings(for: kind) }
                 .buttonStyle(HarpsSecondaryButtonStyle(theme: theme))
         }
+    }
+}
+
+/// The first-run story `OnboardingView` never told: a welcome screen, then
+/// one permission at a time (rather than all three dumped in a list at
+/// once), each explained before it's requested. Confirmed live on a second
+/// Mac that the flat checklist alone read as "lackluster" — no narrative,
+/// nothing said what the app even does. This is shown exactly once per
+/// install; `OnboardingWindowController` falls back to the plain
+/// `OnboardingView` checklist for a returning user or a later-revoked
+/// permission, where replaying a welcome screen would be patronizing.
+private enum OnboardingStep: Equatable {
+    case welcome
+    case permission(PermissionKind)
+    case allSet
+
+    static var all: [OnboardingStep] {
+        [.welcome] + PermissionKind.allCases.map(OnboardingStep.permission) + [.allSet]
+    }
+}
+
+struct OnboardingWizardView: View {
+    @ObservedObject var model: OnboardingModel
+    let onDone: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    @State private var stepIndex = 0
+    /// Guards against auto-advancing a second time on the same granted
+    /// state — `states` publishes on every 1s poll tick, granted or not.
+    @State private var hasAdvancedForCurrentStep = false
+
+    private var steps: [OnboardingStep] { OnboardingStep.all }
+
+    var body: some View {
+        let theme = WindowTheme(colorScheme)
+        VStack(spacing: 24) {
+            progressDots(theme: theme)
+            content(for: steps[stepIndex], theme: theme)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .padding(28)
+        .frame(width: 460, height: 400)
+        .background(theme.bg)
+        .onAppear { model.startPolling() }
+        .onDisappear { model.stopPolling() }
+        .onChange(of: model.states) { _, _ in autoAdvanceIfGranted() }
+    }
+
+    /// Only the permission steps get a dot — welcome/all-set are bookends,
+    /// not part of the thing being counted.
+    private func progressDots(theme: WindowTheme) -> some View {
+        HStack(spacing: 6) {
+            ForEach(Array(PermissionKind.allCases.enumerated()), id: \.offset) { index, _ in
+                Circle()
+                    .fill(dotColor(for: index, theme: theme))
+                    .frame(width: 6, height: 6)
+            }
+        }
+    }
+
+    private func dotColor(for permissionIndex: Int, theme: WindowTheme) -> Color {
+        guard case .permission = steps[stepIndex] else { return theme.sel }
+        let currentPermissionIndex = stepIndex - 1
+        if permissionIndex < currentPermissionIndex { return theme.up }
+        if permissionIndex == currentPermissionIndex { return theme.text }
+        return theme.sel
+    }
+
+    @ViewBuilder
+    private func content(for step: OnboardingStep, theme: WindowTheme) -> some View {
+        switch step {
+        case .welcome: welcomeStep(theme: theme)
+        case .permission(let kind): permissionStep(kind, theme: theme)
+        case .allSet: allSetStep(theme: theme)
+        }
+    }
+
+    private func welcomeStep(theme: WindowTheme) -> some View {
+        VStack(spacing: 20) {
+            Spacer()
+            CaretMark()
+                .frame(width: 22, height: 22)
+                .padding(14)
+                .background(theme.text, in: RoundedRectangle(cornerRadius: 14))
+                .foregroundColor(theme.bg)
+            VStack(spacing: 8) {
+                Text("Welcome to Harps")
+                    .harpsType(HarpsType.subtitle)
+                    .foregroundColor(theme.text)
+                Text("Hold a key, talk, it's already typed — in any app, entirely on this Mac.")
+                    .harpsType(HarpsType.caption)
+                    .foregroundColor(theme.textSubtle)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 320)
+            }
+            Spacer()
+            Button("Get Started") { advance() }
+                .buttonStyle(HarpsPrimaryButtonStyle(theme: theme))
+                .keyboardShortcut(.defaultAction)
+        }
+    }
+
+    private func permissionStep(_ kind: PermissionKind, theme: WindowTheme) -> some View {
+        let state = model.states[kind] ?? .notDetermined
+        return VStack(spacing: 20) {
+            Spacer()
+            statusIcon(state, theme: theme)
+                .frame(width: 15, height: 15)
+                .padding(14)
+                .background(theme.trough, in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.hairline))
+            VStack(spacing: 8) {
+                Text(kind.rawValue)
+                    .harpsType(HarpsType.subtitle)
+                    .foregroundColor(theme.text)
+                Text(kind.explanation)
+                    .harpsType(HarpsType.caption)
+                    .foregroundColor(theme.textSubtle)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 320)
+            }
+            Spacer()
+            VStack(spacing: 10) {
+                switch state {
+                case .granted:
+                    Button("Continue") { advance() }
+                        .buttonStyle(HarpsPrimaryButtonStyle(theme: theme))
+                        .keyboardShortcut(.defaultAction)
+                case .notDetermined:
+                    Button("Grant Access") { model.request(kind) }
+                        .buttonStyle(HarpsPrimaryButtonStyle(theme: theme))
+                        .keyboardShortcut(.defaultAction)
+                    skipButton(theme: theme)
+                case .denied:
+                    Button("Open System Settings") { model.openSystemSettings(for: kind) }
+                        .buttonStyle(HarpsPrimaryButtonStyle(theme: theme))
+                        .keyboardShortcut(.defaultAction)
+                    skipButton(theme: theme)
+                }
+            }
+        }
+        .onAppear { hasAdvancedForCurrentStep = false }
+    }
+
+    private func skipButton(theme: WindowTheme) -> some View {
+        Button("I'll do this later") { advance() }
+            .buttonStyle(.plain)
+            .font(.custom("Geist-Regular", size: 12))
+            .foregroundColor(theme.textFaint)
+    }
+
+    private func allSetStep(theme: WindowTheme) -> some View {
+        VStack(spacing: 20) {
+            Spacer()
+            CentralIconView(svg: CentralIcons.checkCircle, color: theme.up)
+                .frame(width: 22, height: 22)
+                .padding(14)
+                .background(theme.trough, in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.hairline))
+            VStack(spacing: 8) {
+                Text("You're all set")
+                    .harpsType(HarpsType.subtitle)
+                    .foregroundColor(theme.text)
+                Text("Hold your hotkey anywhere and start talking.")
+                    .harpsType(HarpsType.caption)
+                    .foregroundColor(theme.textSubtle)
+            }
+            Spacer()
+            Button("Start Using Harps") {
+                OnboardingModel.hasCompletedOnboarding = true
+                onDone()
+            }
+            .buttonStyle(HarpsPrimaryButtonStyle(theme: theme))
+            .keyboardShortcut(.defaultAction)
+        }
+    }
+
+    @ViewBuilder
+    private func statusIcon(_ state: PermissionState, theme: WindowTheme) -> some View {
+        switch state {
+        case .granted:
+            CentralIconView(svg: CentralIcons.checkCircle, color: theme.up)
+        case .notDetermined:
+            CentralIconView(svg: CentralIcons.circle, color: theme.textFaint)
+        case .denied:
+            CentralIconView(svg: CentralIcons.exclamationCircle, color: theme.live)
+        }
+    }
+
+    private func advance() {
+        guard stepIndex < steps.count - 1 else { return }
+        withAnimation(.easeOut(duration: 0.2)) { stepIndex += 1 }
+    }
+
+    /// A granted permission auto-advances after a beat, so the happy path
+    /// (grant, grant, grant) never needs an extra click on top of the
+    /// system prompt itself.
+    private func autoAdvanceIfGranted() {
+        guard case .permission(let kind) = steps[stepIndex],
+              model.states[kind] == .granted,
+              !hasAdvancedForCurrentStep
+        else { return }
+        hasAdvancedForCurrentStep = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { advance() }
     }
 }
