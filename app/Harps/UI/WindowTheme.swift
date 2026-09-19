@@ -379,6 +379,40 @@ struct HarpsActionIcon: View {
     }
 }
 
+/// A manual refresh control — new captures written to disk by a background
+/// recording don't appear until something calls `HistoryViewModel.reload()`
+/// again, and nothing was doing that automatically, so per direct request
+/// this gives the user an explicit way to pull the latest in. Spins a full
+/// turn on each click as its own feedback that something happened, since
+/// `reload()` itself is a near-instant local re-read with no other visual
+/// sign of having run.
+struct RefreshButton: View {
+    let theme: WindowTheme
+    let action: () -> Void
+    @State private var isHovering = false
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        Button {
+            action()
+            withAnimation(.linear(duration: 0.5)) { rotation += 360 }
+        } label: {
+            CentralIconView(svg: CentralIcons.refresh, color: isHovering ? theme.text : theme.textFaint)
+                .frame(width: 13, height: 13)
+                .rotationEffect(.degrees(rotation))
+                // `HarpsCardActionButtonStyle`'s own padding is asymmetric
+                // (5 horizontal, 2 vertical, sized for a text label) —
+                // adding the difference back here squares up the final hit
+                // area without touching that shared style.
+                .padding(.vertical, 3)
+        }
+        .buttonStyle(HarpsCardActionButtonStyle(theme: theme))
+        .help("Refresh")
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .onHover { isHovering = $0 }
+    }
+}
+
 struct HarpsCardActionButtonStyle: ButtonStyle {
     let theme: WindowTheme
     func makeBody(configuration: Configuration) -> some View {
@@ -416,8 +450,10 @@ private struct HarpsCardActionButtonBody: View {
 /// full-contrast on hover, same treatment as `HarpsActionIcon` above (kept
 /// separate since this toolbar's icons are visually larger). Takes its icon
 /// as a builder (rather than a plain `svg` string) so the copy button can
-/// hand it a two-icon crossfade instead of a single static glyph.
-private struct ToolbarIconButton<Icon: View>: View {
+/// hand it a two-icon crossfade instead of a single static glyph. Not
+/// private — also reused by the Transforms editor's own trash-into-Cancel/
+/// Delete morph, same pattern.
+struct ToolbarIconButton<Icon: View>: View {
     let tooltip: String
     let theme: WindowTheme
     let action: () -> Void
@@ -440,8 +476,9 @@ private struct ToolbarIconButton<Icon: View>: View {
 /// The toolbar's Cancel/Delete text pair — same grey-at-rest,
 /// full-contrast-on-hover idea as `ToolbarIconButton`, since a `Text` label
 /// sets its own `foregroundColor` directly and so isn't reachable by
-/// `HarpsCardActionButtonStyle`'s own hover color (see its comment).
-private struct ToolbarTextButton: View {
+/// `HarpsCardActionButtonStyle`'s own hover color (see its comment). Not
+/// private — also reused by the Transforms editor's delete confirmation.
+struct ToolbarTextButton: View {
     let title: String
     let theme: WindowTheme
     let restingColor: Color

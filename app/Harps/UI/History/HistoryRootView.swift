@@ -97,10 +97,22 @@ private struct WindowHeaderView: View {
             if model.destination == .transcripts {
                 TranscriptsPillTabs(model: model, theme: theme)
             }
+
+            // Only on today's own page, not searching, not some other day
+            // — a background recording's new capture doesn't show up here
+            // on its own, but "today" is the one view where that's actually
+            // likely to matter mid-session.
+            if model.destination == .transcripts && !model.isSearching && isViewingToday {
+                RefreshButton(theme: theme) { model.reload() }
+            }
         }
         .padding(.horizontal, 22)
         .frame(height: HistoryLayout.headerHeight)
         .overlay(Rectangle().frame(height: 1).foregroundColor(theme.hairline), alignment: .bottom)
+    }
+
+    private var isViewingToday: Bool {
+        Calendar.current.isDateInToday(model.selectedDay ?? .distantPast)
     }
 
     /// A real breadcrumb when editing/creating a transform ("Transforms /

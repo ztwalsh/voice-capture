@@ -471,47 +471,55 @@ private struct WaveformView: View {
 }
 
 /// motion.md's "thinking states" pattern: something keeps moving on the
-/// label while work is ongoing. Was a gradient shimmer sweep, then briefly
-/// a row of separately-animated dots — per direct feedback, neither read
-/// right ("middle aligned vertically with the word... I just want them on
-/// the same baseline, like it's part of the text"). This does what the
-/// website hero's own capsule animation does: real "." characters appended
-/// straight onto the label text, cycling 0-3 on a 400ms step, so they sit
-/// on the word's own baseline because they *are* part of the same string.
+/// label while work is ongoing. Went through a gradient shimmer, then a
+/// separate row of dots, then real "." characters that grew 0-3 — all per
+/// direct feedback on what didn't read right. The growing-text version's
+/// own problem: it needed a fixed-width box to keep the pill from re-
+/// hugging on every dot-count change, and since the word was left-aligned
+/// inside a box wider than the word itself, the *word* ended up reading
+/// off-center even though the box was centered.
 ///
-/// The pill itself now stays a fixed width (matching the listening pill,
-/// per direct request), so instead of letting the growing text re-hug the
-/// pill, this label sits in its own fixed-width box sized for the longest
-/// case ("Transcribing...") and left-aligned within it — otherwise the
-/// default centered layout re-centers the whole label every time the dot
-/// count changes, which reads as the word itself shifting left and right.
-/// Reduce Motion holds at a static 3 dots.
+/// This instead renders "Transcribing" plus all three "." characters
+/// *always* — the string's length never changes, so plain centering (no
+/// fixed-width box at all) keeps the word genuinely centered at every
+/// moment. The animation is each dot's own opacity pulsing in a staggered
+/// wave instead of the dots being added/removed. Built via `Text`
+/// concatenation (`+`) so the dots are still real characters sharing the
+/// word's own baseline, just individually colored. Reduce Motion holds at
+/// a static, fully-visible "...".
 private struct ShimmerLabel: View {
     let text: String
     let theme: Theme
     let reduceMotion: Bool
 
-    /// Wide enough for "Transcribing..." at `HarpsType.label` — measured
-    /// generously rather than exactly, since a little extra empty space to
-    /// the label's right costs nothing (the pill is fixed-width anyway).
-    private let boxWidth: CGFloat = 110
-
     var body: some View {
         if reduceMotion {
-            Text(text + String(repeating: ".", count: 3))
+            Text(text + "...")
                 .harpsType(HarpsType.label)
                 .foregroundColor(theme.textSubtle)
-                .frame(width: boxWidth, alignment: .leading)
         } else {
-            TimelineView(.periodic(from: .now, by: 0.4)) { context in
-                let elapsed = context.date.timeIntervalSinceReferenceDate
-                let dots = Int(elapsed / 0.4) % 4
-                Text(text + String(repeating: ".", count: dots))
+            TimelineView(.animation) { context in
+                let time = context.date.timeIntervalSinceReferenceDate
+                dotsText(at: time)
                     .harpsType(HarpsType.label)
-                    .foregroundColor(theme.textSubtle)
-                    .frame(width: boxWidth, alignment: .leading)
             }
         }
+    }
+
+    private func dotsText(at time: Double) -> Text {
+        var result = Text(text).foregroundColor(theme.textSubtle)
+        for index in 0..<3 {
+            result = result + Text(".").foregroundColor(theme.textSubtle.opacity(dotOpacity(at: time, dotIndex: index)))
+        }
+        return result
+    }
+
+    private func dotOpacity(at time: Double, dotIndex: Int) -> Double {
+        let period = 1.2
+        let stagger = 0.18
+        let phase = (time - Double(dotIndex) * stagger).truncatingRemainder(dividingBy: period) / period
+        let wave = (sin(phase * 2 * .pi - .pi / 2) + 1) / 2 // 0...1
+        return 0.15 + wave * 0.85
     }
 }
 

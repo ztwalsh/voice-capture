@@ -48,6 +48,20 @@ final class HarpsController {
     /// click should start a toggle capture or stop the one already running.
     private var activeMode: CaptureMode?
 
+    /// `endCapture()` clears `activeMode` immediately (recording itself has
+    /// stopped), but the transcription `Task` it kicks off keeps running
+    /// well after that — without this separate flag, a fast double-tap (or
+    /// the menu bar toggle firing right after a hotkey-driven capture ends)
+    /// passes `beginCapture`'s `activeMode == nil` guard while the previous
+    /// capture is still transcribing, starting a *second* concurrent
+    /// `transcriber.transcribe(fileAt:)` call. Both share the one cached
+    /// `SpeechTranscriber` (`SpeechAnalyzerTranscriber.prepare()` builds it
+    /// once and reuses it across captures), and two live `SpeechAnalyzer`
+    /// instances attaching that same module concurrently crashes inside
+    /// Apple's own Speech framework (`SpeechAnalyzer.setWorkers`) — this
+    /// crash was observed live and traced back to exactly that race.
+    private var isTranscribing = false
+
     /// Set by `AppDelegate` to open the onboarding window — this class
     /// knows *when* permissions matter, not how to show onboarding UI.
     var onNeedsPermissions: (() -> Void)?
@@ -148,7 +162,7 @@ final class HarpsController {
     }
 
     private func beginCapture(mode: CaptureMode) {
-        guard activeMode == nil else { return }
+        guard activeMode == nil, !isTranscribing else { return }
         activeMode = mode
         frontmostAppName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
 
@@ -189,11 +203,13 @@ final class HarpsController {
         panel.showTranscribing()
 
         let appName = frontmostAppName
+        isTranscribing = true
         // Explicitly on the main actor: an unstructured `Task {}` does not
         // otherwise guarantee that, and everything inside this closure —
         // the panel, and `insert(_:)`'s pasteboard and event-posting calls —
         // needs to run on the main thread.
         Task { @MainActor in
+            defer { isTranscribing = false }
             do {
                 try await transcriber.prepare()
                 var text = try await transcriber.transcribe(fileAt: url)

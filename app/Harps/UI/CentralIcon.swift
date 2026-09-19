@@ -18,6 +18,12 @@ enum CentralIcons {
 
     static let checkCircle = #"<path d="M15 9.5L10.5 15L8.5 13M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
+    /// Refresh/reload — three-quarters of `checkCircle`'s own circle
+    /// (same bezier construction, just missing the top-right quarter to
+    /// read as motion rather than a closed loop) plus a small arrowhead at
+    /// the open end, pointing in the direction of travel.
+    static let refresh = #"<path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 4.5L12 3L13.5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>"#
+
     /// A standalone checkmark, sized to fill the icon frame the same way
     /// `copy`/`trash` do — `checkCircle`'s own inner check is drawn small
     /// on purpose (it has to fit inside that path's ring), so reusing it

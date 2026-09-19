@@ -27,11 +27,19 @@ struct OverviewView: View {
                 .overlay(Rectangle().frame(height: 1).foregroundColor(theme.hairline), alignment: .bottom)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("RECENT CAPTURES")
-                        .harpsType(HarpsType.section)
-                        .foregroundColor(theme.textFaint)
-                        .padding(.top, 22)
-                        .padding(.bottom, 10)
+                    // A capture written by a background recording never
+                    // appeared here on its own — nothing re-ran `reload()`
+                    // after the window was first shown — so per direct
+                    // request this gives an explicit way to pull it in.
+                    HStack {
+                        Text("RECENT CAPTURES")
+                            .harpsType(HarpsType.section)
+                            .foregroundColor(theme.textFaint)
+                        Spacer()
+                        RefreshButton(theme: theme) { model.reload() }
+                    }
+                    .padding(.top, 22)
+                    .padding(.bottom, 10)
                     ForEach(model.captures.prefix(4)) { capture in
                         CaptureCardView(
                             capture: capture, theme: theme,

@@ -20,7 +20,7 @@ struct TransformsView: View {
                     listView
                 case .editor(let transform):
                     TransformEditorView(theme: theme, transform: transform) {
-                        model.transformsDestination = .list
+                        withAnimation(.easeOut(duration: 0.15)) { model.transformsDestination = .list }
                     }
                 }
             }
@@ -42,7 +42,7 @@ struct TransformsView: View {
             HStack {
                 Spacer()
                 Button {
-                    model.transformsDestination = .editor(nil)
+                    withAnimation(.easeOut(duration: 0.15)) { model.transformsDestination = .editor(nil) }
                 } label: {
                     HStack(spacing: 7) {
                         CentralIconView(svg: CentralIcons.plus, color: theme.bg)
@@ -87,7 +87,7 @@ struct TransformsView: View {
     private func row(for transform: Transform) -> some View {
         TransformRow(
             theme: theme, transform: transform,
-            onOpen: { model.transformsDestination = .editor(transform) },
+            onOpen: { withAnimation(.easeOut(duration: 0.15)) { model.transformsDestination = .editor(transform) } },
             onToggle: { store.toggle(id: transform.id) },
             onDelete: { store.delete(id: transform.id) }
         )
@@ -101,6 +101,7 @@ private struct TransformRow: View {
     let onToggle: () -> Void
     let onDelete: () -> Void
     @State private var isHovering = false
+    @State private var confirmingDelete = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -126,8 +127,26 @@ private struct TransformRow: View {
             }
             Spacer(minLength: 8)
             if !transform.isBuiltIn {
-                HarpsActionIcon(svg: CentralIcons.trash, tooltip: "Delete", theme: theme, action: onDelete)
+                // Trash-morphs-into-Cancel/Delete, same pattern as the
+                // editor page's own delete control and the Document view's
+                // floating toolbar — per direct request, this used to
+                // delete immediately on click with no confirmation at all.
+                if confirmingDelete {
+                    HStack(spacing: 4) {
+                        ToolbarTextButton(title: "Cancel", theme: theme, restingColor: theme.textFaint, hoverColor: theme.text) {
+                            withAnimation(.easeOut(duration: 0.15)) { confirmingDelete = false }
+                        }
+                        ToolbarTextButton(title: "Delete", theme: theme, restingColor: theme.danger, hoverColor: theme.danger) {
+                            onDelete()
+                        }
+                    }
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                } else {
+                    HarpsActionIcon(svg: CentralIcons.trash, tooltip: "Delete", theme: theme) {
+                        withAnimation(.easeOut(duration: 0.15)) { confirmingDelete = true }
+                    }
                     .opacity(isHovering ? 1 : 0)
+                }
             }
             Toggle("", isOn: Binding(get: { transform.isEnabled }, set: { _ in onToggle() }))
                 .labelsHidden()
@@ -140,7 +159,13 @@ private struct TransformRow: View {
         .overlay(Rectangle().frame(height: 1).foregroundColor(theme.hairline), alignment: .bottom)
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
-        .onHover { isHovering = $0 }
+        .onHover { hovering in
+            isHovering = hovering
+            // Leaving the row also dismisses an armed confirmation — it
+            // shouldn't stay waiting for a click days later on a row you've
+            // moved on from.
+            if !hovering { confirmingDelete = false }
+        }
         .animation(.easeInOut(duration: 0.15), value: isHovering)
     }
 }
@@ -153,9 +178,11 @@ private struct TransformEditorView: View {
     @ObservedObject private var store = TransformStore.shared
     @State private var name: String
     @State private var instructions: String
+    @State private var confirmingDelete = false
 
     private var isBuiltIn: Bool { transform?.isBuiltIn ?? false }
     private var isNew: Bool { transform == nil }
+    private var canDelete: Bool { !isBuiltIn && !isNew }
 
     init(theme: WindowTheme, transform: Transform?, onDone: @escaping () -> Void) {
         self.theme = theme
@@ -167,19 +194,47 @@ private struct TransformEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            // A disabled `TextField` renders dimmed no matter what
-            // `foregroundColor` says — macOS overrides it for disabled
-            // controls. A built-in's name is never editable anyway, so
-            // render it as plain `Text` instead of fighting that dimming.
-            if isBuiltIn {
-                Text(name)
-                    .font(.custom("Geist-SemiBold", size: 22))
-                    .foregroundColor(theme.text)
-            } else {
-                TextField("Transform name", text: $name)
-                    .textFieldStyle(.plain)
-                    .font(.custom("Geist-SemiBold", size: 22))
-                    .foregroundColor(theme.text)
+            HStack(spacing: 12) {
+                // A disabled `TextField` renders dimmed no matter what
+                // `foregroundColor` says — macOS overrides it for disabled
+                // controls. A built-in's name is never editable anyway, so
+                // render it as plain `Text` instead of fighting that dimming.
+                if isBuiltIn {
+                    Text(name)
+                        .font(.custom("Geist-SemiBold", size: 22))
+                        .foregroundColor(theme.text)
+                } else {
+                    TextField("Transform name", text: $name)
+                        .textFieldStyle(.plain)
+                        .font(.custom("Geist-SemiBold", size: 22))
+                        .foregroundColor(theme.text)
+                }
+
+                Spacer(minLength: 8)
+
+                // Trash-morphs-into-Cancel/Delete, same pattern as the
+                // Document view's floating toolbar — per direct request,
+                // clicking Delete here used to remove the transform
+                // immediately with no confirmation at all.
+                if canDelete {
+                    if confirmingDelete {
+                        HStack(spacing: 4) {
+                            ToolbarTextButton(title: "Cancel", theme: theme, restingColor: theme.textFaint, hoverColor: theme.text) {
+                                withAnimation(.easeOut(duration: 0.15)) { confirmingDelete = false }
+                            }
+                            ToolbarTextButton(title: "Delete", theme: theme, restingColor: theme.danger, hoverColor: theme.danger) {
+                                delete()
+                            }
+                        }
+                        .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    } else {
+                        ToolbarIconButton(tooltip: "Delete", theme: theme) {
+                            withAnimation(.easeOut(duration: 0.15)) { confirmingDelete = true }
+                        } icon: { color in
+                            CentralIconView(svg: CentralIcons.trash, color: color)
+                        }
+                    }
+                }
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -212,12 +267,6 @@ private struct TransformEditorView: View {
             }
 
             HStack {
-                if !isBuiltIn && !isNew {
-                    Button("Delete", action: delete)
-                        .buttonStyle(.plain)
-                        .font(.custom("Geist-Regular", size: 12.5))
-                        .foregroundColor(theme.textFaint)
-                }
                 Spacer()
                 Button("Save", action: save)
                     .buttonStyle(HarpsPrimaryButtonStyle(theme: theme))
