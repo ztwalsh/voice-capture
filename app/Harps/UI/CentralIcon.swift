@@ -18,10 +18,12 @@ enum CentralIcons {
 
     static let checkCircle = #"<path d="M15 9.5L10.5 15L8.5 13M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
-    /// `checkCircle`'s own checkmark stroke, lifted out on its own — same
-    /// path, no ring, for spots (like the copy-confirmation icon) where a
-    /// plain checkmark reads better than one boxed in a circle.
-    static let check = #"<path d="M15 9.5L10.5 15L8.5 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>"#
+    /// A standalone checkmark, sized to fill the icon frame the same way
+    /// `copy`/`trash` do — `checkCircle`'s own inner check is drawn small
+    /// on purpose (it has to fit inside that path's ring), so reusing it
+    /// bare left this looking tiny next to the copy icon it replaces
+    /// on hover. This is a fresh, larger mark instead.
+    static let check = #"<path d="M4 12.5L9.5 18L20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>"#
 
     static let circle = #"<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>"#
 
@@ -32,6 +34,24 @@ enum CentralIcons {
     static let copy = #"<path d="M15 9V5.25C15 4.00736 13.9926 3 12.75 3H5.25C4.00736 3 3 4.00736 3 5.25V12.75C3 13.9926 4.00736 15 5.25 15H9M11.25 9H18.75C19.9926 9 21 10.0074 21 11.25V18.75C21 19.9926 19.9926 21 18.75 21H11.25C10.0074 21 9 19.9926 9 18.75V11.25C9 10.0074 10.0074 9 11.25 9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
     static let finder = #"<path d="M13.25 13H11.25C11.429 9.92032 11.9121 6.95315 12.6834 4M8 9V10M16 9V10M8 15.5C11 17.5 13 17.5 16 15.5M12.6834 4H7C5.34315 4 4 5.34315 4 7V17C4 18.6569 5.34315 20 7 20H17C18.6569 20 20 18.6569 20 17V7C20 5.34315 18.6569 4 17 4H12.6834Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
+
+    /// Standard "list" glyph (three rule lines, each with a leading dot) —
+    /// the common bulleted-list icon shape shared by most minimal icon
+    /// sets, redrawn in this style's 2pt-stroke/round-cap language. Dots
+    /// are drawn as zero-length line segments so `round` linecaps render
+    /// them as filled circles.
+    static let listBullet = #"<path d="M9 6H20M9 12H20M9 18H20M4 6H4.01M4 12H4.01M4 18H4.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>"#
+
+    /// Same three rule lines as `listBullet`, but with 1/2/3 tally ticks in
+    /// place of the dots — reads as "ordered" (ascending count) rather than
+    /// "unordered" (identical dots), while staying pure straight-line
+    /// geometry the custom SVG-path parser here (M/L/C/Z only, no arcs)
+    /// can render reliably at icon size.
+    static let listNumbered = #"<path d="M9 6H20M9 12H20M9 18H20M4 5.3V6.7M3.4 11.3V12.7M4.6 11.3V12.7M3 17.3V18.7M4 17.3V18.7M5 17.3V18.7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>"#
+
+    /// A minimal chain-link glyph for the Transforms Markdown toolbar's Link
+    /// button — two rounded hooks overlapping in the middle.
+    static let link = #"<path d="M10 14L14 10M10.5 6.5L11.5 5.5C13 4 15.5 4 17 5.5C18.5 7 18.5 9.5 17 11L16 12M13.5 17.5L12.5 18.5C11 20 8.5 20 7 18.5C5.5 17 5.5 14.5 7 13L8 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
     static let chevronDown = #"<path d="M8 10L10.9393 12.9393C11.5251 13.5251 12.4749 13.5251 13.0607 12.9393L16 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 

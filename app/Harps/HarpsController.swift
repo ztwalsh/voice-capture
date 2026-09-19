@@ -75,6 +75,12 @@ final class HarpsController {
                 self.checkAccessibility()
             }
         }
+        // Warm the transcriber up at launch, off the critical path, so the
+        // very first capture of a session doesn't also pay for building
+        // `SpeechTranscriber` and checking the installed-model inventory —
+        // `prepare()` is a no-op on every call after the first (see its own
+        // comment), so this only ever does real work once per launch.
+        Task { try? await transcriber.prepare() }
     }
 
     /// design.md §5: the menu bar click toggles a capture — start on the

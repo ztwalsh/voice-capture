@@ -236,7 +236,13 @@ final class CapsuleViewModel: ObservableObject {
         if !isVisible { state = .dormant }
     }
 
-    var timerText: String { "0:" + String(format: "%02d", elapsedSeconds) }
+    /// Rolls over into minutes rather than letting the seconds field grow
+    /// past two digits — the old `"0:" + String(format: "%02d", ...)"` never
+    /// rolled over at all, so a capture past 99s rendered a 3-digit seconds
+    /// group ("0:100") that wrapped inside the label's fixed-width frame.
+    var timerText: String {
+        String(format: "%d:%02d", elapsedSeconds / 60, elapsedSeconds % 60)
+    }
 }
 
 /// The whole capsule, per design.md §5: one object, resized. 44px tall,
@@ -315,13 +321,23 @@ private struct CapsuleShapeView: View {
                     .harpsType(HarpsType.meta)
                     .monospacedDigit()
                     .foregroundColor(theme.labelMono)
-                    .frame(width: 30, alignment: .trailing)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(minWidth: 30, alignment: .trailing)
                     .opacity(model.showTimer ? 1 : 0)
                     .animation(.easeInOut(duration: 0.15), value: model.showTimer)
 
                 if model.mode == .toggle {
                     stopButton
                 }
+            } else {
+                // Mirrors the leading dot's reserved width (6pt circle + the
+                // HStack's 12pt spacing) so single-content states
+                // (transcribing/error/dormant) render their content
+                // actually centered in the pill — without this, the dot on
+                // the left has nothing balancing it on the right, and the
+                // label reads shifted right of true center.
+                Circle().fill(Color.clear).frame(width: 6, height: 6)
             }
         }
         .padding(.leading, 20)
@@ -363,10 +379,15 @@ private struct CapsuleShapeView: View {
     /// design.md §5: 248 listening in push-to-talk, 286 in toggle (room for
     /// the stop control), 176 transcribing, error sized to the message
     /// between 200 and 320. `nil` (error) lets the HStack's own intrinsic
-    /// size decide, bounded by `minWidth`/`maxWidth` below.
+    /// size decide, bounded by `minWidth`/`maxWidth` below. `.transcribing`
+    /// is `nil` (error only) lets the HStack's own intrinsic size decide.
+    /// `.transcribing` matches the listening pill's own width exactly, per
+    /// direct request — the growing "." characters live inside `ShimmerLabel`'s
+    /// own fixed-width, left-aligned box (see its comment) instead of
+    /// resizing the pill around them.
     private var fixedWidth: CGFloat? {
         switch model.state {
-        case .dormant, .transcribing: return 176
+        case .dormant, .transcribing: return model.mode == .toggle ? 286 : 248
         case .listening: return model.mode == .toggle ? 286 : 248
         case .error: return nil
         }
@@ -379,8 +400,15 @@ private struct CapsuleShapeView: View {
     /// button carries its own visual margin, so the outer padding shrinks
     /// to keep the whole right edge from looking over-padded.
     private var trailingPadding: CGFloat {
-        if case .listening = model.state, model.mode == .toggle { return 6 }
-        return 18
+        switch model.state {
+        case .listening:
+            return model.mode == .toggle ? 6 : 18
+        default:
+            // 20 (not 18) to match the leading edge exactly — paired with
+            // the mirrored invisible dot above, this is what actually
+            // centers transcribing/error/dormant content in the pill.
+            return 20
+        }
     }
 
     /// design.md §5: a 32px round stop control, the toggle mode's reachable
@@ -442,42 +470,48 @@ private struct WaveformView: View {
     }
 }
 
-/// motion.md's "thinking states" pattern: a shimmer sweeps the label on a
-/// 2000ms linear loop while work is ongoing. Reduce Motion drops the sweep
-/// and leaves a static label — text instead of motion, per the spec's own
-/// table.
+/// motion.md's "thinking states" pattern: something keeps moving on the
+/// label while work is ongoing. Was a gradient shimmer sweep, then briefly
+/// a row of separately-animated dots — per direct feedback, neither read
+/// right ("middle aligned vertically with the word... I just want them on
+/// the same baseline, like it's part of the text"). This does what the
+/// website hero's own capsule animation does: real "." characters appended
+/// straight onto the label text, cycling 0-3 on a 400ms step, so they sit
+/// on the word's own baseline because they *are* part of the same string.
+///
+/// The pill itself now stays a fixed width (matching the listening pill,
+/// per direct request), so instead of letting the growing text re-hug the
+/// pill, this label sits in its own fixed-width box sized for the longest
+/// case ("Transcribing...") and left-aligned within it — otherwise the
+/// default centered layout re-centers the whole label every time the dot
+/// count changes, which reads as the word itself shifting left and right.
+/// Reduce Motion holds at a static 3 dots.
 private struct ShimmerLabel: View {
     let text: String
     let theme: Theme
     let reduceMotion: Bool
 
+    /// Wide enough for "Transcribing..." at `HarpsType.label` — measured
+    /// generously rather than exactly, since a little extra empty space to
+    /// the label's right costs nothing (the pill is fixed-width anyway).
+    private let boxWidth: CGFloat = 110
+
     var body: some View {
         if reduceMotion {
-            Text(text)
+            Text(text + String(repeating: ".", count: 3))
                 .harpsType(HarpsType.label)
                 .foregroundColor(theme.textSubtle)
+                .frame(width: boxWidth, alignment: .leading)
         } else {
-            TimelineView(.animation) { context in
-                let phase = context.date.timeIntervalSinceReferenceDate
-                    .truncatingRemainder(dividingBy: 2.0) / 2.0
-                Text(text)
+            TimelineView(.periodic(from: .now, by: 0.4)) { context in
+                let elapsed = context.date.timeIntervalSinceReferenceDate
+                let dots = Int(elapsed / 0.4) % 4
+                Text(text + String(repeating: ".", count: dots))
                     .harpsType(HarpsType.label)
-                    .foregroundStyle(
-                        LinearGradient(stops: stops(at: phase), startPoint: .leading, endPoint: .trailing)
-                    )
+                    .foregroundColor(theme.textSubtle)
+                    .frame(width: boxWidth, alignment: .leading)
             }
         }
-    }
-
-    private func stops(at phase: Double) -> [Gradient.Stop] {
-        let center = phase
-        return [
-            .init(color: theme.textSubtle, location: 0),
-            .init(color: theme.textSubtle, location: max(0, center - 0.2)),
-            .init(color: theme.textRGBA.color, location: center),
-            .init(color: theme.textSubtle, location: min(1, center + 0.2)),
-            .init(color: theme.textSubtle, location: 1)
-        ]
     }
 }
 

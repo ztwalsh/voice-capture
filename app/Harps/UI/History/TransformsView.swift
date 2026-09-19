@@ -187,16 +187,18 @@ private struct TransformEditorView: View {
                     .font(.custom("GeistMono-Regular", size: 11))
                     .foregroundColor(theme.textFaint)
 
-                EditableTextBox(
+                // `MarkdownEditor` per direct request: a minimal formatting
+                // toolbar over plain Markdown (never a separate rich-text
+                // format — `instructions` stays exactly what's saved), a
+                // Markdown/Preview toggle, and a box that grows with its
+                // content instead of scrolling inside a fixed height.
+                MarkdownEditor(
                     text: $instructions,
                     font: .init(name: "Geist-Regular", size: 13.5) ?? .systemFont(ofSize: 13.5),
-                    textColor: isBuiltIn ? NSColor(theme.textSubtle) : NSColor(theme.text)
+                    textColor: isBuiltIn ? NSColor(theme.textSubtle) : NSColor(theme.text),
+                    theme: theme,
+                    isEditable: !isBuiltIn
                 )
-                .disabled(isBuiltIn)
-                .padding(10)
-                .frame(height: 200)
-                .background(theme.trough, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(theme.hairline))
 
                 if isBuiltIn {
                     HStack(spacing: 7) {

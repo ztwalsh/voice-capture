@@ -22,7 +22,28 @@ final class SpeechAnalyzerTranscriber: Transcriber, @unchecked Sendable {
     private var transcriber: SpeechTranscriber?
 
     func prepare() async throws {
-        let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
+        // Was rebuilding `SpeechTranscriber` and re-running the installed-
+        // locales/asset-inventory check on every single capture, since
+        // `HarpsController` calls `prepare()` before each `transcribe(fileAt:)`
+        // — a real, measurable chunk of the per-capture latency users
+        // noticed, for work whose result can't change between one capture
+        // and the next in the same run. Building it once and reusing it is
+        // safe: `transcriber` itself is just config the analyzer reads from,
+        // not something tied to a single audio file.
+        guard transcriber == nil else { return }
+        // `.transcription` (the preset this used) doesn't request
+        // `.fastResults` — confirmed against Speech.framework's own
+        // `SpeechTranscriber.ReportingOption` enum, which has `.fastResults`
+        // as an explicit, opt-in-only lever for lower-latency output.
+        // Alternatives/audio-time-ranges/confidence scores are all things
+        // this app never reads (only `result.text`), so there's nothing to
+        // lose by leaving `transcriptionOptions`/`attributeOptions` empty too.
+        let transcriber = SpeechTranscriber(
+            locale: locale,
+            transcriptionOptions: [],
+            reportingOptions: [.fastResults],
+            attributeOptions: []
+        )
         try await Self.ensureModelInstalled(for: transcriber, locale: locale)
         self.transcriber = transcriber
     }
