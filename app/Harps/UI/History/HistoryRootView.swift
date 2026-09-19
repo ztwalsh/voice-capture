@@ -301,7 +301,7 @@ private struct SidebarView: View {
         let selected = model.destination == .transcripts && model.selectedDay == day
             && model.searchText.trimmingCharacters(in: .whitespaces).isEmpty
         return Button {
-            model.selectDay(day)
+            withAnimation(.easeOut(duration: 0.15)) { model.selectDay(day) }
         } label: {
             HStack(spacing: 9) {
                 Text("→").foregroundColor(theme.textFaint).font(.system(size: 11))

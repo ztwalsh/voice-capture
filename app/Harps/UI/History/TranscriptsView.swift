@@ -59,8 +59,25 @@ struct TranscriptsView: View {
             .padding(.horizontal, 22)
             .padding(.top, 4)
             .padding(.bottom, 56)
+            // `.id(selectedDay)` gives the whole day's content a fresh
+            // identity on every day switch (while not searching, where a
+            // single day is actually what's shown) — without it, SwiftUI
+            // just diffs `model.visibleCaptures` in place with nothing to
+            // transition between. Per direct request for motion when
+            // switching days; same transition style already used for
+            // Transforms' list/editor switch.
+            .id(contentIdentity)
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
         }
         .scrollIndicators(.hidden)
+    }
+
+    /// `.id()` needs one hashable identity, and `isSearching`/`selectedDay`
+    /// are different types — this just unifies them into a single string
+    /// so switching between "a day" and "searching" (or between two days)
+    /// both count as a real identity change.
+    private var contentIdentity: String {
+        isSearching ? "search" : (model.selectedDay?.description ?? "none")
     }
 
     /// Basic app/date filters over search results — the sidebar's `RECENT`
@@ -142,6 +159,11 @@ struct TranscriptsView: View {
                     .padding(.top, 38)
                     .padding(.bottom, 80)
                     .padding(.horizontal, 32)
+                    // Same identity-swap idea as `libraryLayout` — day
+                    // switches otherwise just mutate `DocumentBodyView`'s
+                    // data in place with nothing to transition between.
+                    .id(model.selectedDay)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
             } else {
                 Text("No day selected.")
                     .foregroundColor(theme.textFaint)

@@ -106,16 +106,36 @@ private enum MarkdownRichConversion {
 
         var body = rawLine
         let result = NSMutableAttributedString()
+        var isListItem = false
         if body.hasPrefix("- ") {
             body = String(body.dropFirst(2))
             result.append(NSAttributedString(string: "•\t", attributes: [.font: baseFont, .foregroundColor: textColor]))
+            isListItem = true
         } else if let dotRange = body.range(of: ". "), Int(body[body.startIndex..<dotRange.lowerBound]) != nil {
             let marker = String(body[body.startIndex..<dotRange.lowerBound]) + ".\t"
             body = String(body[dotRange.upperBound...])
             result.append(NSAttributedString(string: marker, attributes: [.font: baseFont, .foregroundColor: textColor]))
+            isListItem = true
         }
         result.append(inline(body, font: baseFont, textColor: textColor))
+        if isListItem { applyListIndent(to: result) }
         return result
+    }
+
+    /// A hanging indent — the marker sits at the paragraph's true left
+    /// edge, the tab jumps to `listIndent`, and (this is the part that was
+    /// missing) any wrapped continuation line also indents to
+    /// `listIndent`, instead of falling back to the far-left margin like a
+    /// plain paragraph. `tabStops` is what actually places the tab stop;
+    /// `headIndent` is what wrapped lines obey.
+    static let listIndent: CGFloat = 20
+
+    static func applyListIndent(to attributed: NSMutableAttributedString) {
+        let style = NSMutableParagraphStyle()
+        style.firstLineHeadIndent = 0
+        style.headIndent = listIndent
+        style.tabStops = [NSTextTab(textAlignment: .left, location: listIndent)]
+        attributed.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: attributed.length))
     }
 
     /// Parses `**bold**`/`_italic_`/`` `code` `` within one line into real
@@ -535,12 +555,22 @@ private struct MarkdownStyledEditor: NSViewRepresentable {
                 if hasBullet || numberedMatch != nil {
                     let markerLength = hasBullet ? 2 : (numberedMatch.map { (String(line[$0]) as NSString).length } ?? 0)
                     storage.deleteCharacters(in: NSRange(location: cursor, length: markerLength))
-                    cursor += (line as NSString).length - markerLength + 1
+                    let newLineLength = (line as NSString).length - markerLength
+                    // Removing the marker also removes the hanging indent —
+                    // otherwise the now-plain paragraph stays indented.
+                    storage.addAttribute(.paragraphStyle, value: NSParagraphStyle(), range: NSRange(location: cursor, length: newLineLength))
+                    cursor += newLineLength + 1
                 } else {
                     let marker = numbered ? "\(number).\t" : "•\t"
                     let insertion = NSAttributedString(string: marker, attributes: [.font: baseFont, .foregroundColor: textColor])
                     storage.insert(insertion, at: cursor)
-                    cursor += (marker as NSString).length + (line as NSString).length + 1
+                    let newLineLength = (marker as NSString).length + (line as NSString).length
+                    let style = NSMutableParagraphStyle()
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = MarkdownRichConversion.listIndent
+                    style.tabStops = [NSTextTab(textAlignment: .left, location: MarkdownRichConversion.listIndent)]
+                    storage.addAttribute(.paragraphStyle, value: style, range: NSRange(location: cursor, length: newLineLength))
+                    cursor += newLineLength + 1
                 }
             }
             storage.endEditing()
@@ -592,7 +622,7 @@ struct MarkdownEditor: View {
             Rectangle().fill(theme.hairline).frame(height: 1)
 
             editor
-                .padding(12)
+                .padding(16)
                 // Established by `SelectableText`'s own use of this same
                 // auto-height `NSViewRepresentable` recipe — without this,
                 // the view has no reliable height to report on its first

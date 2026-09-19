@@ -268,6 +268,15 @@ private struct TransformEditorView: View {
 
             HStack {
                 Spacer()
+                Button("Cancel") {
+                    withAnimation(.easeOut(duration: 0.15)) { onDone() }
+                }
+                .buttonStyle(.plain)
+                .font(.custom("Geist-Medium", size: 12.5))
+                .foregroundColor(theme.text)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(theme.trough, in: RoundedRectangle(cornerRadius: 8))
                 Button("Save", action: save)
                     .buttonStyle(HarpsPrimaryButtonStyle(theme: theme))
             }
