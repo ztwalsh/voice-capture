@@ -98,14 +98,15 @@ struct OverviewView: View {
                 .harpsType(HarpsType.display)
                 .foregroundColor(theme.text)
             HStack(spacing: 7) {
-                if let delta, delta > 0 {
+                if let delta, delta != 0 {
                     HStack(spacing: 3) {
-                        CentralIconView(svg: CentralIcons.arrowUpRight, color: theme.up)
+                        CentralIconView(svg: delta > 0 ? CentralIcons.arrowUpRight : CentralIcons.arrowDownRight,
+                                        color: delta > 0 ? theme.up : theme.danger)
                             .frame(width: 11, height: 11)
-                        Text("\(Int(delta.rounded()))%")
+                        Text("\(Int(delta.rounded().magnitude))%")
                     }
                     .font(.custom("Geist-Medium", size: 12))
-                    .foregroundColor(theme.up)
+                    .foregroundColor(delta > 0 ? theme.up : theme.danger)
                 }
                 if let comparison {
                     Text(comparison)

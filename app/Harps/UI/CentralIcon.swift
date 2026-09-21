@@ -16,6 +16,8 @@ enum CentralIcons {
 
     static let arrowUpRight = #"<path d="M18 15V6M18 6H9M18 6L6.25 17.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
+    static let arrowDownRight = #"<path d="M18 9V18M18 18H9M18 18L6.25 6.25" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
+
     static let checkCircle = #"<path d="M15 9.5L10.5 15L8.5 13M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#
 
     /// Refresh/reload — three-quarters of `checkCircle`'s own circle
