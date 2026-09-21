@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoveThink landing options</title>
+<style>
+:root { --bg: #fafafa; --text: #0a0a0a; --muted: #6a6a6c; --hair: rgba(0,0,0,0.075); --card: #fff; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0d0d16; --text: #fafafa; --muted: rgba(255,255,255,0.56); --hair: rgba(255,255,255,0.075); --card: #13131c; } }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: "Geist", ui-sans-serif, system-ui, sans-serif; padding: 40px 20px; line-height: 1.5; }
+main { max-width: 760px; margin: 0 auto; }
+h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 6px; }
+p.lead { color: var(--muted); margin: 0 0 28px; }
+ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+li { border: 1px solid var(--hair); background: var(--card); border-radius: 12px; padding: 16px 18px; }
+li a { color: inherit; font-weight: 600; text-decoration: none; font-size: 17px; }
+li a:hover { text-decoration: underline; }
+li span { display: block; color: var(--muted); font-size: 14px; margin-top: 4px; }
+code { font-family: "Geist Mono", ui-monospace, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MoveThink landing page options</h1>
+  <p class="lead">Four directions, all standalone HTML with real product copy. Serve this folder (<code>python3 -m http.server</code>) rather than opening files directly so the fonts load.</p>
+  <ol>
+    <li><a href="aurora.html">A · Aurora</a><span>Closest to the reference: warm canvas, centred headline, a gradient-mesh showcase with icon tabs that recolour as you scroll, then a four-step section.</span></li>
+    <li><a href="studio.html">B · Studio</a><span>Dark, built from design.md's own tokens. The hero is a working hold-to-talk demo (hold Space); features are a measured spec sheet, not cards.</span></li>
+    <li><a href="paper.html">C · Paper</a><span>The page is written as a day file. Ruled paper, a wide grotesk display face, and the Markdown file itself as the hero object.</span></li>
+    <li><a href="kinetic.html">D · Kinetic</a><span>Electric indigo hero where dictated sentences type themselves into Slack, Xcode, Notes and Messages, then a bento grid of features.</span></li>
+  </ol>
+</main>
+</body>
+</html>

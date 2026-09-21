@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MoveThink Studio</title>
+<meta name="description" content="Landing page option B for MoveThink: dark, built from the app's own tokens, with a hold-to-talk demo as the hero and a spec sheet instead of feature cards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #0d0d16; --side: #0a0a13; --trough: #13131c; --sel: #1c1c24;
+  --hair: rgba(255,255,255,0.075); --hair-2: rgba(255,255,255,0.14);
+  --text: #fafafa; --muted: rgba(255,255,255,0.58); --subtle: rgba(255,255,255,0.42); --faint: rgba(255,255,255,0.28);
+  --live: #130cee; --live-ink: #8c88ff; --up: #4ade80;
+  --capsule-bg: #fafafa; --capsule-text: #0a0a0a;
+  --shadow: 0 18px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.09);
+  --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #fafafa; --side: #fbfbfc; --trough: #f4f4f5; --sel: #ececed;
+    --hair: rgba(0,0,0,0.075); --hair-2: rgba(0,0,0,0.14);
+    --text: #0a0a0a; --muted: #6a6a6c; --subtle: #86868a; --faint: #a8a8ac;
+    --live-ink: #130cee; --capsule-bg: #ffffff; --capsule-text: #0a0a0a;
+    --shadow: 0 18px 50px rgba(0,0,0,0.16), 0 4px 14px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.08);
+  }
+}
+:root[data-theme="light"] {
+  --bg: #fafafa; --side: #fbfbfc; --trough: #f4f4f5; --sel: #ececed;
+  --hair: rgba(0,0,0,0.075); --hair-2: rgba(0,0,0,0.14);
+  --text: #0a0a0a; --muted: #6a6a6c; --subtle: #86868a; --faint: #a8a8ac;
+  --live-ink: #130cee; --capsule-bg: #ffffff; --capsule-text: #0a0a0a;
+  --shadow: 0 18px 50px rgba(0,0,0,0.16), 0 4px 14px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--live-ink); outline-offset: 3px; border-radius: 6px; }
+.wrap { width: min(1120px, 100%); margin-inline: auto; padding-inline: 20px; }
+.sec { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--subtle); }
+.mono { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.01em; color: var(--subtle); font-variant-numeric: tabular-nums; }
+
+.nav { display: flex; align-items: center; justify-content: space-between; height: 60px; border-bottom: 1px solid var(--hair); }
+.brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; font-size: 16px; letter-spacing: -0.02em; }
+.brand .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--text); color: var(--bg); display: grid; place-items: center; }
+.links { display: flex; gap: 20px; font-size: 13.5px; color: var(--muted); }
+.links a:hover { color: var(--text); }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 9px; font-size: 13.5px; font-weight: 500; background: var(--trough); border: 1px solid var(--hair); color: var(--text); cursor: pointer; }
+.btn.primary { background: var(--text); color: var(--bg); border-color: transparent; }
+.btn.lg { height: 44px; padding: 0 18px; font-size: 14.5px; }
+@media (max-width: 720px) { .links { display: none; } }
+
+.hero { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; padding-block: 72px 56px; }
+.hero h1 { font-size: clamp(34px, 4.6vw, 58px); line-height: 1.02; letter-spacing: -0.035em; font-weight: 600; margin: 14px 0 18px; text-wrap: balance; }
+.hero p { color: var(--muted); max-width: 44ch; margin: 0 0 26px; font-size: 16px; text-wrap: pretty; }
+.ctas { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.hint { margin-top: 18px; font-size: 12.5px; color: var(--subtle); }
+.kbd { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px; border: 1px solid var(--hair-2); background: var(--trough); font-family: var(--mono); font-size: 10.5px; color: var(--text); vertical-align: middle; }
+@media (max-width: 860px) { .hero { grid-template-columns: 1fr; padding-block: 44px 32px; } }
+
+/* the demo desktop */
+.desk { position: relative; border-radius: 14px; background: var(--side); border: 1px solid var(--hair); box-shadow: var(--shadow); height: 420px; overflow: hidden; }
+.desk .bar { height: 26px; display: flex; align-items: center; gap: 6px; padding-inline: 10px; border-bottom: 1px solid var(--hair); }
+.desk .bar i { width: 9px; height: 9px; border-radius: 50%; background: var(--sel); }
+.desk .bar .title { margin-left: 6px; font-size: 11px; color: var(--subtle); }
+.desk .bar .mb { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.desk .bar .mb .glyph { width: 14px; height: 14px; color: var(--muted); transition: color .2s; }
+.desk .bar .mb .glyph.hot { color: var(--live-ink); }
+.doc { padding: 26px 28px; font-size: 14px; line-height: 1.6; color: var(--text); max-width: 46ch; }
+.doc .h { font-size: 11px; color: var(--faint); font-family: var(--mono); margin-bottom: 10px; }
+.doc .dim { color: var(--subtle); }
+.caret { display: inline-block; width: 1.5px; height: 1em; background: var(--live-ink); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.capsule {
+  position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(0);
+  height: 44px; padding: 0 16px 0 14px; border-radius: 22px; background: var(--capsule-bg); color: var(--capsule-text);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.16), 0 4px 14px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.08);
+  display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; user-select: none; cursor: pointer; border: 0; font-family: inherit;
+  transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .22s ease, width .32s cubic-bezier(.2,.8,.2,1);
+}
+.capsule[data-state="idle"] { transform: translateX(-50%) translateY(24px); opacity: 0; pointer-events: none; }
+.capsule .rec { width: 8px; height: 8px; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 4px rgba(19,12,238,0.14); }
+.capsule .lbl { font-size: 11px; font-weight: 500; letter-spacing: 0.01em; }
+.capsule .time { font-family: var(--mono); font-size: 11px; color: #6f7180; font-variant-numeric: tabular-nums; min-width: 5.5ch; text-align: right; }
+.bars { display: flex; align-items: center; gap: 2px; height: 18px; }
+.bars i { width: 3px; border-radius: 2px; background: currentColor; height: 20%; transition: height .12s ease; }
+.capsule[data-state="working"] .lbl { background: linear-gradient(90deg, #0a0a0a 0%, #9a9aa8 50%, #0a0a0a 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.1s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.capsule[data-state="working"] .bars, .capsule[data-state="working"] .rec { display: none; }
+.capsule[data-state="listening"] .lbl { display: none; }
+.hold-ring { position: absolute; inset: 0; pointer-events: none; }
+.try { position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); font-size: 12px; color: var(--subtle); white-space: nowrap; transition: opacity .2s; }
+.try.off { opacity: 0; }
+
+/* spec sheet */
+.spec { padding-block: 60px; border-top: 1px solid var(--hair); }
+.spec h2 { font-size: clamp(26px, 3.4vw, 38px); letter-spacing: -0.03em; line-height: 1.08; font-weight: 600; margin: 10px 0 8px; max-width: 22ch; text-wrap: balance; }
+.spec > .wrap > p { color: var(--muted); max-width: 56ch; margin: 0 0 34px; }
+.rows { border-top: 1px solid var(--hair); }
+.row { display: grid; grid-template-columns: 200px 1fr 240px; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--hair); align-items: baseline; }
+.row .k { font-size: 14px; font-weight: 500; }
+.row .v { color: var(--muted); font-size: 14px; max-width: 58ch; }
+.row .n { font-family: var(--mono); font-size: 12px; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+.row .n .up { color: var(--up); }
+@media (max-width: 760px) { .row { grid-template-columns: 1fr; gap: 6px; } .row .n { text-align: left; } }
+
+/* transforms */
+.tx { padding-block: 60px; border-top: 1px solid var(--hair); display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+.tx h2 { font-size: clamp(26px, 3.4vw, 38px); letter-spacing: -0.03em; line-height: 1.08; font-weight: 600; margin: 10px 0 12px; text-wrap: balance; }
+.tx p { color: var(--muted); margin: 0 0 16px; max-width: 46ch; }
+.tx ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; color: var(--muted); font-size: 14px; }
+.tx li::before { content: "—"; color: var(--faint); margin-right: 10px; }
+.editor { border-radius: 13px; background: var(--side); border: 1px solid var(--hair); box-shadow: var(--shadow); overflow: hidden; }
+.editor .top { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--hair); font-size: 12.5px; }
+.editor .top .pill { display: inline-flex; gap: 2px; background: var(--trough); border-radius: 48px; padding: 2px; }
+.editor .top .pill span { padding: 3px 10px; border-radius: 48px; font-size: 11.5px; color: var(--subtle); }
+.editor .top .pill span.on { background: var(--sel); color: var(--text); }
+.editor .list { padding: 6px; display: grid; gap: 2px; }
+.editor .item { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 10px; border-radius: 9px; font-size: 13px; }
+.editor .item.on { background: var(--sel); }
+.editor .item small { display: block; color: var(--subtle); font-size: 11.5px; margin-top: 2px; }
+.editor .item .sw { width: 28px; height: 16px; border-radius: 8px; background: var(--hair-2); position: relative; align-self: center; }
+.editor .item .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--text); }
+.editor .item .sw.on { background: var(--live); } .editor .item .sw.on::after { left: 14px; background: #fff; }
+.editor .body { border-top: 1px solid var(--hair); padding: 14px; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.editor .body b { color: var(--text); font-weight: 500; }
+@media (max-width: 860px) { .tx { grid-template-columns: 1fr; } }
+
+/* file */
+.file { padding-block: 60px; border-top: 1px solid var(--hair); }
+.file h2 { font-size: clamp(26px, 3.4vw, 38px); letter-spacing: -0.03em; line-height: 1.08; font-weight: 600; margin: 10px 0 12px; text-wrap: balance; max-width: 22ch; }
+.file p { color: var(--muted); max-width: 56ch; margin: 0 0 28px; }
+.md { border-radius: 13px; background: var(--side); border: 1px solid var(--hair); box-shadow: var(--shadow); padding: 18px 22px; font-family: var(--mono); font-size: 12.5px; line-height: 1.8; overflow-x: auto; }
+.md .h { color: var(--faint); } .md .t { color: var(--subtle); } .md .s { font-family: var(--sans); font-size: 14px; color: var(--text); }
+.md .path { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--hair); color: var(--subtle); font-size: 10.5px; }
+
+.foot { border-top: 1px solid var(--hair); padding-block: 44px 28px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.foot .l { font-size: 12.5px; color: var(--subtle); }
+
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } .capsule { transition: none; } .capsule[data-state="working"] .lbl { animation: none; color: var(--capsule-text); background: none; } }
+</style>
+</head>
+<body>
+
+<header class="wrap nav">
+  <a class="brand" href="#"><span class="mark"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5.6 2.6h4.8M5.6 13.4h4.8M8 2.6v10.8"/></svg></span>MoveThink</a>
+  <nav class="links"><a href="#spec">Spec</a><a href="#transforms">Transforms</a><a href="#file">The file</a><a href="#">Changelog</a></nav>
+  <a class="btn primary" href="#download">Download</a>
+</header>
+
+<section class="wrap hero">
+  <div>
+    <div class="sec">Push-to-talk dictation for macOS · v0.4.1</div>
+    <h1>A key you hold. Text where your cursor is.</h1>
+    <p>MoveThink is a menu-bar utility, not an app you open. Hold the hotkey in any text field, speak, let go. Transcription happens on your Mac, and every capture is appended to a Markdown file you can open anywhere.</p>
+    <div class="ctas"><a class="btn primary lg" href="#download">Download for Mac</a><a class="btn lg" href="#spec">Read the spec</a></div>
+    <div class="hint">Try it on the right: hold <span class="kbd">Space</span> or press and hold the capsule.</div>
+  </div>
+
+  <div class="desk" id="desk" aria-label="Interactive demo of a MoveThink capture">
+    <div class="bar"><i></i><i></i><i></i><span class="title">Notes — Standup</span>
+      <span class="mb"><svg class="glyph" id="glyph" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5.6 2.6h4.8M5.6 13.4h4.8M8 2.6v10.8"/></svg></span>
+    </div>
+    <div class="doc">
+      <div class="h">Monday · 21 Sep</div>
+      <div class="dim">Yesterday: shipped the day-switch motion. Capsule timing looks right on the 14" and the Studio Display.</div>
+      <div style="margin-top:12px">Today: <span id="typed"></span><span class="caret"></span></div>
+    </div>
+    <div class="try" id="try">Hold Space to talk</div>
+    <button class="capsule" id="capsule" data-state="idle" aria-label="Hold to record (demo)">
+      <span class="rec"></span>
+      <span class="bars" id="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="lbl">Working</span>
+      <span class="time" id="time">00:00.0</span>
+    </button>
+  </div>
+</section>
+
+<section class="spec" id="spec">
+  <div class="wrap">
+    <div class="sec">Spec sheet</div>
+    <h2>What it does, measured rather than promised</h2>
+    <p>These are the acceptance tests the app is held to on real hardware, not marketing targets. If one stops holding, it's a bug.</p>
+    <div class="rows">
+      <div class="row"><div class="k">Release to text</div><div class="v">A ten-second utterance, transcribed and inserted at the caret.</div><div class="n">&lt; 1.5 s <span class="up">↑</span></div></div>
+      <div class="row"><div class="k">Press to listening</div><div class="v">Hotkey down to the capsule showing live audio. Feels instant.</div><div class="n">&lt; 120 ms</div></div>
+      <div class="row"><div class="k">Focus stolen</div><div class="v">The capsule is a non-activating panel. The app you were in stays in front.</div><div class="n">never</div></div>
+      <div class="row"><div class="k">Engine</div><div class="v">Apple's on-device SpeechAnalyzer. No network call, ever. Works in airplane mode.</div><div class="n">on-device</div></div>
+      <div class="row"><div class="k">Insertion</div><div class="v">Notes, Safari, Chrome, Slack, Xcode, Terminal, Notion, Messages. AppKit, WebKit, Electron and terminals each get their own strategy.</div><div class="n">8 of 8 apps</div></div>
+      <div class="row"><div class="k">Idle cost</div><div class="v">No audio engine runs until you press the key. Nothing on screen but a 16-pixel menu bar glyph.</div><div class="n">≈ 0% CPU</div></div>
+      <div class="row"><div class="k">Storage</div><div class="v">Append-only Markdown, one file per day. Optional retention purge at 30, 90 or 365 days.</div><div class="n">~/MoveThink/*.md</div></div>
+      <div class="row"><div class="k">Trigger</div><div class="v">Any key. Hold to record, or tap to start and tap to end.</div><div class="n">⌥ default</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap tx" id="transforms">
+  <div>
+    <div class="sec">Transforms · new in 0.2</div>
+    <h2>Clean-up rules, written in plain language, run on the Mac.</h2>
+    <p>A Transform is a short instruction applied to the transcript before it's inserted. General Clean-up is on by default. Add your own and switch between them.</p>
+    <ul>
+      <li>Runs on Apple's on-device model. No key, no quota, no upload.</li>
+      <li>Built-ins can be switched off but never deleted.</li>
+      <li>The raw transcript is still what's saved to the file.</li>
+    </ul>
+  </div>
+  <div class="editor" aria-hidden="true">
+    <div class="top"><span>Transforms</span><span class="pill"><span class="on">List</span><span>Cards</span></span></div>
+    <div class="list">
+      <div class="item on"><div>General Clean-up<small>Remove filler words, fix punctuation and casing. Keep the meaning.</small></div><span class="sw on"></span></div>
+      <div class="item"><div>Standup bullets<small>Turn a ramble into three short bullets: did, doing, blocked.</small></div><span class="sw on"></span></div>
+      <div class="item"><div>Casual Slack<small>Lowercase, no trailing period, keep it short.</small></div><span class="sw"></span></div>
+      <div class="item"><div>Commit message<small>Imperative mood, 50-character summary line, body if needed.</small></div><span class="sw"></span></div>
+    </div>
+    <div class="body"><b>Standup bullets</b> · Turn what I said into at most three bullets under the headings did, doing and blocked. Drop anything that isn't one of those. Keep names and ticket numbers exactly as spoken.</div>
+  </div>
+</section>
+
+<section class="file" id="file">
+  <div class="wrap">
+    <div class="sec">The file</div>
+    <h2>A local-first tool that hides its own storage is asking to be trusted. This one shows it.</h2>
+    <p>Every capture is a heading and a paragraph in today's Markdown file. The window shows the real path, the <code>##</code> markers stay visible, and you can open the folder in Finder, Obsidian, or a terminal.</p>
+    <div class="md">
+      <div class="path"><span>~/MoveThink/2026-09-21.md</span><span>3 captures · 41 words</span></div>
+      <div><span class="h">#</span> 2026-09-21</div>
+      <div><span class="h">##</span> <span class="t">09:41 · Slack · 6.2 s</span></div>
+      <div class="s">Can we move the sync to Thursday and add Jamie?</div>
+      <div><span class="h">##</span> <span class="t">11:06 · Xcode · 4.8 s</span></div>
+      <div class="s">Retry the timestamp step before failing the build.</div>
+      <div><span class="h">##</span> <span class="t">14:22 · Notes · 9.1 s</span></div>
+      <div class="s">Idea: run the retention purge once per launch instead of on a timer. Cheaper, and nobody notices the difference.</div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap foot" id="download">
+  <div><div class="sec">Free while in beta</div><div style="font-size:15px;margin-top:4px">macOS 26 · Apple Silicon · no account</div></div>
+  <a class="btn primary lg" href="#">Download MoveThink</a>
+  <div class="l">© 2026 MoveThink</div>
+</footer>
+
+<script>
+(function () {
+  const capsule = document.getElementById('capsule'), bars = Array.from(document.querySelectorAll('#bars i'));
+  const time = document.getElementById('time'), typed = document.getElementById('typed'), tryEl = document.getElementById('try'), glyph = document.getElementById('glyph');
+  const sentences = [
+    'finish the Transforms editor polish and ship 0.4.2 before the weekend.',
+    'pair with Sam on the insertion strategy for Electron apps.',
+    'write down why the retention purge runs once per launch.',
+  ];
+  let state = 'idle', t0 = 0, raf = 0, n = 0, typing = 0;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function tick() {
+    const el = (performance.now() - t0) / 1000;
+    time.textContent = String(Math.floor(el / 60)).padStart(2, '0') + ':' + (el % 60).toFixed(1).padStart(4, '0');
+    if (!reduce) bars.forEach((b, i) => { b.style.height = (20 + 75 * Math.abs(Math.sin(el * 7 + i * 0.9)) * (0.4 + 0.6 * Math.random())) + '%'; });
+    raf = requestAnimationFrame(tick);
+  }
+  function start() {
+    if (state !== 'idle') return;
+    state = 'listening'; capsule.dataset.state = 'listening'; glyph.classList.add('hot'); tryEl.classList.add('off');
+    t0 = performance.now(); tick();
+  }
+  function stop() {
+    if (state !== 'listening') return;
+    cancelAnimationFrame(raf);
+    const held = performance.now() - t0;
+    state = 'working'; capsule.dataset.state = 'working';
+    setTimeout(() => {
+      capsule.dataset.state = 'idle'; glyph.classList.remove('hot');
+      const s = sentences[n++ % sentences.length];
+      clearInterval(typing); typed.textContent = '';
+      if (reduce) { typed.textContent = s; state = 'idle'; return; }
+      let i = 0; typing = setInterval(() => { typed.textContent = s.slice(0, ++i); if (i >= s.length) { clearInterval(typing); state = 'idle'; tryEl.classList.remove('off'); } }, 14);
+    }, Math.min(1400, 400 + held * 0.12));
+  }
+  capsule.addEventListener('pointerdown', e => { e.preventDefault(); start(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => capsule.addEventListener(ev, stop));
+  document.getElementById('desk').addEventListener('pointerdown', e => { if (e.target.closest('.capsule')) return; start(); });
+  document.addEventListener('pointerup', stop);
+  document.addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat && !e.target.closest('input,textarea,button,a')) { e.preventDefault(); start(); } });
+  document.addEventListener('keyup', e => { if (e.code === 'Space') { e.preventDefault(); stop(); } });
+
+  // Show the capsule once at rest so the still frame demonstrates the object.
+  setTimeout(() => { if (state === 'idle') { capsule.dataset.state = 'listening'; bars.forEach((b, i) => b.style.height = (25 + 60 * Math.abs(Math.sin(i * 0.9))) + '%'); time.textContent = '00:03.4'; state = 'preview'; } }, 400);
+  function leavePreview() { if (state === 'preview') { state = 'idle'; capsule.dataset.state = 'idle'; } }
+  document.addEventListener('pointerdown', leavePreview, { capture: true });
+  document.addEventListener('keydown', leavePreview, { capture: true });
+})();
+</script>
+</body>
+</html>

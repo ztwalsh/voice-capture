@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MoveThink Kinetic</title>
+<meta name="description" content="Landing page option D for MoveThink: an electric indigo hero where spoken sentences type themselves into different apps, then a bento grid of features.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..900&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #f7f7fb; --card: #ffffff; --text: #0e0e1a; --muted: #5b5b6e; --subtle: #8a8a9a; --hair: rgba(14,14,40,0.10);
+  --indigo: #130cee; --indigo-2: #2a22ff; --indigo-deep: #0b07a8; --on-indigo: #ffffff; --on-indigo-dim: rgba(255,255,255,0.68);
+  --lime: #d9ff5b; --peach: #ffd8c2; --sky: #cfe6ff;
+  --shadow: 0 24px 70px rgba(14,14,40,0.12), 0 6px 18px rgba(14,14,40,0.06), 0 0 0 1px rgba(14,14,40,0.06);
+  --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d0d16; --card: #15151f; --text: #fafafa; --muted: rgba(255,255,255,0.62); --subtle: rgba(255,255,255,0.44); --hair: rgba(255,255,255,0.09);
+    --indigo: #1a13d6; --indigo-2: #3a33ff; --indigo-deep: #0b07a8;
+    --lime: #c8f04a; --peach: #6b3a2a; --sky: #1f3556;
+    --shadow: 0 24px 70px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d0d16; --card: #15151f; --text: #fafafa; --muted: rgba(255,255,255,0.62); --subtle: rgba(255,255,255,0.44); --hair: rgba(255,255,255,0.09);
+  --indigo: #1a13d6; --indigo-2: #3a33ff; --indigo-deep: #0b07a8;
+  --lime: #c8f04a; --peach: #6b3a2a; --sky: #1f3556;
+  --shadow: 0 24px 70px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; border-radius: 6px; }
+.wrap { width: min(1160px, 100%); margin-inline: auto; padding-inline: 20px; }
+.mono { font-family: var(--mono); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
+
+/* indigo hero block */
+.top { background: radial-gradient(90% 70% at 80% 0%, var(--indigo-2), transparent 60%), linear-gradient(180deg, var(--indigo), var(--indigo-deep)); color: var(--on-indigo); overflow: hidden; }
+.nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: -0.03em; }
+.brand .mark { width: 28px; height: 28px; border-radius: 9px; background: var(--lime); color: var(--indigo-deep); display: grid; place-items: center; }
+.links { display: flex; gap: 22px; font-size: 14px; color: var(--on-indigo-dim); }
+.links a:hover { color: var(--on-indigo); }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; font-size: 14.5px; font-weight: 600; border: 1px solid transparent; cursor: pointer; transition: transform .15s ease; }
+.btn:hover { transform: translateY(-1px); }
+.btn.lime { background: var(--lime); color: #0b07a8; }
+.btn.ghost { background: rgba(255,255,255,0.10); color: var(--on-indigo); border-color: rgba(255,255,255,0.22); }
+.btn.dark { background: var(--text); color: var(--bg); }
+.btn.lg { height: 50px; padding: 0 22px; font-size: 15.5px; }
+@media (max-width: 720px) { .links { display: none; } }
+
+.hero { padding-block: 60px 72px; }
+.hero .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--on-indigo-dim); }
+.hero .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 4px rgba(217,255,91,0.2); }
+.hero h1 { font-size: clamp(44px, 8.6vw, 112px); font-weight: 800; line-height: 0.92; letter-spacing: -0.045em; margin: 18px 0 0; max-width: 11ch; text-wrap: balance; }
+.hero h1 .say { display: block; color: var(--lime); }
+.hero .row { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: end; margin-top: 34px; }
+.hero p { font-size: clamp(16px, 1.5vw, 19px); color: var(--on-indigo-dim); max-width: 46ch; margin: 0; text-wrap: pretty; }
+.hero .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+@media (max-width: 800px) { .hero .row { grid-template-columns: 1fr; } }
+
+/* the typing stage */
+.stage { margin-top: 48px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: 22px; padding: 14px; backdrop-filter: blur(8px); }
+.stage .inner { background: var(--card); color: var(--text); border-radius: 12px; box-shadow: 0 30px 80px rgba(0,0,0,0.25); overflow: hidden; }
+.appbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--hair); font-size: 13px; color: var(--muted); }
+.appbar .dots { display: flex; gap: 5px; } .appbar .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--hair); }
+.appbar .app { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; color: var(--text); }
+.appbar .app i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.appbar .chips { margin-left: auto; display: none; gap: 6px; }
+.appbar .chips span { width: 9px; height: 9px; border-radius: 50%; background: var(--hair); transition: background .3s, transform .3s; }
+.appbar .chips span.on { background: var(--indigo-2); transform: scale(1.25); }
+@media (min-width: 560px) { .appbar .chips { display: flex; } }
+.field { padding: 28px 24px 30px; min-height: 170px; display: flex; flex-direction: column; justify-content: space-between; gap: 20px; }
+.field .txt { font-size: clamp(18px, 2.4vw, 28px); line-height: 1.3; letter-spacing: -0.015em; font-weight: 500; min-height: 2.6em; }
+.caret { display: inline-block; width: 2px; height: 1em; background: var(--indigo-2); vertical-align: -3px; margin-left: 2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.field .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.capsule { display: inline-flex; align-items: center; gap: 12px; height: 44px; padding: 0 16px 0 14px; border-radius: 22px; background: #fff; color: #0a0a0a; box-shadow: 0 18px 50px rgba(0,0,0,0.16), 0 4px 14px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.08); transition: opacity .25s; }
+.capsule.off { opacity: 0.35; }
+.capsule .rec { width: 8px; height: 8px; border-radius: 50%; background: #130cee; box-shadow: 0 0 0 4px rgba(19,12,238,0.12); }
+.bars { display: flex; align-items: center; gap: 2px; height: 18px; }
+.bars i { width: 3px; border-radius: 2px; background: #0a0a0a; height: 30%; }
+.capsule.on .bars i { animation: bar 1s ease-in-out infinite; }
+.bars i:nth-child(2n) { animation-delay: .15s; } .bars i:nth-child(3n) { animation-delay: .3s; } .bars i:nth-child(5n) { animation-delay: .45s; }
+@keyframes bar { 0%,100% { height: 25%; } 50% { height: 95%; } }
+.capsule .time { font-family: var(--mono); font-size: 11px; color: #6f7180; font-variant-numeric: tabular-nums; }
+.field .status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--subtle); }
+
+/* bento */
+.bento { padding-block: 72px 40px; }
+.bento h2 { font-size: clamp(30px, 4.6vw, 56px); font-weight: 800; letter-spacing: -0.04em; line-height: 0.98; margin: 10px 0 40px; max-width: 16ch; text-wrap: balance; }
+.grid { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: minmax(210px, auto); gap: 14px; }
+.tile { border-radius: 20px; padding: 24px; background: var(--card); box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden; }
+.tile h3 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; }
+.tile p { margin: 0; color: var(--muted); font-size: 14px; max-width: 34ch; }
+.tile .big { font-size: clamp(40px, 5vw, 64px); font-weight: 800; letter-spacing: -0.05em; line-height: 1; margin-top: auto; }
+.tile .art { margin-top: auto; }
+.t-a { grid-column: span 4; background: var(--indigo); color: #fff; }
+.t-a p { color: rgba(255,255,255,0.7); }
+.t-b { grid-column: span 2; background: var(--lime); color: #0b07a8; } .t-b p { color: rgba(11,7,168,0.7); }
+.t-c { grid-column: span 2; }
+.t-d { grid-column: span 2; background: var(--peach); }
+.t-e { grid-column: span 2; background: var(--sky); }
+.t-f { grid-column: span 3; }
+.t-g { grid-column: span 3; }
+@media (max-width: 900px) { .t-a, .t-b, .t-c, .t-d, .t-e, .t-f, .t-g { grid-column: span 3; } }
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } .t-a, .t-b, .t-c, .t-d, .t-e, .t-f, .t-g { grid-column: span 1; } }
+
+.apps { display: flex; gap: 8px; flex-wrap: wrap; }
+.apps span { font-size: 12.5px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); }
+.rule { display: grid; gap: 6px; }
+.rule .r { font-size: 13px; padding: 8px 10px; border-radius: 9px; background: var(--bg); border: 1px solid var(--hair); display: flex; justify-content: space-between; gap: 8px; }
+.rule .r i { width: 26px; height: 15px; border-radius: 8px; background: var(--indigo); position: relative; flex: none; }
+.rule .r i::after { content: ""; position: absolute; top: 2px; right: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; }
+.rule .r.off i { background: var(--hair); } .rule .r.off i::after { right: auto; left: 2px; background: var(--card); }
+.md { font-family: var(--mono); font-size: 12px; line-height: 1.7; color: var(--text); }
+.md .hh { opacity: .35; } .md .m { opacity: .6; }
+.kbd { display: inline-flex; align-items: center; height: 26px; padding: 0 9px; border-radius: 6px; border: 1px solid var(--hair); background: var(--bg); font-family: var(--mono); font-size: 12px; }
+.keys { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.cta { padding-block: 40px 60px; }
+.cta .box { border-radius: 24px; background: var(--indigo); color: #fff; padding: 52px 28px; text-align: center; background-image: radial-gradient(60% 80% at 100% 0%, var(--indigo-2), transparent 60%); }
+.cta h2 { font-size: clamp(30px, 5vw, 60px); font-weight: 800; letter-spacing: -0.045em; line-height: 0.96; margin: 0 0 12px; }
+.cta p { color: rgba(255,255,255,0.7); margin: 0 0 24px; }
+.legal { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 12.5px; color: var(--subtle); padding-top: 22px; }
+
+@media (prefers-reduced-motion: reduce) { .caret, .capsule.on .bars i { animation: none; } }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <header class="wrap nav">
+    <a class="brand" href="#"><span class="mark"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5.6 2.6h4.8M5.6 13.4h4.8M8 2.6v10.8"/></svg></span>MoveThink</a>
+    <nav class="links"><a href="#features">Features</a><a href="#transforms">Transforms</a><a href="#privacy">Privacy</a><a href="#">Changelog</a></nav>
+    <a class="btn lime" href="#download">Download</a>
+  </header>
+
+  <section class="wrap hero">
+    <div class="eyebrow"><i></i>Push-to-talk dictation for the Mac</div>
+    <h1>Stop typing.<span class="say">Say it.</span></h1>
+    <div class="row">
+      <p>Hold one key, in any app. Your words land at the cursor, transcribed on your Mac in under two seconds, and saved to a Markdown file you own.</p>
+      <div class="ctas"><a class="btn lime lg" href="#download">Download for Mac</a><a class="btn ghost lg" href="#features">See what it does</a></div>
+    </div>
+
+    <div class="stage" aria-label="Sentences being dictated into different apps">
+      <div class="inner">
+        <div class="appbar"><span class="dots"><i></i><i></i><i></i></span><span class="app"><i id="appdot" style="background:#4a154b"></i><span id="appname">Slack · #design-review</span></span><span class="chips" id="chips"><span class="on"></span><span></span><span></span><span></span></span></div>
+        <div class="field">
+          <div class="txt"><span id="typed">Pushing the day-switch motion tonight, can you look at the capsule timing before standup?</span><span class="caret"></span></div>
+          <div class="foot">
+            <span class="capsule on" id="capsule"><span class="rec"></span><span class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="time" id="time">00:03.1</span></span>
+            <span class="status" id="status">Listening · on-device</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="wrap bento" id="features">
+  <div class="mono" style="color:var(--subtle)">What's in the box</div>
+  <h2>Everything a key can do</h2>
+  <div class="grid">
+    <div class="tile t-a"><h3>Works in the app you're already in</h3><p>Native, web, Electron and terminal apps each take text differently. MoveThink carries a strategy for each and picks the right one.</p><div class="art apps"><span>Notes</span><span>Safari</span><span>Chrome</span><span>Slack</span><span>Xcode</span><span>Terminal</span><span>Notion</span><span>Messages</span></div></div>
+    <div class="tile t-b"><h3>Release to text</h3><p>Ten seconds of speech, on Apple Silicon.</p><div class="big">&lt;1.5s</div></div>
+    <div class="tile t-c" id="privacy"><h3>Nothing leaves your Mac</h3><p>Apple's on-device speech engine. No account, no key, no upload. Works on a plane.</p><div class="art mono" style="color:var(--subtle)">network calls: 0</div></div>
+    <div class="tile t-d" id="transforms"><h3>Transforms</h3><p>Plain-language clean-up rules that run on-device.</p><div class="art rule"><div class="r">General Clean-up<i></i></div><div class="r">Standup bullets<i></i></div><div class="r off">Casual Slack<i></i></div></div></div>
+    <div class="tile t-e"><h3>Hold, or tap</h3><p>Hold to record, or tap to start and tap to end. Any key you like.</p><div class="art keys"><span class="kbd">⌥ Right Option</span><span style="color:var(--subtle);font-size:12px">default</span></div></div>
+    <div class="tile t-f"><h3>One Markdown file per day</h3><p>Search by phrase, app or date. Reveal in Finder. Open it in anything. Retention is your call.</p><div class="art md"><div><span class="hh">#</span> 2026-09-21</div><div><span class="hh">##</span> <span class="m">09:41 · Slack</span></div><div>Can we move the sync to Thursday and add Jamie?</div><div><span class="hh">##</span> <span class="m">11:06 · Xcode</span></div><div>Retry the timestamp step before failing the build.</div></div></div>
+    <div class="tile t-g"><h3>Invisible until invoked</h3><p>No Dock icon, no idle overlay, no audio engine running until you press the key. A 16-pixel glyph in the menu bar, and that's all.</p><div class="big" style="font-size:clamp(28px,3.4vw,44px)">≈0% idle CPU</div></div>
+  </div>
+</section>
+
+<section class="wrap cta" id="download">
+  <div class="box">
+    <h2>Think out loud.</h2>
+    <p>Free while in beta · macOS 26 on Apple Silicon · no account</p>
+    <a class="btn lime lg" href="#">Download MoveThink for Mac</a>
+  </div>
+  <div class="legal"><span>© 2026 MoveThink</span><span>v0.4.1</span></div>
+</section>
+
+<script>
+(function () {
+  const scenes = [
+    { app: 'Slack · #design-review', color: '#4a154b', text: 'Pushing the day-switch motion tonight, can you look at the capsule timing before standup?' },
+    { app: 'Xcode · release.sh', color: '#1575f0', text: '# Retry the codesign timestamp step twice before failing the build.' },
+    { app: 'Notes · Ideas', color: '#f4c542', text: 'Run the retention purge once per launch instead of on a timer. Cheaper, and nobody will notice.' },
+    { app: 'Messages · Sam', color: '#30c759', text: 'On my way, ten minutes. Grab me a seat near the back.' },
+  ];
+  const typed = document.getElementById('typed'), name = document.getElementById('appname'), dot = document.getElementById('appdot');
+  const chips = Array.from(document.querySelectorAll('#chips span')), capsule = document.getElementById('capsule'), time = document.getElementById('time'), status = document.getElementById('status');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let i = 0;
+  function run() {
+    const s = scenes[i % scenes.length]; i++;
+    name.textContent = s.app; dot.style.background = s.color; chips.forEach((c, k) => c.classList.toggle('on', k === (i - 1) % scenes.length));
+    typed.textContent = ''; capsule.classList.add('on'); capsule.classList.remove('off'); status.textContent = 'Listening · on-device';
+    const t0 = performance.now(); const listen = 1800 + s.text.length * 12;
+    const tk = setInterval(() => { const e = (performance.now() - t0) / 1000; time.textContent = '00:' + e.toFixed(1).padStart(4, '0'); }, 100);
+    setTimeout(() => {
+      clearInterval(tk); capsule.classList.remove('on'); status.textContent = 'Working';
+      setTimeout(() => {
+        capsule.classList.add('off'); status.textContent = 'Inserted at cursor';
+        let k = 0; const ty = setInterval(() => { typed.textContent = s.text.slice(0, ++k); if (k >= s.text.length) { clearInterval(ty); setTimeout(run, 2600); } }, 12);
+      }, 700);
+    }, listen);
+  }
+  setTimeout(run, 2200);
+})();
+</script>
+</body>
+</html>

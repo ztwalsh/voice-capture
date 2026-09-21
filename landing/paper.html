@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MoveThink Paper</title>
+<meta name="description" content="Landing page option C for MoveThink: the page is written as a day file, with ruled paper, a wide grotesk display face, and the Markdown file as the hero.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --paper: #f4f5f8; --paper-2: #ffffff; --rule: rgba(19,12,238,0.10); --margin: rgba(214,72,72,0.35);
+  --text: #101019; --muted: #575766; --subtle: #8a8a96; --faint: #b9b9c4; --hair: rgba(16,16,40,0.10);
+  --ink: #130cee; --ink-soft: rgba(19,12,238,0.08); --hi: #fff3a3;
+  --shadow: 0 24px 70px rgba(16,16,40,0.14), 0 6px 18px rgba(16,16,40,0.06), 0 0 0 1px rgba(16,16,40,0.06);
+  --display: "Bricolage Grotesque", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0d0d16; --paper-2: #13131c; --rule: rgba(140,136,255,0.12); --margin: rgba(255,120,120,0.30);
+    --text: #fafafa; --muted: rgba(255,255,255,0.62); --subtle: rgba(255,255,255,0.44); --faint: rgba(255,255,255,0.28); --hair: rgba(255,255,255,0.09);
+    --ink: #8c88ff; --ink-soft: rgba(140,136,255,0.14); --hi: rgba(255,230,120,0.22);
+    --shadow: 0 24px 70px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08);
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0d0d16; --paper-2: #13131c; --rule: rgba(140,136,255,0.12); --margin: rgba(255,120,120,0.30);
+  --text: #fafafa; --muted: rgba(255,255,255,0.62); --subtle: rgba(255,255,255,0.44); --faint: rgba(255,255,255,0.28); --hair: rgba(255,255,255,0.09);
+  --ink: #8c88ff; --ink-soft: rgba(140,136,255,0.14); --hi: rgba(255,230,120,0.22);
+  --shadow: 0 24px 70px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
+.wrap { width: min(1100px, 100%); margin-inline: auto; padding-inline: 20px; }
+.mono { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--subtle); }
+
+/* ruled paper */
+.sheet { position: relative; background-image: repeating-linear-gradient(180deg, transparent 0 31px, var(--rule) 31px 32px); background-position: 0 6px; }
+.sheet::before { content: ""; position: absolute; top: 0; bottom: 0; left: max(16px, calc((100% - 1100px) / 2 + 16px)); width: 1px; background: var(--margin); pointer-events: none; }
+@media (max-width: 720px) { .sheet::before { display: none; } }
+
+.nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+.brand { display: inline-flex; align-items: baseline; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: -0.02em; }
+.brand .path { font-family: var(--mono); font-size: 11px; color: var(--subtle); letter-spacing: 0; text-transform: none; }
+.links { display: flex; gap: 22px; font-size: 14px; color: var(--muted); }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 6px; font-size: 14px; font-weight: 500; background: var(--paper-2); border: 1px solid var(--hair); color: var(--text); }
+.btn.ink { background: var(--ink); color: #fff; border-color: transparent; }
+.btn.lg { height: 46px; padding: 0 20px; font-size: 15px; }
+@media (max-width: 720px) { .links { display: none; } .brand .path { display: none; } }
+
+.hero { padding-block: 64px 48px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 48px; align-items: end; }
+.hero .h { display: flex; gap: 14px; align-items: flex-start; }
+.hero .hash { font-family: var(--mono); font-size: clamp(28px, 4vw, 44px); color: var(--faint); line-height: 1.05; padding-top: 6px; user-select: none; }
+.hero h1 { font-family: var(--display); font-size: clamp(42px, 6.6vw, 84px); font-weight: 800; line-height: 0.96; letter-spacing: -0.035em; margin: 0; text-wrap: balance; font-variation-settings: "opsz" 96; }
+.hero h1 em { font-style: normal; color: var(--ink); }
+.hero p { font-size: 17px; color: var(--muted); max-width: 46ch; margin: 22px 0 26px 0; text-wrap: pretty; }
+.hero .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+.hero .fine { margin-top: 12px; font-size: 12.5px; color: var(--subtle); }
+@media (max-width: 860px) { .hero { grid-template-columns: 1fr; gap: 28px; } }
+
+/* the file card */
+.file { background: var(--paper-2); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+.file .head { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--hair); font-family: var(--mono); font-size: 11px; color: var(--subtle); }
+.file .body { padding: 16px 18px 6px; font-family: var(--mono); font-size: 12px; line-height: 1.75; }
+.file .cap { display: block; margin-bottom: 12px; }
+.file .hh { color: var(--faint); } .file .meta { color: var(--subtle); }
+.file .txt { font-family: var(--sans); font-size: 14px; color: var(--text); line-height: 1.5; }
+.file .txt mark { background: var(--hi); color: inherit; padding: 0 2px; border-radius: 2px; }
+.file .live { color: var(--ink); }
+.caret { display: inline-block; width: 1.5px; height: 1em; background: var(--ink); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.file .foot { display: flex; justify-content: space-between; padding: 8px 14px; border-top: 1px solid var(--hair); font-family: var(--mono); font-size: 10.5px; color: var(--subtle); }
+
+/* entries */
+.entries { padding-block: 40px 20px; }
+.entry { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; padding-block: 40px; border-top: 1px solid var(--hair); align-items: start; }
+.entry .stamp { font-family: var(--mono); font-size: 11.5px; color: var(--subtle); line-height: 1.7; }
+.entry .stamp b { display: block; color: var(--text); font-weight: 500; }
+.entry h2 { font-family: var(--display); font-size: clamp(26px, 3.6vw, 42px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.02; margin: 0 0 14px; text-wrap: balance; font-variation-settings: "opsz" 96; }
+.entry h2 .hh { color: var(--faint); font-weight: 500; margin-right: 10px; font-family: var(--mono); font-size: 0.6em; vertical-align: 0.15em; }
+.entry p { color: var(--muted); max-width: 60ch; margin: 0 0 12px; }
+.entry .aside { margin-top: 18px; display: grid; gap: 8px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { font-family: var(--mono); font-size: 11px; padding: 5px 10px; border-radius: 48px; border: 1px solid var(--hair); background: var(--paper-2); color: var(--muted); }
+.chip.on { border-color: var(--ink); color: var(--ink); background: var(--ink-soft); }
+.kbd { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border-radius: 5px; border: 1px solid var(--hair); background: var(--paper-2); font-family: var(--mono); font-size: 11px; color: var(--text); vertical-align: middle; }
+@media (max-width: 720px) { .entry { grid-template-columns: 1fr; gap: 10px; padding-block: 30px; } }
+
+/* transform demo */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; max-width: 700px; }
+.pair .box { background: var(--paper-2); border: 1px solid var(--hair); border-radius: 8px; padding: 12px 14px; font-size: 14px; line-height: 1.5; }
+.pair .box .mono { display: block; margin-bottom: 6px; }
+.pair .box s { color: var(--faint); }
+.pair .box.out { border-color: var(--ink); }
+@media (max-width: 560px) { .pair { grid-template-columns: 1fr; } }
+
+/* search demo */
+.search { max-width: 700px; margin-top: 16px; background: var(--paper-2); border: 1px solid var(--hair); border-radius: 8px; overflow: hidden; }
+.search .q { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--hair); font-size: 14px; }
+.search .q .filters { margin-left: auto; display: flex; gap: 6px; }
+.search .r { padding: 10px 14px; border-bottom: 1px solid var(--hair); font-size: 14px; display: grid; grid-template-columns: 110px 1fr; gap: 10px; }
+.search .r:last-child { border-bottom: 0; }
+.search .r .m { font-family: var(--mono); font-size: 11px; color: var(--subtle); }
+.search mark { background: var(--hi); color: inherit; padding: 0 2px; border-radius: 2px; }
+
+/* end */
+.end { padding-block: 56px 40px; border-top: 1px solid var(--hair); display: grid; grid-template-columns: 180px 1fr; gap: 24px; align-items: start; }
+.end h2 { font-family: var(--display); font-size: clamp(30px, 4.6vw, 56px); font-weight: 800; letter-spacing: -0.035em; line-height: 0.98; margin: 0 0 18px; text-wrap: balance; font-variation-settings: "opsz" 96; }
+.end p { color: var(--muted); max-width: 52ch; margin: 0 0 22px; }
+.legal { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--subtle); padding-block: 22px 0; border-top: 1px solid var(--hair); margin-top: 30px; }
+@media (max-width: 720px) { .end { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+</style>
+</head>
+<body>
+<div class="sheet">
+<header class="wrap nav">
+  <a class="brand" href="#">MoveThink <span class="path">~/MoveThink/2026-09-21.md</span></a>
+  <nav class="links"><a href="#capture">Capture</a><a href="#insert">Insert</a><a href="#transforms">Transforms</a><a href="#search">Search</a></nav>
+  <a class="btn ink" href="#download">Download for Mac</a>
+</header>
+
+<section class="wrap hero">
+  <div>
+    <div class="h"><span class="hash" aria-hidden="true">#</span><h1>Say it once.<br>Keep it <em>forever</em>,<br>in a file you own.</h1></div>
+    <p>MoveThink is push-to-talk dictation for the Mac. Hold a key, speak, let go, and the words land at your cursor. Every capture is appended to a plain Markdown file. It's transcribed on-device, so nothing you say ever leaves the machine.</p>
+    <div class="ctas"><a class="btn ink lg" href="#download">Download for Mac</a><a class="btn lg" href="#capture">Read today's file ↓</a></div>
+    <div class="fine">Free while in beta · macOS 26 on Apple Silicon · no account</div>
+  </div>
+  <div class="file" aria-label="Example day file">
+    <div class="head"><span>2026-09-21.md</span><span>Markdown · 41 words</span></div>
+    <div class="body">
+      <span class="cap"><span class="hh">#</span> 2026-09-21</span>
+      <span class="cap"><span class="hh">##</span> <span class="meta">09:41 · Slack</span><br><span class="txt">Can we move the sync to Thursday and add Jamie?</span></span>
+      <span class="cap"><span class="hh">##</span> <span class="meta">11:06 · Xcode</span><br><span class="txt">Retry the timestamp step before failing the build.</span></span>
+      <span class="cap"><span class="hh">##</span> <span class="meta">14:22 · Notes</span><br><span class="txt">Idea: run the retention purge once per launch instead of on a timer.</span></span>
+      <span class="cap"><span class="hh">##</span> <span class="meta live">17:26 · Messages · recording</span><br><span class="txt" id="live">On my way, </span><span class="caret"></span></span>
+    </div>
+    <div class="foot"><span>appended by MoveThink · on-device</span><span>Reveal in Finder</span></div>
+  </div>
+</section>
+</div>
+
+<section class="wrap entries">
+  <article class="entry" id="capture">
+    <div class="stamp"><b>09:41 · Anywhere</b>hold · speak · release</div>
+    <div>
+      <h2><span class="hh">##</span>A key, not an app.</h2>
+      <p>There's no window to open and no Dock icon. Hold the hotkey in any text field on your Mac. A small capsule rises from the bottom of the screen with a live waveform so you know it's listening. Let go, and the text is at your caret before you've looked down.</p>
+      <p>Your focus never moves. The capsule is a panel that can't take it.</p>
+      <div class="aside"><div class="chips"><span class="chip on">hold to record</span><span class="chip">tap to toggle</span><span class="chip">any key · <span class="kbd">⌥</span> default</span></div></div>
+    </div>
+  </article>
+
+  <article class="entry" id="insert">
+    <div class="stamp"><b>11:06 · Xcode</b>8 apps, 4 strategies</div>
+    <div>
+      <h2><span class="hh">##</span>It lands where you were already typing.</h2>
+      <p>Native apps, browsers, Electron and terminals all take text differently, so MoveThink carries a strategy for each and picks the one the frontmost app needs. Tested against Notes, Safari, Chrome, Slack, Xcode, Terminal, Notion and Messages on every release.</p>
+      <div class="aside"><div class="chips"><span class="chip">Notes</span><span class="chip">Safari</span><span class="chip">Chrome</span><span class="chip">Slack</span><span class="chip on">Xcode</span><span class="chip">Terminal</span><span class="chip">Notion</span><span class="chip">Messages</span></div></div>
+    </div>
+  </article>
+
+  <article class="entry" id="transforms">
+    <div class="stamp"><b>14:22 · Transforms</b>on-device clean-up</div>
+    <div>
+      <h2><span class="hh">##</span>Clean-up rules in plain language.</h2>
+      <p>A Transform is a sentence or two describing what to do with what you said. General Clean-up is on by default. Add your own, such as "turn this into standup bullets" or "lowercase, no trailing period," and switch between them. They run on Apple's on-device model, so there's no key to paste and nothing to upload.</p>
+      <div class="pair">
+        <div class="box"><span class="mono">Heard</span><s>um so</s> can we move the sync to thursday <s>uh</s> and add jamie</div>
+        <div class="box out"><span class="mono" style="color:var(--ink)">Inserted · General Clean-up</span>Can we move the sync to Thursday and add Jamie?</div>
+      </div>
+    </div>
+  </article>
+
+  <article class="entry" id="search">
+    <div class="stamp"><b>17:26 · Library</b>search · filters · retention</div>
+    <div>
+      <h2><span class="hh">##</span>Search it like text, because it is text.</h2>
+      <p>The window reads the same files you can open in your editor. Search across every day, filter by app or date range, copy a capture or reveal it in Finder. Keep everything, or let retention purge captures older than 30, 90 or 365 days.</p>
+      <div class="search" aria-hidden="true">
+        <div class="q"><span style="color:var(--subtle)">⌕</span><span>retention</span><span class="filters"><span class="chip on">Notes</span><span class="chip">Last 30 days</span></span></div>
+        <div class="r"><span class="m">Sep 21 · 14:22</span><span>Idea: run the <mark>retention</mark> purge once per launch instead of on a timer.</span></div>
+        <div class="r"><span class="m">Sep 17 · 08:03</span><span><mark>Retention</mark> setting should default to never. Deleting is the user's call.</span></div>
+        <div class="r"><span class="m">Sep 09 · 16:40</span><span>Check whether the <mark>retention</mark> purge respects the day-file boundary.</span></div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="wrap end" id="download">
+  <div class="stamp mono" style="text-transform:none;letter-spacing:0">— end of file</div>
+  <div>
+    <h2>Your words, your Mac, your file.</h2>
+    <p>No account, no cloud, no telemetry. If you stop using MoveThink tomorrow, the folder of Markdown is still yours and still opens in anything.</p>
+    <a class="btn ink lg" href="#">Download MoveThink for Mac</a>
+  </div>
+</section>
+<div class="wrap legal"><span>© 2026 MoveThink</span><span>macOS 26 · Apple Silicon · v0.4.1</span></div>
+
+<script>
+(function () {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const el = document.getElementById('live');
+  const full = 'On my way, ten minutes. Grab me a seat near the back.';
+  let i = el.textContent.length;
+  const t = setInterval(() => { el.textContent = full.slice(0, ++i); if (i >= full.length) clearInterval(t); }, 45);
+})();
+</script>
+</body>
+</html>
