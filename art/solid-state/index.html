@@ -24,6 +24,8 @@
     Controls
       drag / swipe   turn the object (it keeps its momentum)
       invert / I     black-on-white <-> white-on-black, through a power cycle
+                     (the chip is drawn into the tube, so its real hit target
+                      is moved to wherever curvature makes the chip appear)
       space          pause
       ?theme=light   open inverted, skipping the power-on
       ?crt=off       raw points, no tube
@@ -64,7 +66,7 @@
     background: none; border: 0; cursor: pointer; padding: 8px;
   }
   .ui:focus-visible { opacity: 1; outline: 1px dashed var(--ink); outline-offset: 2px; }
-  #invert { right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  #invert { left: 0; top: 0; }   /* placed by script, under the drawn chip */
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #fallback {
     position: fixed; inset: 0; display: none; place-items: center; text-align: center;
@@ -449,6 +451,24 @@
 
   // The captions, repainted when the phase label changes, composited before
   // the tube so they pick up the scanlines and bloom.
+  // Curvature makes the shader sample the texture further out than the pixel
+  // it is drawing, so everything painted appears pulled in toward the centre
+  // while a real DOM hit target stays exactly where the browser put it. This
+  // inverts that map: hand it a point in the painted image and it returns
+  // where that point shows up on screen, which is where a control has to sit
+  // for a click on it to land.
+  function apparent(px, py) {
+    const c = crtOff ? 0 : params.curvature;
+    if (c <= 0.001) return [px, py];
+    const tx = (px / W) * 2 - 1, ty = (py / H) * 2 - 1;
+    let sx = tx, sy = ty;
+    for (let i = 0; i < 8; i++) {
+      const f = 1 + (sx * sx + sy * sy) * c * 0.25;
+      sx = tx / f; sy = ty / f;
+    }
+    return [((sx + 1) / 2) * W, ((sy + 1) / 2) * H];
+  }
+
   let label = SHAPES[0];
   function drawOverlay() {
     const c = octx;
@@ -469,15 +489,31 @@
     c.fillStyle = `rgba(${inkCss},0.4)`;
     c.textAlign = 'right';
     c.fillText(label, W - pad, safeTop + pad + 9);
-    // bottom left: the lattice and the one thing you can do
+    // bottom left: the lattice, and what you can do with it
+    const wide = W >= 620;
+    const pts = POINT_COUNT.toLocaleString('en-US');
     c.textAlign = 'left';
-    c.fillText(`${POINT_COUNT.toLocaleString('en-US')} PTS · DRAG TO TURN`, pad, H - safeBottom - pad);
-    // bottom right: mirrors the real invert button
-    const r = invertBtn.getBoundingClientRect();
-    c.textAlign = 'right';
-    c.fillStyle = `rgba(${inkCss},0.62)`;
-    c.fillText('INVERT', r.right - 8, r.bottom - 11);
-    c.textAlign = 'left';
+    c.fillText(wide ? `${pts} PTS · DRAG TO TURN · SPACE TO PAUSE` : `${pts} PTS · DRAG TO TURN`,
+      pad, H - safeBottom - pad);
+
+    // bottom right: the invert control, drawn as a chip so it reads as one
+    const chipText = wide ? 'INVERT · I' : 'INVERT';
+    const chipW = Math.round(c.measureText(chipText).width) + 26, chipH = 26;
+    const chipX = W - pad - chipW, chipY = H - safeBottom - pad - chipH + 4;
+    c.strokeStyle = `rgba(${inkCss},0.32)`;
+    c.lineWidth = 1;
+    c.strokeRect(chipX + 0.5, chipY + 0.5, chipW - 1, chipH - 1);
+    c.fillStyle = `rgba(${inkCss},0.78)`;
+    c.fillText(chipText, chipX + 13, chipY + chipH / 2 + 4);
+
+    // ...and the real button, moved under where that chip actually appears.
+    const [ax, ay] = apparent(chipX + chipW / 2, chipY + chipH / 2);
+    const hitW = Math.max(chipW + 16, 88), hitH = Math.max(chipH + 18, 44);
+    invertBtn.style.left = Math.round(ax - hitW / 2) + 'px';
+    invertBtn.style.top = Math.round(ay - hitH / 2) + 'px';
+    invertBtn.style.width = hitW + 'px';
+    invertBtn.style.height = hitH + 'px';
+
     gl.bindTexture(gl.TEXTURE_2D, overlayTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, overlay);
   }
