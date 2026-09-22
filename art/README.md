@@ -9,22 +9,37 @@ directly or serve the folder with any static server.
 | [`aperture/`](aperture/) | Two nested latitude/longitude lattices of points, turning against each other, with a rectangular cut that travels over the outer shell and reveals the inner one. |
 
 Both are rendered to a texture and pushed through the Serenity CRT shader used
-on the ztwalsh.com explorations, and both share the same controls:
-
-- **drag / swipe** turns the object; it keeps its momentum
-- **invert** (or `I`) flips black-on-white / white-on-black through a TV power cycle
-- **space** pauses
-- `?theme=light` opens inverted and skips the power-on
-- `?crt=off` shows the raw points with no tube
+on the ztwalsh.com explorations. Drag or swipe to turn either one; it keeps its
+momentum.
 
 ## solid-state
 
 Sphere, cube, square pyramid, then back to the sphere, resting 2.4s on each
-solid and taking 3.2s to travel between them.
+solid and taking 3.2s to travel between them. The panel opens the piece up:
 
-1. Each of the 21,632 points is stored as nothing but a direction: a
-   latitude and an azimuth. Only the radius changes, so points slide along
-   their own ray and the lattice never tears or crosses itself.
+| Group | Controls |
+|-------|----------|
+| Form | shape (cycle, or pin one solid), zoom, dot size, density, uniformity, spin |
+| Colour | six phosphor presets, ink and ground pickers, swap |
+| Tube | scanlines, bloom, curve, trails |
+| Export | captions on screen, save PNG |
+
+Settings persist per browser. `Space` pauses, `I` swaps ink and ground through
+the power cycle, `H` clears the panel and captions for an unobstructed view.
+`?crt=off` shows the raw points with no tube.
+
+**Save PNG** writes what the tube is showing at that moment, the shape and the
+ground only, with no captions and no panel: the frame is redrawn once with the
+caption texture swapped for a blank one, then read straight back out of the
+drawing buffer. Published as an Artifact it hands the file over through the
+`downloads` capability, since that sandbox makes an ordinary download link
+inert; opened as a local file it falls back to one.
+
+How it is built:
+
+1. Each point is stored as nothing but a direction, a latitude and an azimuth,
+   plus two fixed random numbers. Only the radius changes, so points slide
+   along their own ray and the lattice never tears or crosses itself.
 2. The cube and the pyramid are each described as a set of planes around the
    origin. For a ray leaving the centre, the surface it hits is the nearest
    plane it crosses, so one loop in the vertex shader gives both the radius
@@ -36,14 +51,11 @@ solid and taking 3.2s to travel between them.
    which is a real surface rather than a cross-fade.
 4. Each solid is sized by its silhouette rather than its face distance, so
    the object changes form without appearing to change mass.
-5. The tube is flat: the shader's curvature is set to 0, so the screen does
-   not warp and the image reaches the frame edges. Scanlines, bloom, vignette,
-   flicker and the power collapse all still apply.
-6. The invert control is painted into the tube like everything else, so its
-   real hit target is placed by `apparent()`, which reports where a painted
-   point lands on screen. With a curved tube that differed from where the
-   browser put the button by enough to miss it near a corner; flat, it is the
-   identity, and it stays so the control survives turning curvature back up.
+5. Uniformity spends those two random numbers: each point wanders that
+   fraction of a lattice cell, so the slider dissolves the grid live without
+   rebuilding anything. Density does rebuild the buffer, from 2k to 55k points.
+6. Brightness, contrast and colour fringing follow the ground's luminance
+   rather than a theme flag, so a pale ground does not clip.
 
 ## aperture
 
