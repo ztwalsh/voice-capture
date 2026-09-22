@@ -18,14 +18,12 @@
     then back, holding on each solid before the next move. Edges and corners
     light up where two faces meet. The scene is rendered to a texture and
     pushed through the Serenity CRT shader used on the ztwalsh.com
-    explorations (scanlines, bloom, curvature, vignette, flicker, power
-    collapse).
+    explorations (scanlines, bloom, vignette, flicker, power collapse), with
+    curvature off so the screen does not warp.
 
     Controls
       drag / swipe   turn the object (it keeps its momentum)
       invert / I     black-on-white <-> white-on-black, through a power cycle
-                     (the chip is drawn into the tube, so its real hit target
-                      is moved to wherever curvature makes the chip appear)
       space          pause
       ?theme=light   open inverted, skipping the power-on
       ?crt=off       raw points, no tube
@@ -100,7 +98,7 @@
     bloomThreshold: 0.5,
     rgbShift: 0.2,
     vignetteStrength: 0.35,
-    curvature: 0.1,
+    curvature: 0,          // flat tube: no barrel distortion
     flickerStrength: 0.01,
   };
   const LIGHT_ADJUST = {
@@ -451,12 +449,13 @@
 
   // The captions, repainted when the phase label changes, composited before
   // the tube so they pick up the scanlines and bloom.
-  // Curvature makes the shader sample the texture further out than the pixel
-  // it is drawing, so everything painted appears pulled in toward the centre
-  // while a real DOM hit target stays exactly where the browser put it. This
-  // inverts that map: hand it a point in the painted image and it returns
-  // where that point shows up on screen, which is where a control has to sit
-  // for a click on it to land.
+  // Where a point in the painted image actually shows up on screen. Curvature
+  // would make the shader sample the texture further out than the pixel it is
+  // drawing, so painted pixels appear pulled in toward the centre while a real
+  // DOM hit target stays where the browser put it -- near a corner that gap
+  // was enough for a click on the visible chip to miss the button. Curvature
+  // is off, so this is the identity; it stays so the control still lands if
+  // the tube is ever curved again.
   function apparent(px, py) {
     const c = crtOff ? 0 : params.curvature;
     if (c <= 0.001) return [px, py];

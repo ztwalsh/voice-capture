@@ -36,12 +36,14 @@ solid and taking 3.2s to travel between them.
    which is a real surface rather than a cross-fade.
 4. Each solid is sized by its silhouette rather than its face distance, so
    the object changes form without appearing to change mass.
-5. The invert control is painted into the tube like everything else, and
-   curvature makes painted pixels appear pulled in toward the centre while a
-   real DOM hit target stays where the browser put it. Near a corner that gap
-   was about 20px, enough for a click on the visible chip to miss the button
-   entirely. `apparent()` inverts the curvature map, and the button is placed
-   under wherever the chip actually lands, so clicking what you see works.
+5. The tube is flat: the shader's curvature is set to 0, so the screen does
+   not warp and the image reaches the frame edges. Scanlines, bloom, vignette,
+   flicker and the power collapse all still apply.
+6. The invert control is painted into the tube like everything else, so its
+   real hit target is placed by `apparent()`, which reports where a painted
+   point lands on screen. With a curved tube that differed from where the
+   browser put the button by enough to miss it near a corner; flat, it is the
+   identity, and it stays so the control survives turning curvature back up.
 
 ## aperture
 
