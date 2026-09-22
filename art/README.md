@@ -5,17 +5,41 @@ directly or serve the folder with any static server.
 
 | Piece | What it is |
 |-------|------------|
-| [`aperture/`](aperture/) | Two nested latitude/longitude lattices of points, turning against each other, with a rectangular cut that travels over the outer shell and reveals the inner one. Rendered to a texture and pushed through the Serenity CRT shader used on the ztwalsh.com explorations. |
+| [`solid-state/`](solid-state/) | One lattice of points cycling sphere to cube to pyramid and back, holding on each solid. Every point slides along a fixed ray from the centre, so the lattice is pushed out to whichever surface that ray hits and never tears. |
+| [`aperture/`](aperture/) | Two nested latitude/longitude lattices of points, turning against each other, with a rectangular cut that travels over the outer shell and reveals the inner one. |
 
-## aperture
-
-Controls:
+Both are rendered to a texture and pushed through the Serenity CRT shader used
+on the ztwalsh.com explorations, and both share the same controls:
 
 - **drag / swipe** turns the object; it keeps its momentum
 - **invert** (or `I`) flips black-on-white / white-on-black through a TV power cycle
 - **space** pauses
 - `?theme=light` opens inverted and skips the power-on
 - `?crt=off` shows the raw points with no tube
+
+## solid-state
+
+Sphere, cube, square pyramid, then back to the sphere, resting 2.4s on each
+solid and taking 3.2s to travel between them.
+
+1. Each of the 21,632 points is stored as nothing but a direction: a
+   latitude and an azimuth. Only the radius changes, so points slide along
+   their own ray and the lattice never tears or crosses itself.
+2. The cube and the pyramid are each described as a set of planes around the
+   origin. For a ray leaving the centre, the surface it hits is the nearest
+   plane it crosses, so one loop in the vertex shader gives both the radius
+   and, from how close the two nearest planes come to agreeing, how near the
+   point sits to an edge or a corner. Edges and corners light up; the sphere
+   reports no edges at all.
+3. A morph is the same ray measured against two solids, mixed with a
+   smootherstep. Halfway between sphere and cube you get a rounded cube,
+   which is a real surface rather than a cross-fade.
+4. Each solid is sized by its silhouette rather than its face distance, so
+   the object changes form without appearing to change mass.
+
+## aperture
+
+## aperture
 
 How it is built (`aperture/index.html`, no dependencies beyond Geist Mono
 from Google Fonts):

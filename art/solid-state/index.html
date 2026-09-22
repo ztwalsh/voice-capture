@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solid State</title>
+<meta name="description" content="A point lattice cycling sphere to cube to pyramid, drawn through a CRT.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap">
+<style>
+  /*
+    Solid State — a code-art object.
+
+    One shell of points. Every point keeps a fixed direction from the centre
+    and only slides along it, so the lattice never tears: it is pushed out to
+    whichever surface that ray hits. Sphere, then cube, then square pyramid,
+    then back, holding on each solid before the next move. Edges and corners
+    light up where two faces meet. The scene is rendered to a texture and
+    pushed through the Serenity CRT shader used on the ztwalsh.com
+    explorations (scanlines, bloom, curvature, vignette, flicker, power
+    collapse).
+
+    Controls
+      drag / swipe   turn the object (it keeps its momentum)
+      invert / I     black-on-white <-> white-on-black, through a power cycle
+      space          pause
+      ?theme=light   open inverted, skipping the power-on
+      ?crt=off       raw points, no tube
+  */
+  :root {
+    --bg: #000;
+    --ink: #fff;
+    --muted: rgba(255, 255, 255, 0.62);
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #fff;
+    --ink: #000;
+    --muted: rgba(0, 0, 0, 0.72);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #000; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #stage { position: fixed; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+  /* The real control stays in the DOM for clicks, focus and screen readers,
+     but is drawn by the overlay so it passes through the tube too. */
+  .ui {
+    position: fixed; z-index: 2; opacity: 0;
+    font: inherit; color: inherit; letter-spacing: inherit; text-transform: uppercase;
+    background: none; border: 0; cursor: pointer; padding: 8px;
+  }
+  .ui:focus-visible { opacity: 1; outline: 1px dashed var(--ink); outline-offset: 2px; }
+  #invert { right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #fallback {
+    position: fixed; inset: 0; display: none; place-items: center; text-align: center;
+    padding: 24px; color: var(--muted); line-height: 1.7;
+  }
+  #fallback.show { display: grid; }
+</style>
+</head>
+<body>
+<h1 class="sr-only">Solid State</h1>
+<canvas id="stage" aria-label="Solid State: a lattice of points cycling between a sphere, a cube and a pyramid, rendered through a CRT shader"></canvas>
+<p class="sr-only" id="phase" aria-live="polite"></p>
+<button class="ui" id="invert" type="button" aria-label="Invert colours">invert</button>
+<div id="fallback">This piece needs WebGL2.<br>Open it in a current browser.</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------------
+  // CRT parameters: the Serenity presets used on the ztwalsh.com explorations.
+  // ---------------------------------------------------------------------
+  const DEFAULTS = {
+    scanlineIntensity: 0.35,
+    scanlineCount: 0,            // 0 = one line per 3 CSS px of height
+    adaptiveIntensity: 0.3,
+    brightness: 1.25,
+    contrast: 1.05,
+    saturation: 1.1,
+    bloomIntensity: 0.4,
+    bloomThreshold: 0.5,
+    rgbShift: 0.2,
+    vignetteStrength: 0.35,
+    curvature: 0.1,
+    flickerStrength: 0.01,
+  };
+  const LIGHT_ADJUST = {
+    brightness: 1.0,
+    contrast: 1.08,
+    scanlineIntensity: 0.2,
+    bloomIntensity: 0.12,
+    rgbShift: 0.15,
+  };
+
+  // ---------------------------------------------------------------------
+  // The object.
+  // ---------------------------------------------------------------------
+  const RINGS = 104, PER_RING = 208;
+  const PERSIST = 0.42;        // phosphor persistence: how much of the last frame survives
+  const CAM_DIST = 3.4;
+  const FOV_DEG = 28;
+  const HOLD = 2.4;            // seconds resting on a solid
+  const MORPH = 3.2;           // seconds moving to the next one
+  const SHAPES = ['SPHERE', 'CUBE', 'PYRAMID'];
+
+  const PI = Math.PI;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const query = new URLSearchParams(location.search);
+
+  const canvas = document.getElementById('stage');
+  const invertBtn = document.getElementById('invert');
+  const phaseOut = document.getElementById('phase');
+  const crtOff = query.get('crt') === 'off';
+  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false });
+  if (!gl) {
+    document.getElementById('fallback').classList.add('show');
+    return;
+  }
+
+  // ---- the three solids, as half-spaces -----------------------------------
+  // Each solid is a convex body around the origin. For a ray leaving the
+  // centre, the surface it hits is the nearest plane it crosses, so one loop
+  // gives both the radius and how close the point sits to an edge.
+  const CUBE_A = 0.68;                       // half-extent
+  const PYR_H = 1.70, PYR_B = 0.80;          // height, base half-width
+  const PYR_BOT = PYR_H / 4, PYR_TOP = PYR_H - PYR_BOT;   // centroid at the origin
+
+  const planes = [];
+  const pushPlane = (nx, ny, nz, c) => {
+    const L = Math.hypot(nx, ny, nz);
+    planes.push(nx / L, ny / L, nz / L, c / L);
+  };
+  // Cube: six faces.
+  [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+    .forEach(([x, y, z]) => pushPlane(x, y, z, CUBE_A));
+  const CUBE_LO = 0, CUBE_HI = planes.length / 4;
+  // Square pyramid: base, then four faces leaning in to the apex.
+  pushPlane(0, -1, 0, PYR_BOT);
+  [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([x, z]) =>
+    pushPlane(x * PYR_H, PYR_B, z * PYR_H, PYR_B * PYR_TOP));
+  const PYR_LO = CUBE_HI, PYR_HI = planes.length / 4;
+
+  // ---- shaders ----------------------------------------------------------
+  const POINT_VERT = `#version 300 es
+    precision highp float;
+    in vec2 aLatLon;
+    uniform mat3 uRot;
+    uniform vec4 uPlanes[${PYR_HI}];
+    uniform int uFrom, uTo;
+    uniform float uK, uAspect, uScale, uBaseSize, uDpr, uCamD, uFocal;
+    out float vAlpha;
+
+    // Nearest plane along the ray, plus how near the two nearest are to
+    // agreeing — which is exactly what it means to sit on an edge or corner.
+    vec2 hitPoly(vec3 d, int lo, int hi) {
+      float best = 1e9, second = 1e9;
+      for (int i = lo; i < hi; i++) {
+        float dn = dot(uPlanes[i].xyz, d);
+        if (dn > 1e-5) {
+          float t = uPlanes[i].w / dn;
+          if (t < best) { second = best; best = t; }
+          else if (t < second) { second = t; }
+        }
+      }
+      float edge = 1.0 - smoothstep(0.0, 0.085, (second - best) / max(best, 1e-4));
+      return vec2(best, edge);
+    }
+    vec2 solid(int id, vec3 d) {
+      if (id == 0) return vec2(1.0, 0.0);                 // sphere: no edges
+      if (id == 1) return hitPoly(d, ${CUBE_LO}, ${CUBE_HI});
+      return hitPoly(d, ${PYR_LO}, ${PYR_HI});
+    }
+
+    void main() {
+      float lat = aLatLon.x, phi = aLatLon.y;
+      float r = cos(lat);
+      vec3 d = vec3(r * cos(phi), sin(lat), r * sin(phi));
+
+      // Same ray, two surfaces: the point slides between them.
+      vec2 a = solid(uFrom, d), b = solid(uTo, d);
+      float radius = mix(a.x, b.x, uK);
+      float edge = mix(a.y, b.y, uK);
+
+      vec3 p = uRot * (d * radius);
+      float z = uCamD - p.z;
+      vec2 ndc = p.xy * uFocal / z;
+      ndc.x /= uAspect;
+      ndc *= uScale;
+      gl_Position = vec4(ndc, 0.0, 1.0);
+
+      float near = clamp(p.z / 1.5 * 0.5 + 0.5, 0.0, 1.0);
+      float size = uBaseSize * (0.72 + 0.55 * near) * (uCamD / z) * (1.0 + edge * 0.3);
+      gl_PointSize = size * uDpr;
+      vAlpha = mix(0.22, 1.0, near * near) * (1.0 + edge * 0.85);
+    }
+  `;
+  const POINT_FRAG = `#version 300 es
+    precision highp float;
+    in float vAlpha;
+    uniform vec3 uInk;
+    out vec4 fragColor;
+    void main() {
+      vec2 c = gl_PointCoord * 2.0 - 1.0;
+      float d = dot(c, c);
+      if (d > 1.0) discard;
+      float a = min((1.0 - smoothstep(0.45, 1.0, d)) * vAlpha, 1.0);
+      fragColor = vec4(uInk * a, a);      // premultiplied
+    }
+  `;
+  const QUAD_VERT = `#version 300 es
+    precision highp float;
+    const vec2 pos[4] = vec2[4](vec2(-1.,-1.), vec2(1.,-1.), vec2(-1.,1.), vec2(1.,1.));
+    const vec2 uvs[4] = vec2[4](vec2(0.,0.), vec2(1.,0.), vec2(0.,1.), vec2(1.,1.));
+    out vec2 vUv;
+    void main() { vUv = uvs[gl_VertexID]; gl_Position = vec4(pos[gl_VertexID], 0., 1.); }
+  `;
+  // Phosphor fade: paints the ground over the previous frame at partial alpha.
+  const FADE_FRAG = `#version 300 es
+    precision highp float;
+    uniform vec4 uColor;
+    out vec4 fragColor;
+    void main() { fragColor = vec4(uColor.rgb * uColor.a, uColor.a); }
+  `;
+  // Serenity CRT (MIT, Matt Sephton) with uPower / uEdge, plus an overlay
+  // texture for the captions so they ride the tube with everything else.
+  const CRT_FRAG = `#version 300 es
+    precision highp float;
+    uniform sampler2D uTexture, uOverlay;
+    uniform bool uEnabled;
+    uniform float scanlineIntensity, scanlineCount, time, yOffset, brightness, contrast,
+                  saturation, bloomIntensity, bloomThreshold, rgbShift, adaptiveIntensity,
+                  vignetteStrength, curvature, flickerStrength, uPower;
+    uniform vec3 uEdge;
+    in vec2 vUv;
+    out vec4 fragColor;
+
+    const float PI = 3.14159265;
+    const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+    const float BLOOM_THRESHOLD_FACTOR = 0.5;
+    const float BLOOM_FACTOR_MULT = 1.5;
+    const float RGB_SHIFT_SCALE = 0.005;
+    const float RGB_SHIFT_INTENSITY = 0.08;
+
+    vec4 scene(vec2 uv) {
+      vec4 s = texture(uTexture, uv);
+      vec4 o = texture(uOverlay, uv);
+      return vec4(mix(s.rgb, o.rgb, o.a), 1.0);
+    }
+    vec2 curveRemapUV(vec2 uv, float c) {
+      vec2 coords = uv * 2.0 - 1.0;
+      float dist = dot(coords, coords);
+      coords = coords * (1.0 + dist * c * 0.25);
+      return coords * 0.5 + 0.5;
+    }
+    vec4 sampleBloom(vec2 uv, float radius, vec4 centre) {
+      vec2 o = vec2(radius);
+      vec4 c = centre * 0.4;
+      vec4 cross = (scene(uv + vec2(o.x, 0.)) + scene(uv - vec2(o.x, 0.)) +
+                    scene(uv + vec2(0., o.y)) + scene(uv - vec2(0., o.y))) * 0.15;
+      return c + cross;
+    }
+    float vignetteApprox(vec2 uv, float s) {
+      vec2 v = uv * 2.0 - 1.0;
+      float d = max(abs(v.x), abs(v.y));
+      return 1.0 - d * d * s;
+    }
+    void main() {
+      if (!uEnabled) { fragColor = scene(vUv); return; }
+      vec2 uv = vUv;
+
+      // Power collapse: 0 = on, 1 = squashed to a line, 2 = gone.
+      if (uPower > 0.001) {
+        float sy = 1.0 - clamp(uPower, 0.0, 1.0) * 0.995;
+        float sx = 1.0 - clamp(uPower - 1.0, 0.0, 1.0) * 0.995;
+        uv = (uv - 0.5) / vec2(sx, sy) + 0.5;
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
+      }
+      if (curvature > 0.001) {
+        uv = curveRemapUV(uv, curvature);
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
+      }
+
+      vec4 pixel = scene(uv);
+
+      if (bloomIntensity > 0.001) {
+        float lum = dot(pixel.rgb, LUMA);
+        if (lum > bloomThreshold * BLOOM_THRESHOLD_FACTOR) {
+          vec4 b = sampleBloom(uv, 0.005, pixel);
+          b.rgb *= brightness;
+          float bl = dot(b.rgb, LUMA);
+          float f = bloomIntensity * max(0.0, (bl - bloomThreshold) * BLOOM_FACTOR_MULT);
+          pixel.rgb += b.rgb * f;
+        }
+      }
+      if (rgbShift > 0.005) {
+        float s = rgbShift * RGB_SHIFT_SCALE;
+        pixel.r += (scene(vec2(uv.x + s, uv.y)).r - pixel.r) * RGB_SHIFT_INTENSITY * 3.0;
+        pixel.b += (scene(vec2(uv.x - s, uv.y)).b - pixel.b) * RGB_SHIFT_INTENSITY * 3.0;
+      }
+      pixel.rgb *= brightness;
+      float luminance = dot(pixel.rgb, LUMA);
+      pixel.rgb = (pixel.rgb - 0.5) * contrast + 0.5;
+      pixel.rgb = mix(vec3(luminance), pixel.rgb, saturation);
+
+      float mask = 1.0;
+      if (scanlineIntensity > 0.001) {
+        float y = (uv.y + yOffset) * scanlineCount;
+        float pattern = abs(sin(y * PI));
+        float adaptive = 1.0;
+        if (adaptiveIntensity > 0.001) {
+          float yp = sin(uv.y * 30.0) * 0.5 + 0.5;
+          adaptive = 1.0 - yp * adaptiveIntensity * 0.2;
+        }
+        mask *= 1.0 - pattern * scanlineIntensity * adaptive;
+      }
+      if (flickerStrength > 0.001) mask *= 1.0 + sin(time * 110.0) * flickerStrength;
+      if (vignetteStrength > 0.001) mask *= vignetteApprox(uv, vignetteStrength);
+      pixel.rgb *= mask;
+      pixel.rgb *= 1.0 + uPower * 1.2;
+      fragColor = vec4(pixel.rgb, 1.0);
+    }
+  `;
+
+  function link(vs, fs) {
+    const compile = (type, src) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+  function uniforms(program, names) {
+    const U = {};
+    names.forEach((n) => { U[n] = gl.getUniformLocation(program, n); });
+    return U;
+  }
+
+  const pointProg = link(POINT_VERT, POINT_FRAG);
+  const PU = uniforms(pointProg, ['uRot', 'uPlanes', 'uFrom', 'uTo', 'uK', 'uAspect', 'uScale', 'uBaseSize', 'uDpr', 'uCamD', 'uFocal', 'uInk']);
+  const fadeProg = link(QUAD_VERT, FADE_FRAG);
+  const FU = uniforms(fadeProg, ['uColor']);
+  const crtProg = link(QUAD_VERT, CRT_FRAG);
+  const CU = uniforms(crtProg, ['uTexture', 'uOverlay', 'uEnabled', 'scanlineIntensity', 'scanlineCount', 'time', 'yOffset', 'brightness', 'contrast',
+    'saturation', 'bloomIntensity', 'bloomThreshold', 'rgbShift', 'adaptiveIntensity', 'vignetteStrength', 'curvature', 'flickerStrength', 'uPower', 'uEdge']);
+
+  // ---- geometry: one latitude/longitude lattice of directions ------------------
+  const dirs = [];
+  for (let i = 0; i < RINGS; i++) {
+    const lat = -PI / 2 + ((i + 0.5) / RINGS) * PI;
+    const stagger = (i % 2) * 0.5;
+    for (let j = 0; j < PER_RING; j++) dirs.push(lat, ((j + stagger) / PER_RING) * 2 * PI);
+  }
+  const POINT_COUNT = dirs.length / 2;
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const vbo = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dirs), gl.STATIC_DRAW);
+  const aLatLon = gl.getAttribLocation(pointProg, 'aLatLon');
+  gl.enableVertexAttribArray(aLatLon);
+  gl.vertexAttribPointer(aLatLon, 2, gl.FLOAT, false, 0, 0);
+  const quadVao = gl.createVertexArray();
+
+  gl.useProgram(pointProg);
+  gl.uniform4fv(PU.uPlanes, new Float32Array(planes));
+
+  // ---- render target + overlay texture ------------------------------------
+  const sceneTex = gl.createTexture();
+  const fbo = gl.createFramebuffer();
+  const overlayTex = gl.createTexture();
+  const overlay = document.createElement('canvas');
+  const octx = overlay.getContext('2d');
+  for (const t of [sceneTex, overlayTex]) {
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  }
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+  // ---- theme ----------------------------------------------------------------
+  const params = Object.assign({}, DEFAULTS);
+  let theme = 'dark';
+  let ink = [1, 1, 1], bg = [0, 0, 0];
+  function applyTheme(t) {
+    theme = t;
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('solid-state-theme', t); } catch (e) {}
+    Object.assign(params, DEFAULTS, t === 'light' ? LIGHT_ADJUST : {});
+    ink = t === 'light' ? [0, 0, 0] : [1, 1, 1];
+    bg = t === 'light' ? [1, 1, 1] : [0, 0, 0];
+    drawOverlay();
+    clearScene();
+  }
+
+  // ---- sizing -----------------------------------------------------------------
+  let dpr = 1, W = 1, H = 1, targetReady = false;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(1, Math.round(window.innerWidth));
+    H = Math.max(1, Math.round(window.innerHeight));
+    canvas.width = overlay.width = Math.floor(W * dpr);
+    canvas.height = overlay.height = Math.floor(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    targetReady = true;
+    drawOverlay();
+    clearScene();
+  }
+  function clearScene() {
+    if (!targetReady) return;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(bg[0], bg[1], bg[2], 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  // The captions, repainted when the phase label changes, composited before
+  // the tube so they pick up the scanlines and bloom.
+  let label = SHAPES[0];
+  function drawOverlay() {
+    const c = octx;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, W, H);
+    const inkCss = theme === 'light' ? '0,0,0' : '255,255,255';
+    c.font = '500 11px "Geist Mono", ui-monospace, Menlo, Consolas, monospace';
+    c.textBaseline = 'alphabetic';
+    if ('letterSpacing' in c) c.letterSpacing = '0.08em';
+    const pad = 20;
+    const cs = getComputedStyle(document.documentElement);
+    const safeTop = parseFloat(cs.paddingTop) || 0;
+    const safeBottom = parseFloat(cs.paddingBottom) || 0;
+    // top left: the name
+    c.fillStyle = `rgba(${inkCss},0.92)`;
+    c.fillText('SOLID STATE', pad, safeTop + pad + 9);
+    // top right: which solid, or which pair it is between
+    c.fillStyle = `rgba(${inkCss},0.4)`;
+    c.textAlign = 'right';
+    c.fillText(label, W - pad, safeTop + pad + 9);
+    // bottom left: the lattice and the one thing you can do
+    c.textAlign = 'left';
+    c.fillText(`${POINT_COUNT.toLocaleString('en-US')} PTS · DRAG TO TURN`, pad, H - safeBottom - pad);
+    // bottom right: mirrors the real invert button
+    const r = invertBtn.getBoundingClientRect();
+    c.textAlign = 'right';
+    c.fillStyle = `rgba(${inkCss},0.62)`;
+    c.fillText('INVERT', r.right - 8, r.bottom - 11);
+    c.textAlign = 'left';
+    gl.bindTexture(gl.TEXTURE_2D, overlayTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, overlay);
+  }
+
+  // ---- motion state -------------------------------------------------------------
+  let t = 0, last = 0, paused = false;
+  let spin = 0.6, spinVel = 0;
+  let tiltDrag = 0, tiltVel = 0;
+  let power = 0, animating = false;
+  const BASE_SPIN = 0.30;                // rad/s
+
+  function rotY(a) { const c = Math.cos(a), s = Math.sin(a); return [c, 0, s, 0, 1, 0, -s, 0, c]; }
+  function rotX(a) { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, c, -s, 0, s, c]; }
+  function rotZ(a) { const c = Math.cos(a), s = Math.sin(a); return [c, -s, 0, s, c, 0, 0, 0, 1]; }
+  function mul(A, B) {   // row-major 3x3, A*B
+    const o = new Array(9);
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      o[r * 3 + c] = A[r * 3] * B[c] + A[r * 3 + 1] * B[3 + c] + A[r * 3 + 2] * B[6 + c];
+    }
+    return o;
+  }
+  function toGL(M) {     // WebGL wants column-major
+    return new Float32Array([M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]]);
+  }
+
+  // ---- the morph cycle ------------------------------------------------------------
+  // Each leg of the cycle rests on one solid, then travels to the next.
+  const STEP = HOLD + MORPH;
+  const smoother = (k) => k * k * k * (k * (k * 6 - 15) + 10);
+  function phase(time) {
+    const u = (time % (SHAPES.length * STEP)) / STEP;
+    const seg = Math.floor(u);
+    const local = u - seg;
+    const holdFrac = HOLD / STEP;
+    const raw = local <= holdFrac ? 0 : (local - holdFrac) / (1 - holdFrac);
+    const from = seg, to = (seg + 1) % SHAPES.length;
+    const k = smoother(clamp(raw, 0, 1));
+    return { from, to, k, moving: k > 0.02 };
+  }
+
+  // ---- pointer: drag to turn --------------------------------------------------------
+  let drag = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    drag = { x: e.clientX, y: e.clientY, t: performance.now() };
+    spinVel = 0; tiltVel = 0;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const now = performance.now();
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    const k = 2 * PI / Math.min(W, H) * 0.9;
+    spin += dx * k;
+    tiltDrag = clamp(tiltDrag + dy * k, -1.2, 1.2);
+    const dt = Math.max(1, now - drag.t) / 1000;
+    spinVel = dx * k / dt;
+    tiltVel = dy * k / dt;
+    drag = { x: e.clientX, y: e.clientY, t: now };
+  });
+  const endDrag = () => { drag = null; canvas.classList.remove('dragging'); };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  // ---- frame -----------------------------------------------------------------------
+  function frame(ts) {
+    const now = ts / 1000;
+    const dt = Math.min(0.05, last ? now - last : 0.016);
+    last = now;
+    if (!paused) {
+      t += dt;
+      spin += (BASE_SPIN + spinVel) * dt;
+      tiltDrag = clamp(tiltDrag + tiltVel * dt, -1.2, 1.2);
+      const damp = Math.pow(0.15, dt);
+      spinVel *= damp; tiltVel *= damp;
+      tiltDrag *= Math.pow(0.6, dt);     // ease back toward the resting tilt
+    }
+
+    const ph = phase(t);
+    const next = ph.moving ? `${SHAPES[ph.from]} → ${SHAPES[ph.to]}` : SHAPES[ph.from];
+    if (next !== label) {
+      label = next;
+      phaseOut.textContent = label;
+      drawOverlay();
+    }
+
+    // A slow precession, so a flat face is never square to the camera for long.
+    const tilt = 0.30 + 0.10 * Math.sin(t * 0.21) + tiltDrag;
+    const prec = 0.16 * Math.sin(t * 0.13);
+    const rot = mul(rotZ(prec), mul(rotX(tilt), rotY(spin)));
+
+    const aspect = W / H;
+    const scale = 0.62 * Math.min(1, aspect);
+    const baseSize = clamp(2.4 * Math.min(W, H) / 700, 1.5, 3.2);
+
+    // 1. Scene: fade the last frame, then draw the points on top.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (!paused) {
+      gl.useProgram(fadeProg);
+      gl.bindVertexArray(quadVao);
+      gl.uniform4f(FU.uColor, bg[0], bg[1], bg[2], 1 - PERSIST);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+      gl.useProgram(pointProg);
+      gl.bindVertexArray(vao);
+      gl.uniformMatrix3fv(PU.uRot, false, toGL(rot));
+      gl.uniform1i(PU.uFrom, ph.from);
+      gl.uniform1i(PU.uTo, ph.to);
+      gl.uniform1f(PU.uK, ph.k);
+      gl.uniform1f(PU.uAspect, aspect);
+      gl.uniform1f(PU.uScale, scale);
+      gl.uniform1f(PU.uBaseSize, baseSize);
+      gl.uniform1f(PU.uDpr, dpr);
+      gl.uniform1f(PU.uCamD, CAM_DIST);
+      gl.uniform1f(PU.uFocal, 1 / Math.tan((FOV_DEG * PI / 180) / 2));
+      gl.uniform3f(PU.uInk, ink[0], ink[1], ink[2]);
+      gl.drawArrays(gl.POINTS, 0, POINT_COUNT);
+    }
+    gl.disable(gl.BLEND);
+
+    // 2. Tube.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.useProgram(crtProg);
+    gl.bindVertexArray(quadVao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.uniform1i(CU.uTexture, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, overlayTex);
+    gl.uniform1i(CU.uOverlay, 1);
+    gl.uniform1i(CU.uEnabled, crtOff ? 0 : 1);
+    gl.uniform1f(CU.scanlineIntensity, params.scanlineIntensity);
+    gl.uniform1f(CU.scanlineCount, params.scanlineCount > 0 ? params.scanlineCount : Math.round(H / 3));
+    gl.uniform1f(CU.time, now);
+    gl.uniform1f(CU.yOffset, 0);
+    gl.uniform1f(CU.brightness, params.brightness);
+    gl.uniform1f(CU.contrast, params.contrast);
+    gl.uniform1f(CU.saturation, params.saturation);
+    gl.uniform1f(CU.bloomIntensity, params.bloomIntensity);
+    gl.uniform1f(CU.bloomThreshold, params.bloomThreshold);
+    gl.uniform1f(CU.rgbShift, params.rgbShift);
+    gl.uniform1f(CU.adaptiveIntensity, params.adaptiveIntensity);
+    gl.uniform1f(CU.vignetteStrength, params.vignetteStrength);
+    gl.uniform1f(CU.curvature, params.curvature);
+    gl.uniform1f(CU.flickerStrength, reduceMotion() ? 0 : params.flickerStrength);
+    gl.uniform1f(CU.uPower, power);
+    gl.uniform3f(CU.uEdge, 0, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---- power cycle (theme switch) ----------------------------------------------------
+  function tween(from, to, ms, ease) {
+    return new Promise((res) => {
+      const start = performance.now();
+      (function step(now) {
+        const k = clamp((now - start) / ms, 0, 1);
+        power = from + (to - from) * ease(k);
+        if (k < 1) requestAnimationFrame(step); else res();
+      })(start);
+    });
+  }
+  const easeIn = (k) => k * k * k;
+  const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+  async function setTheme(next) {
+    if (next === theme || animating) return;
+    if (crtOff || reduceMotion()) { applyTheme(next); return; }
+    animating = true;
+    await tween(0, 1, 260, easeIn);
+    await tween(1, 2, 160, easeIn);
+    applyTheme(next);
+    await new Promise((r) => setTimeout(r, 120));
+    await tween(2, 1, 180, easeOut);
+    await tween(1, 0, 320, easeOut);
+    animating = false;
+  }
+  async function powerOn() {
+    if (crtOff || reduceMotion()) return;
+    power = 2;
+    await new Promise((r) => setTimeout(r, 80));
+    await tween(2, 1, 200, easeOut);
+    await tween(1, 0, 380, easeOut);
+  }
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+  invertBtn.addEventListener('click', toggleTheme);
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'i' || e.key === 'I') toggleTheme();
+    if (e.key === ' ') { e.preventDefault(); paused = !paused; }
+  });
+
+  // ---- go ------------------------------------------------------------------------------
+  let saved = null;
+  try { saved = localStorage.getItem('solid-state-theme'); } catch (e) {}
+  const initial = query.get('theme') || saved || 'dark';
+  applyTheme(initial === 'light' ? 'light' : 'dark');
+  window.addEventListener('resize', resize, { passive: true });
+  resize();
+  if (document.fonts) document.fonts.ready.then(drawOverlay);
+  requestAnimationFrame(frame);
+  if (!query.has('theme')) powerOn();
+})();
+</script>
+</body>
+</html>
