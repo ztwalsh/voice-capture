@@ -1,4 +1,4 @@
-From 4933413a0016e18f732368b1230f923b7c2e1966 Mon Sep 17 00:00:00 2001
+From 6e81b7540e7d444785fc3f3d7e0bc0b2d8631059 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 22 Sep 2026 02:00:52 +0000
 Subject: [PATCH] Rebuild the site as Broadcast: monochrome Geist through a CRT
@@ -19,7 +19,7 @@ Claude-Session: https://claude.ai/code/session_01UNsktdWxri7c8KBgQu129Q
  package-lock.json               |  17 -
  package.json                    |   2 -
  src/app/contact/page.tsx        | 224 +++++-----
- src/app/globals.css             | 262 +++++------
+ src/app/globals.css             | 263 +++++------
  src/app/layout.tsx              |  23 +-
  src/app/page.tsx                | 118 ++---
  src/components/CRT.tsx          |  33 ++
@@ -27,7 +27,7 @@ Claude-Session: https://claude.ai/code/session_01UNsktdWxri7c8KBgQu129Q
  src/components/InvertButton.tsx |  16 +
  src/lib/crt.d.ts                |  38 ++
  src/lib/crt.js                  | 753 ++++++++++++++++++++++++++++++++
- 11 files changed, 1133 insertions(+), 368 deletions(-)
+ 11 files changed, 1134 insertions(+), 368 deletions(-)
  create mode 100644 src/components/CRT.tsx
  delete mode 100644 src/components/Header.tsx
  create mode 100644 src/components/InvertButton.tsx
@@ -352,7 +352,7 @@ index 6c9023c..ef4276a 100644
    );
  }
 diff --git a/src/app/globals.css b/src/app/globals.css
-index 3317911..9014a4f 100644
+index 3317911..17848b8 100644
 --- a/src/app/globals.css
 +++ b/src/app/globals.css
 @@ -1,122 +1,115 @@
@@ -577,10 +577,8 @@ index 3317911..9014a4f 100644
  .link-list-link:hover .link-arrow {
 -  color: var(--color-accent);
 +  color: var(--fg);
- }
- 
--.link-list-link:hover .link-description {
--  color: var(--color-text);
++}
++
 +/* Footer, shared */
 +.foot {
 +  display: flex;
@@ -588,9 +586,8 @@ index 3317911..9014a4f 100644
 +  padding: 0 0 64px;
 +  font-size: 14px;
 +  color: var(--muted);
- }
- 
--/* Contact page */
++}
++
 +.wrap-tall .foot {
 +  margin-top: auto;
 +  padding-top: 64px;
@@ -600,8 +597,10 @@ index 3317911..9014a4f 100644
 +.foot a:hover,
 +.foot button:hover {
 +  color: var(--fg);
-+}
-+
+ }
+ 
+-.link-list-link:hover .link-description {
+-  color: var(--color-text);
 +.invert {
 +  margin-left: auto;
 +  font: inherit;
@@ -610,8 +609,9 @@ index 3317911..9014a4f 100644
 +  border: 0;
 +  padding: 0;
 +  cursor: pointer;
-+}
-+
+ }
+ 
+-/* Contact page */
 +/* Contact */
  .page-hero {
 -  padding: 96px 0 32px;
@@ -713,14 +713,15 @@ index 3317911..9014a4f 100644
  }
  
  .form-submit:disabled {
-@@ -260,54 +267,59 @@ a {
+@@ -260,54 +267,60 @@ a {
  
  .form-error {
    font-size: 14px;
 -  color: #f1b3b3;
 -  background: rgba(230, 83, 83, 0.08);
-+  color: var(--error);
-+  border: 1px solid var(--error);
++  font-weight: 500;
++  color: #fff;
++  background: var(--error);
    border-radius: 6px;
    padding: 10px 14px;
  }
