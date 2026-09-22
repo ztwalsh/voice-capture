@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zach walsh</title>
+<meta name="description" content="Design leader focused on experimentation, tinkering, and building at Zapier">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="_shared.css">
+<style>
+  /* 04 Channel — a TV on-screen menu. Centred title card, one highlighted row, caption below. */
+  .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 48px 24px; }
+  .osd { align-self: flex-end; font-size: 13px; letter-spacing: 0.12em; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .card { margin: auto 0; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 680px; }
+  h1 { font-size: clamp(48px, 9vw, 84px); font-weight: 500; letter-spacing: -0.03em; line-height: 1; }
+  .bio { margin-top: 16px; font-size: 20px; line-height: 1.45; color: var(--muted); max-width: 26em; text-wrap: balance; }
+  .menu { margin-top: 56px; display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 420px; }
+  .menu a { display: grid; grid-template-columns: 24px 1fr 24px; align-items: center; padding: 10px 14px; font-size: 20px; font-weight: 500; color: var(--muted); border-radius: 4px; }
+  .menu .mark { font-size: 12px; text-align: left; visibility: hidden; }
+  .menu a[aria-current="true"] { color: var(--bg); background: var(--fg); }
+  .menu a[aria-current="true"] .mark { visibility: visible; }
+  .caption { margin-top: 28px; min-height: 3.2em; font-size: 16px; line-height: 1.5; color: var(--muted); max-width: 32em; text-wrap: balance; }
+  .foot { display: flex; gap: 24px; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding-top: 32px; }
+  .foot a:hover, .foot button:hover { color: var(--fg); }
+  .foot .invert { letter-spacing: inherit; text-transform: inherit; }
+  @media (max-width: 600px) { .menu a { font-size: 18px; } .bio { font-size: 18px; } }
+</style>
+</head>
+<body>
+<div id="page">
+  <main class="wrap">
+    <div class="osd" aria-hidden="true">CH <span id="ch">01</span></div>
+
+    <div class="card">
+      <h1>zach walsh</h1>
+      <p class="bio">I connect people, simplify complexity, and ship products that matter.</p>
+
+      <nav class="menu" aria-label="Experiments" id="menu">
+        <a href="https://getharps.app/" target="_blank" rel="noopener noreferrer" data-desc="A local-first push-to-talk dictation app for Mac. Hold a key, speak, and the text lands right at your cursor, transcribed entirely on-device."><span class="mark" aria-hidden="true">▶</span><span>Harps</span><span></span></a>
+        <a href="https://apps.apple.com/us/app/move-think/id6770284427" target="_blank" rel="noopener noreferrer" data-desc="An iOS app that pairs movement with reflection, helping you think through what's on your mind while you walk."><span class="mark" aria-hidden="true">▶</span><span>move/think</span><span></span></a>
+        <a href="https://wallypaper.design/" target="_blank" rel="noopener noreferrer" data-desc="My hobby collection AI wallpaper generated from MidJourney available for download."><span class="mark" aria-hidden="true">▶</span><span>Wallypaper</span><span></span></a>
+        <a href="https://readme.ztwalsh.com/" target="_blank" rel="noopener noreferrer" data-desc="No secrets. Get to know about working with me by chatting directly with my performance feedback, 360 feedback, and upward manager feedback."><span class="mark" aria-hidden="true">▶</span><span>Conversational readme</span><span></span></a>
+      </nav>
+      <p class="caption" id="caption" aria-live="polite"></p>
+    </div>
+
+    <footer class="foot">
+      <a href="https://ztwalsh.com/contact">Contact</a>
+      <a href="https://www.linkedin.com/in/zacharywalsh/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      <button class="invert" type="button" id="invert" aria-label="Invert colours">Invert</button>
+    </footer>
+  </main>
+</div>
+<script src="crt.js"></script>
+<script>
+  const crt = CRT.mount({
+    root: '#page',
+    params: { scanlineIntensity: 0.4, bloomIntensity: 0.45, rgbShift: 0.25, curvature: 0.22, vignetteStrength: 0.7, brightness: 1.3 },
+  });
+  document.getElementById('invert').addEventListener('click', () => crt.toggleTheme());
+
+  const links = [...document.querySelectorAll('#menu a')];
+  const caption = document.getElementById('caption');
+  const ch = document.getElementById('ch');
+  let sel = 0;
+  function select(i) {
+    sel = (i + links.length) % links.length;
+    links.forEach((a, j) => a.setAttribute('aria-current', j === sel ? 'true' : 'false'));
+    caption.textContent = links[sel].dataset.desc;
+    ch.textContent = String(sel + 1).padStart(2, '0');
+  }
+  links.forEach((a, i) => { a.addEventListener('pointerenter', () => select(i)); a.addEventListener('focus', () => select(i)); });
+  document.addEventListener('keydown', (e) => {
+    if (/input|textarea/i.test(document.activeElement.tagName)) return;
+    if (e.key === 'ArrowDown' || e.key === 'j') { select(sel + 1); e.preventDefault(); }
+    if (e.key === 'ArrowUp' || e.key === 'k') { select(sel - 1); e.preventDefault(); }
+    if (e.key === 'Enter' && !links.includes(document.activeElement)) links[sel].click();
+  });
+  select(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zach walsh</title>
+<meta name="description" content="Design leader focused on experimentation, tinkering, and building at Zapier">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="_shared.css">
+<style>
+  /* 02 Index — a teletext page: header strip, page number, clock, tabulated list. */
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 32px; min-height: 100vh; display: flex; flex-direction: column; }
+  .strip { display: flex; justify-content: space-between; gap: 16px; padding: 22px 0; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .strip b { font-weight: 500; color: var(--muted); }
+  .hero { padding: 88px 0 64px; }
+  h1 { font-size: clamp(48px, 8vw, 88px); font-weight: 500; letter-spacing: -0.03em; line-height: 0.98; }
+  .bio { margin-top: 20px; font-size: 22px; line-height: 1.4; letter-spacing: -0.01em; color: var(--muted); max-width: 30em; }
+  .label { display: flex; gap: 12px; align-items: baseline; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .label b { font-weight: 500; color: var(--muted); }
+  .rows { display: flex; flex-direction: column; }
+  .row a { display: grid; grid-template-columns: 48px 200px 1fr 24px; gap: 20px; align-items: baseline; padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .num { font-size: 13px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .name { font-weight: 700; }
+  .desc { color: var(--muted); transition: color 200ms ease; }
+  .arrow { text-align: right; color: var(--faint); transition: color 200ms ease; }
+  .row a:hover .desc, .row a:focus-visible .desc, .row a:hover .arrow { color: var(--fg); }
+  .foot { margin-top: auto; display: flex; gap: 28px; padding: 40px 0 28px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .foot a:hover, .foot button:hover { color: var(--fg); }
+  .foot .invert { margin-left: auto; letter-spacing: inherit; text-transform: inherit; color: var(--faint); }
+  @media (max-width: 720px) {
+    .wrap { padding: 0 20px; }
+    .hero { padding: 56px 0 40px; }
+    .bio { font-size: 19px; }
+    .row a { grid-template-columns: 36px 1fr 20px; grid-template-rows: auto auto; row-gap: 4px; }
+    .desc { grid-column: 2 / 3; }
+    .arrow { grid-row: 1; grid-column: 3; }
+  }
+</style>
+</head>
+<body>
+<div id="page">
+  <main class="wrap">
+    <div class="strip" aria-hidden="true">
+      <span><b>ztwalsh.com</b></span>
+      <span>P100</span>
+      <span id="clock">00:00:00</span>
+    </div>
+
+    <header class="hero">
+      <h1>zach walsh</h1>
+      <p class="bio">I connect people, simplify complexity, and ship products that matter.</p>
+    </header>
+
+    <section aria-labelledby="exp">
+      <h2 id="exp" class="label"><b>Experiments</b><span>4 entries</span></h2>
+      <ul class="rows">
+        <li class="row"><a href="https://getharps.app/" target="_blank" rel="noopener noreferrer"><span class="num">01</span><span class="name">Harps</span><span class="desc">A local-first push-to-talk dictation app for Mac. Hold a key, speak, and the text lands right at your cursor, transcribed entirely on-device.</span><span class="arrow" aria-hidden="true">↗</span></a></li>
+        <li class="row"><a href="https://apps.apple.com/us/app/move-think/id6770284427" target="_blank" rel="noopener noreferrer"><span class="num">02</span><span class="name">move/think</span><span class="desc">An iOS app that pairs movement with reflection, helping you think through what's on your mind while you walk.</span><span class="arrow" aria-hidden="true">↗</span></a></li>
+        <li class="row"><a href="https://wallypaper.design/" target="_blank" rel="noopener noreferrer"><span class="num">03</span><span class="name">Wallypaper</span><span class="desc">My hobby collection AI wallpaper generated from MidJourney available for download.</span><span class="arrow" aria-hidden="true">↗</span></a></li>
+        <li class="row"><a href="https://readme.ztwalsh.com/" target="_blank" rel="noopener noreferrer"><span class="num">04</span><span class="name">Conversational readme</span><span class="desc">No secrets. Get to know about working with me by chatting directly with my performance feedback, 360 feedback, and upward manager feedback.</span><span class="arrow" aria-hidden="true">↗</span></a></li>
+      </ul>
+    </section>
+
+    <footer class="foot">
+      <a href="https://ztwalsh.com/contact">Contact</a>
+      <a href="https://www.linkedin.com/in/zacharywalsh/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      <button class="invert" type="button" id="invert" aria-label="Invert colours">Invert</button>
+    </footer>
+  </main>
+</div>
+<script src="crt.js"></script>
+<script>
+  const crt = CRT.mount({
+    root: '#page',
+    params: { scanlineIntensity: 0.5, adaptiveIntensity: 0.4, bloomIntensity: 0.3, rgbShift: 0.3, curvature: 0.08, vignetteStrength: 0.4, brightness: 1.3 },
+  });
+  document.getElementById('invert').addEventListener('click', () => crt.toggleTheme());
+  const clock = document.getElementById('clock');
+  const tick = () => { clock.textContent = new Date().toTimeString().slice(0, 8); };
+  tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zach walsh</title>
+<meta name="description" content="Design leader focused on experimentation, tinkering, and building at Zapier">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="_shared.css">
+<style>
+  /* 01 Broadcast — the current site's structure, monochrome, through the tube. */
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 24px; }
+  .profile { padding: 112px 0 56px; }
+  h1 { font-size: 56px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 8px; }
+  .bio { font-size: 24px; line-height: 1.4; letter-spacing: -0.01em; color: var(--muted); max-width: 560px; }
+  .section { padding: 24px 0 72px; }
+  .label { font-size: 13px; font-weight: 400; color: var(--faint); margin-bottom: 20px; }
+  .list { display: flex; flex-direction: column; gap: 14px; }
+  .item a { display: block; }
+  .title { font-weight: 700; display: inline-flex; align-items: baseline; gap: 6px; }
+  .arrow { font-size: 13px; font-weight: 400; color: var(--faint); transition: color 200ms ease; }
+  .desc { color: var(--muted); margin-left: 8px; transition: color 200ms ease; }
+  .item a:hover .desc, .item a:focus-visible .desc { color: var(--fg); }
+  .item a:hover .arrow { color: var(--fg); }
+  .foot { display: flex; gap: 24px; padding: 0 0 64px; font-size: 14px; color: var(--muted); }
+  .foot a:hover, .foot button:hover { color: var(--fg); }
+  .foot .invert { margin-left: auto; color: var(--faint); }
+  @media (max-width: 600px) {
+    .profile { padding: 72px 0 40px; }
+    h1 { font-size: 40px; }
+    .bio { font-size: 20px; }
+    .desc { display: block; margin: 2px 0 0; }
+  }
+</style>
+</head>
+<body>
+<div id="page">
+  <main class="wrap">
+    <header class="profile">
+      <h1>zach walsh</h1>
+      <p class="bio">I connect people, simplify complexity, and ship products that matter.</p>
+    </header>
+
+    <section class="section" aria-labelledby="exp">
+      <h2 id="exp" class="label">Experiments</h2>
+      <ul class="list">
+        <li class="item"><a href="https://getharps.app/" target="_blank" rel="noopener noreferrer"><span class="title">Harps<span class="arrow" aria-hidden="true">↗</span></span><span class="desc">A local-first push-to-talk dictation app for Mac. Hold a key, speak, and the text lands right at your cursor, transcribed entirely on-device.</span></a></li>
+        <li class="item"><a href="https://apps.apple.com/us/app/move-think/id6770284427" target="_blank" rel="noopener noreferrer"><span class="title">move/think<span class="arrow" aria-hidden="true">↗</span></span><span class="desc">An iOS app that pairs movement with reflection, helping you think through what's on your mind while you walk.</span></a></li>
+        <li class="item"><a href="https://wallypaper.design/" target="_blank" rel="noopener noreferrer"><span class="title">Wallypaper<span class="arrow" aria-hidden="true">↗</span></span><span class="desc">My hobby collection AI wallpaper generated from MidJourney available for download.</span></a></li>
+        <li class="item"><a href="https://readme.ztwalsh.com/" target="_blank" rel="noopener noreferrer"><span class="title">Conversational readme<span class="arrow" aria-hidden="true">↗</span></span><span class="desc">No secrets. Get to know about working with me by chatting directly with my performance feedback, 360 feedback, and upward manager feedback.</span></a></li>
+      </ul>
+    </section>
+
+    <footer class="foot">
+      <a href="https://ztwalsh.com/contact">contact</a>
+      <a href="https://www.linkedin.com/in/zacharywalsh/" target="_blank" rel="noopener noreferrer">linkedin</a>
+      <button class="invert" type="button" id="invert" aria-label="Invert colours">invert</button>
+    </footer>
+  </main>
+</div>
+<script src="crt.js"></script>
+<script>
+  const crt = CRT.mount({
+    root: '#page',
+    params: { scanlineIntensity: 0.35, bloomIntensity: 0.4, rgbShift: 0.2, curvature: 0.1, vignetteStrength: 0.35 },
+  });
+  document.getElementById('invert').addEventListener('click', () => crt.toggleTheme());
+</script>
+</body>
+</html>

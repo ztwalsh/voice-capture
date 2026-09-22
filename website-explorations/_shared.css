@@ -1,0 +1,35 @@
+/* Shared base for the explorations. Each page layers its own layout on top. */
+:root {
+  --bg: #000;
+  --fg: #fff;
+  --muted: rgba(255, 255, 255, 0.62);
+  --faint: rgba(255, 255, 255, 0.36);
+  --line: rgba(255, 255, 255, 0.18);
+  color-scheme: dark;
+}
+html[data-theme="light"] {
+  --bg: #fff;
+  --fg: #000;
+  --muted: rgba(0, 0, 0, 0.72);
+  --faint: rgba(0, 0, 0, 0.46);
+  --line: rgba(0, 0, 0, 0.18);
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #000; }
+body {
+  min-height: 100vh;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+#page { background: var(--bg); color: var(--fg); min-height: 100vh; }
+a { color: inherit; text-decoration: none; }
+button.invert {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer;
+}
+ul { list-style: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

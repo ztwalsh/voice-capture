@@ -1,0 +1,663 @@
+/*
+  crt.js — vintage TV treatment for a plain HTML page.
+
+  How it works
+  ------------
+  1. The real DOM stays in the page (links, focus, screen readers, layout all
+     work as normal) but is made invisible with opacity: 0.
+  2. Every time something changes (resize, scroll, hover, focus, a DOM
+     mutation) the engine walks the page, asks the browser where each word
+     and box actually landed, and paints the same thing onto a 2D canvas
+     with the same fonts and colours.
+  3. That canvas is uploaded as a texture and drawn through a WebGL2 CRT
+     fragment shader (scanlines, curvature, bloom, vignette, RGB shift,
+     flicker) every frame.
+
+  The shader is Matt Sephton's "Serenity" WebGL CRT shader (MIT):
+  https://github.com/gingerbeardman/webgl-crt-shader
+  It is reproduced here with two additions: a power-on/off collapse and an
+  edge colour for the area outside the curved tube.
+
+  Usage
+  -----
+    <div id="page"> ...your site... </div>
+    <script src="crt.js"></script>
+    <script>
+      CRT.mount({ root: '#page', params: { curvature: 0.12 } });
+    </script>
+
+  Options
+    root        element or selector to mirror (default '#page')
+    container   element the screen fills (default: the viewport)
+    theme       'dark' | 'light' (default: ?theme= query, then saved, then 'dark')
+    params      shader overrides (see DEFAULTS)
+    themes      { dark: {...params}, light: {...params} } per-theme overrides
+    draw(ctx, w, h, t)  optional extra 2D painting on top of the mirrored DOM
+    tune        show the tuning panel ('t' key toggles it either way)
+
+  Themes are switched by toggling data-theme on <html>. The page's own CSS
+  decides what that means; the engine only reads --bg from <html>.
+*/
+(function () {
+  'use strict';
+
+  const DEFAULTS = {
+    enabled: true,
+    smoothing: true,
+    scanlineIntensity: 0.35,
+    scanlineCount: 0,          // 0 = auto (one line per 3 CSS px of height)
+    adaptiveIntensity: 0.3,
+    brightness: 1.25,
+    contrast: 1.05,
+    saturation: 1.1,
+    bloomIntensity: 0.4,
+    bloomThreshold: 0.5,
+    rgbShift: 0.2,
+    vignetteStrength: 0.35,
+    curvature: 0.1,
+    flickerStrength: 0.01,
+  };
+
+  const LIGHT_ADJUST = {
+    // White phosphor needs less push or it just clips.
+    brightness: 1.0,
+    contrast: 1.08,
+    scanlineIntensity: 0.2,
+    bloomIntensity: 0.12,
+    rgbShift: 0.15,
+  };
+
+  const RANGES = {
+    scanlineIntensity: [0, 1, 0.01],
+    scanlineCount: [0, 1200, 1],
+    adaptiveIntensity: [0, 1, 0.01],
+    brightness: [0.6, 1.8, 0.01],
+    contrast: [0.6, 1.8, 0.01],
+    saturation: [0, 2, 0.01],
+    bloomIntensity: [0, 1.5, 0.01],
+    bloomThreshold: [0, 1, 0.01],
+    rgbShift: [0, 1, 0.01],
+    vignetteStrength: [0, 2, 0.01],
+    curvature: [0, 0.5, 0.005],
+    flickerStrength: [0, 0.15, 0.001],
+  };
+
+  const VERT = `#version 300 es
+    precision highp float;
+    const vec2 pos[4] = vec2[4](vec2(-1.,-1.), vec2(1.,-1.), vec2(-1.,1.), vec2(1.,1.));
+    const vec2 uvs[4] = vec2[4](vec2(0.,0.), vec2(1.,0.), vec2(0.,1.), vec2(1.,1.));
+    out vec2 vUv;
+    void main() { vUv = uvs[gl_VertexID]; gl_Position = vec4(pos[gl_VertexID], 0., 1.); }
+  `;
+
+  // Serenity shader (MIT, Matt Sephton) with uPower / uEdge added.
+  const FRAG = `#version 300 es
+    precision highp float;
+    uniform sampler2D uTexture;
+    uniform bool uEnabled;
+    uniform float scanlineIntensity, scanlineCount, time, yOffset, brightness, contrast,
+                  saturation, bloomIntensity, bloomThreshold, rgbShift, adaptiveIntensity,
+                  vignetteStrength, curvature, flickerStrength, uPower;
+    uniform vec3 uEdge;
+    in vec2 vUv;
+    out vec4 fragColor;
+
+    const float PI = 3.14159265;
+    const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+    const float BLOOM_THRESHOLD_FACTOR = 0.5;
+    const float BLOOM_FACTOR_MULT = 1.5;
+    const float RGB_SHIFT_SCALE = 0.005;
+    const float RGB_SHIFT_INTENSITY = 0.08;
+
+    vec2 curveRemapUV(vec2 uv, float c) {
+      vec2 coords = uv * 2.0 - 1.0;
+      float dist = dot(coords, coords);
+      coords = coords * (1.0 + dist * c * 0.25);
+      return coords * 0.5 + 0.5;
+    }
+    vec4 sampleBloom(sampler2D tex, vec2 uv, float radius, vec4 centre) {
+      vec2 o = vec2(radius);
+      vec4 c = centre * 0.4;
+      vec4 cross = (texture(tex, uv + vec2(o.x, 0.)) + texture(tex, uv - vec2(o.x, 0.)) +
+                    texture(tex, uv + vec2(0., o.y)) + texture(tex, uv - vec2(0., o.y))) * 0.15;
+      return c + cross;
+    }
+    float vignetteApprox(vec2 uv, float s) {
+      vec2 v = uv * 2.0 - 1.0;
+      float d = max(abs(v.x), abs(v.y));
+      return 1.0 - d * d * s;
+    }
+    void main() {
+      if (!uEnabled) { fragColor = texture(uTexture, vUv); return; }
+      vec2 uv = vUv;
+
+      // Power collapse: 0 = on, 1 = squashed to a line, 2 = gone.
+      if (uPower > 0.001) {
+        float sy = 1.0 - clamp(uPower, 0.0, 1.0) * 0.995;
+        float sx = 1.0 - clamp(uPower - 1.0, 0.0, 1.0) * 0.995;
+        uv = (uv - 0.5) / vec2(sx, sy) + 0.5;
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
+      }
+
+      if (curvature > 0.001) {
+        uv = curveRemapUV(uv, curvature);
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
+      }
+
+      vec4 pixel = texture(uTexture, uv);
+
+      if (bloomIntensity > 0.001) {
+        float lum = dot(pixel.rgb, LUMA);
+        if (lum > bloomThreshold * BLOOM_THRESHOLD_FACTOR) {
+          vec4 b = sampleBloom(uTexture, uv, 0.005, pixel);
+          b.rgb *= brightness;
+          float bl = dot(b.rgb, LUMA);
+          float f = bloomIntensity * max(0.0, (bl - bloomThreshold) * BLOOM_FACTOR_MULT);
+          pixel.rgb += b.rgb * f;
+        }
+      }
+      if (rgbShift > 0.005) {
+        // Departure from the original: fringe only where the shifted sample
+        // differs from the centre, so flat white areas keep no colour cast.
+        float s = rgbShift * RGB_SHIFT_SCALE;
+        pixel.r += (texture(uTexture, vec2(uv.x + s, uv.y)).r - pixel.r) * RGB_SHIFT_INTENSITY * 3.0;
+        pixel.b += (texture(uTexture, vec2(uv.x - s, uv.y)).b - pixel.b) * RGB_SHIFT_INTENSITY * 3.0;
+      }
+      pixel.rgb *= brightness;
+      float luminance = dot(pixel.rgb, LUMA);
+      pixel.rgb = (pixel.rgb - 0.5) * contrast + 0.5;
+      pixel.rgb = mix(vec3(luminance), pixel.rgb, saturation);
+
+      float mask = 1.0;
+      if (scanlineIntensity > 0.001) {
+        float y = (uv.y + yOffset) * scanlineCount;
+        float pattern = abs(sin(y * PI));
+        float adaptive = 1.0;
+        if (adaptiveIntensity > 0.001) {
+          float yp = sin(uv.y * 30.0) * 0.5 + 0.5;
+          adaptive = 1.0 - yp * adaptiveIntensity * 0.2;
+        }
+        mask *= 1.0 - pattern * scanlineIntensity * adaptive;
+      }
+      if (flickerStrength > 0.001) mask *= 1.0 + sin(time * 110.0) * flickerStrength;
+      if (vignetteStrength > 0.001) mask *= vignetteApprox(uv, vignetteStrength);
+      pixel.rgb *= mask;
+      pixel.rgb *= 1.0 + uPower * 1.2;   // the tube brightens as it collapses
+      fragColor = vec4(pixel.rgb, 1.0);
+    }
+  `;
+
+  const $ = (s) => (typeof s === 'string' ? document.querySelector(s) : s);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function parseColor(str) {
+    const m = /rgba?\(([^)]+)\)/.exec(str || '');
+    if (!m) return null;
+    const p = m[1].split(/[\s,\/]+/).filter(Boolean).map(parseFloat);
+    return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+  }
+
+  function mount(opts = {}) {
+    const root = $(opts.root || '#page');
+    if (!root) throw new Error('CRT.mount: root not found');
+    const container = opts.container ? $(opts.container) : null;
+    const params = Object.assign({}, DEFAULTS, opts.params || {});
+    const themes = opts.themes || {};
+    const query = new URLSearchParams(location.search);
+
+    let dirty = true, dirtyUntil = 0, power = 0, animating = false;
+    let panel = null;
+
+    // ---- theme ------------------------------------------------------------
+    let saved = null;
+    try { saved = localStorage.getItem('crt-theme'); } catch (e) {}
+    let theme = query.get('theme') || opts.theme || saved || 'dark';
+    const userBase = Object.assign({}, DEFAULTS, opts.params || {});
+    function applyThemeParams(t) {
+      const base = Object.assign({}, userBase, t === 'light' ? LIGHT_ADJUST : {}, themes[t] || {});
+      for (const k in base) if (k in DEFAULTS) params[k] = base[k];
+    }
+    function setThemeAttr(t) {
+      theme = t;
+      document.documentElement.dataset.theme = t;
+      try { localStorage.setItem('crt-theme', t); } catch (e) {}
+      applyThemeParams(t);
+      dirty = true;
+      if (panel) panel.refresh();
+    }
+    setThemeAttr(theme);
+
+    // ---- canvases -----------------------------------------------------------
+    const canvas = document.createElement('canvas');
+    canvas.className = 'crt-canvas';
+    canvas.setAttribute('aria-hidden', 'true');
+    const host = container || document.body;
+    host.appendChild(canvas);
+    root.classList.add('crt-source');
+    if (container) container.classList.add('crt-container');
+
+    const crtOff = query.get('crt') === 'off';
+    const gl = crtOff ? null : canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false });
+    if (!gl) {
+      // Graceful fallback: just show the real page.
+      root.classList.remove('crt-source');
+      canvas.remove();
+      return { setTheme: setThemeAttr, toggleTheme: () => setThemeAttr(theme === 'dark' ? 'light' : 'dark'), params, get theme() { return theme; } };
+    }
+
+    const scene = document.createElement('canvas');
+    const ctx = scene.getContext('2d', { alpha: false });
+
+    const program = link(gl, VERT, FRAG);
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    const U = {};
+    ['uTexture', 'uEnabled', 'scanlineIntensity', 'scanlineCount', 'time', 'yOffset', 'brightness', 'contrast',
+     'saturation', 'bloomIntensity', 'bloomThreshold', 'rgbShift', 'adaptiveIntensity', 'vignetteStrength',
+     'curvature', 'flickerStrength', 'uPower', 'uEdge'].forEach((n) => { U[n] = gl.getUniformLocation(program, n); });
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    let dpr = 1, W = 0, H = 0, ox = 0, oy = 0;
+
+    function smoothing(on) {
+      ctx.imageSmoothingEnabled = on;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      const f = on ? gl.LINEAR : gl.NEAREST;
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, f);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f);
+    }
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const box = container ? container.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
+      W = Math.max(1, Math.round(box.width));
+      H = Math.max(1, Math.round(box.height));
+      canvas.width = scene.width = Math.floor(W * dpr);
+      canvas.height = scene.height = Math.floor(H * dpr);
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, scene.width, scene.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      smoothing(params.smoothing);
+      dirty = true;
+    }
+
+    // ---- DOM mirror -----------------------------------------------------------
+    const measureCache = new Map();
+    function metrics(font) {
+      let m = measureCache.get(font);
+      if (!m) {
+        ctx.font = font;
+        const t = ctx.measureText('Hg');
+        m = { asc: t.fontBoundingBoxAscent || t.actualBoundingBoxAscent || 0, desc: t.fontBoundingBoxDescent || t.actualBoundingBoxDescent || 0 };
+        measureCache.set(font, m);
+      }
+      return m;
+    }
+    function fontOf(cs) {
+      return `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    }
+    function transformText(s, mode) {
+      if (mode === 'uppercase') return s.toUpperCase();
+      if (mode === 'lowercase') return s.toLowerCase();
+      if (mode === 'capitalize') return s.replace(/\b\w/g, (c) => c.toUpperCase());
+      return s;
+    }
+
+    function paint() {
+      const baseRect = container ? container.getBoundingClientRect() : { left: 0, top: 0 };
+      ox = baseRect.left; oy = baseRect.top;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || (theme === 'light' ? '#fff' : '#000');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.textBaseline = 'alphabetic';
+
+      const range = document.createRange();
+      const focused = document.activeElement;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+        acceptNode(n) {
+          if (n.nodeType === 1) {
+            if (n.classList.contains('crt-skip')) return NodeFilter.FILTER_REJECT;
+            const cs = getComputedStyle(n);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          return /\S/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        },
+      });
+
+      // Opacity is accumulated from ancestors (excluding root, which is 0).
+      const alphaOf = (el) => {
+        let a = 1;
+        for (let e = el; e && e !== root; e = e.parentElement) {
+          const o = parseFloat(getComputedStyle(e).opacity);
+          if (!isNaN(o)) a *= o;
+        }
+        return a;
+      };
+      const underlineOf = (el) => {
+        for (let e = el; e && e !== root; e = e.parentElement) {
+          const cs = getComputedStyle(e);
+          if (cs.textDecorationLine && cs.textDecorationLine.includes('underline')) return cs;
+        }
+        return null;
+      };
+
+      let n;
+      while ((n = walker.nextNode())) {
+        if (n.nodeType === 1) {
+          const cs = getComputedStyle(n);
+          const r = n.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) continue;
+          const x = r.left - ox, y = r.top - oy;
+          if (y > H || y + r.height < 0) continue;
+          const alpha = alphaOf(n);
+          const bgc = parseColor(cs.backgroundColor);
+          const radius = parseFloat(cs.borderTopLeftRadius) || 0;
+          if (bgc && bgc.a > 0) {
+            ctx.globalAlpha = alpha * bgc.a;
+            ctx.fillStyle = `rgb(${bgc.r},${bgc.g},${bgc.b})`;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(x, y, r.width, r.height, radius); else ctx.rect(x, y, r.width, r.height);
+            ctx.fill();
+          }
+          if (n.tagName === 'IMG' && n.complete && n.naturalWidth) {
+            ctx.globalAlpha = alpha;
+            try { ctx.drawImage(n, x, y, r.width, r.height); } catch (e) {}
+          }
+          const bw = parseFloat(cs.borderTopWidth) || 0;
+          const bc = parseColor(cs.borderTopColor);
+          if (bw > 0 && bc && bc.a > 0 && cs.borderTopStyle !== 'none') {
+            ctx.globalAlpha = alpha * bc.a;
+            ctx.strokeStyle = `rgb(${bc.r},${bc.g},${bc.b})`;
+            ctx.lineWidth = bw;
+            ctx.beginPath();
+            const sides = ['Top', 'Right', 'Bottom', 'Left'].map((s) => parseFloat(cs['border' + s + 'Width']) > 0);
+            if (sides.every(Boolean)) {
+              if (ctx.roundRect) ctx.roundRect(x + bw / 2, y + bw / 2, r.width - bw, r.height - bw, Math.max(0, radius - bw / 2)); else ctx.rect(x + bw / 2, y + bw / 2, r.width - bw, r.height - bw);
+            } else {
+              if (sides[0]) { ctx.moveTo(x, y + bw / 2); ctx.lineTo(x + r.width, y + bw / 2); }
+              if (sides[2]) { ctx.moveTo(x, y + r.height - bw / 2); ctx.lineTo(x + r.width, y + r.height - bw / 2); }
+              if (sides[3]) { ctx.moveTo(x + bw / 2, y); ctx.lineTo(x + bw / 2, y + r.height); }
+              if (sides[1]) { ctx.moveTo(x + r.width - bw / 2, y); ctx.lineTo(x + r.width - bw / 2, y + r.height); }
+            }
+            ctx.stroke();
+          }
+          if (n === focused && n.matches(':focus-visible')) {
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = cs.color;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 3]);
+            ctx.strokeRect(x - 3, y - 3, r.width + 6, r.height + 6);
+            ctx.setLineDash([]);
+          }
+          continue;
+        }
+
+        // Text node: paint word by word at the browser's own positions.
+        const el = n.parentElement;
+        const cs = getComputedStyle(el);
+        const font = fontOf(cs);
+        const col = parseColor(cs.color);
+        if (!col || col.a === 0) continue;
+        const alpha = alphaOf(el) * col.a;
+        if (alpha <= 0) continue;
+        const m = metrics(font);
+        ctx.font = font;
+        ctx.fillStyle = `rgb(${col.r},${col.g},${col.b})`;
+        ctx.globalAlpha = alpha;
+        if ('letterSpacing' in ctx) ctx.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
+        const ul = underlineOf(el);
+        const text = n.nodeValue;
+        const re = /\S+/g;
+        let match;
+        while ((match = re.exec(text))) {
+          range.setStart(n, match.index);
+          range.setEnd(n, match.index + match[0].length);
+          const rects = range.getClientRects();
+          if (!rects.length) continue;
+          if (rects.length === 1) {
+            drawRun(rects[0], transformText(match[0], cs.textTransform), m, ul, cs);
+          } else {
+            // The word wrapped mid-way (a long URL): fall back to per character.
+            for (let i = 0; i < match[0].length; i++) {
+              range.setStart(n, match.index + i);
+              range.setEnd(n, match.index + i + 1);
+              const rr = range.getClientRects();
+              if (rr.length) drawRun(rr[0], transformText(match[0][i], cs.textTransform), m, ul, cs);
+            }
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+      if (opts.draw) opts.draw(ctx, W, H, performance.now() / 1000, theme);
+    }
+
+    function drawRun(r, str, m, ul, cs) {
+      const x = r.left - ox;
+      const top = r.top - oy;
+      if (top > H || top + r.height < 0) return;
+      const content = m.asc + m.desc;
+      const baseline = top + (content > 0 ? (r.height - content) / 2 + m.asc : r.height * 0.8);
+      // Canvas and DOM can disagree on glyph advances by a pixel or two per
+      // word (hinting, subpixel positioning). Fit the run to the DOM width.
+      const w = ctx.measureText(str).width;
+      if (w > 0 && Math.abs(w - r.width) > 0.4) {
+        ctx.save();
+        ctx.translate(x, baseline);
+        ctx.scale(r.width / w, 1);
+        ctx.fillText(str, 0, 0);
+        ctx.restore();
+      } else {
+        ctx.fillText(str, x, baseline);
+      }
+      if (ul) {
+        const th = parseFloat(ul.textDecorationThickness) || Math.max(1, parseFloat(cs.fontSize) / 16);
+        ctx.fillRect(x, baseline + Math.max(1.5, th), r.width, th);
+      }
+    }
+
+    // ---- invalidation -----------------------------------------------------
+    function invalidate(ms) {
+      dirty = true;
+      if (ms) dirtyUntil = Math.max(dirtyUntil, performance.now() + ms);
+    }
+    window.addEventListener('resize', resize, { passive: true });
+    document.addEventListener('scroll', () => invalidate(), { passive: true, capture: true });
+    ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout', 'keydown'].forEach((ev) =>
+      root.addEventListener(ev, () => invalidate(450), { passive: true }));
+    new MutationObserver(() => invalidate(50)).observe(root, { subtree: true, childList: true, characterData: true, attributes: true });
+    if (document.fonts) {
+      document.fonts.ready.then(() => { measureCache.clear(); invalidate(); });
+      document.fonts.addEventListener('loadingdone', () => { measureCache.clear(); invalidate(); });
+    }
+
+    // ---- render loop -------------------------------------------------------
+    let last = 0;
+    function frame(ts) {
+      const t = ts / 1000;
+      if (dirty || ts < dirtyUntil) {
+        paint();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, scene);
+        dirty = false;
+      }
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.useProgram(program);
+      gl.bindVertexArray(vao);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.uniform1i(U.uTexture, 0);
+      gl.uniform1i(U.uEnabled, params.enabled ? 1 : 0);
+      gl.uniform1f(U.scanlineIntensity, params.scanlineIntensity);
+      gl.uniform1f(U.scanlineCount, params.scanlineCount > 0 ? params.scanlineCount : Math.round(H / 3));
+      gl.uniform1f(U.time, t);
+      gl.uniform1f(U.yOffset, 0);
+      gl.uniform1f(U.brightness, params.brightness);
+      gl.uniform1f(U.contrast, params.contrast);
+      gl.uniform1f(U.saturation, params.saturation);
+      gl.uniform1f(U.bloomIntensity, params.bloomIntensity);
+      gl.uniform1f(U.bloomThreshold, params.bloomThreshold);
+      gl.uniform1f(U.rgbShift, params.rgbShift);
+      gl.uniform1f(U.adaptiveIntensity, params.adaptiveIntensity);
+      gl.uniform1f(U.vignetteStrength, params.vignetteStrength);
+      gl.uniform1f(U.curvature, params.curvature);
+      gl.uniform1f(U.flickerStrength, reduceMotion() ? 0 : params.flickerStrength);
+      gl.uniform1f(U.uPower, power);
+      gl.uniform3f(U.uEdge, 0, 0, 0);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      last = ts;
+      requestAnimationFrame(frame);
+    }
+
+    // ---- power animation (used by theme switch) ------------------------------
+    function tween(from, to, ms, ease) {
+      return new Promise((res) => {
+        const start = performance.now();
+        (function step(now) {
+          const k = clamp((now - start) / ms, 0, 1);
+          power = from + (to - from) * ease(k);
+          if (k < 1) requestAnimationFrame(step); else res();
+        })(start);
+      });
+    }
+    const easeIn = (k) => k * k * k;
+    const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+
+    async function setTheme(t, animate = true) {
+      if (t === theme || animating) return;
+      if (!animate || reduceMotion()) { setThemeAttr(t); return; }
+      animating = true;
+      await tween(0, 1, 260, easeIn);
+      await tween(1, 2, 160, easeIn);
+      setThemeAttr(t);
+      paint();
+      await new Promise((r) => setTimeout(r, 120));
+      await tween(2, 1, 180, easeOut);
+      await tween(1, 0, 320, easeOut);
+      animating = false;
+    }
+    async function powerOn() {
+      if (reduceMotion()) return;
+      power = 2;
+      await new Promise((r) => setTimeout(r, 80));
+      await tween(2, 1, 200, easeOut);
+      await tween(1, 0, 380, easeOut);
+    }
+
+    // ---- tuning panel ---------------------------------------------------------
+    function buildPanel() {
+      const el = document.createElement('div');
+      el.className = 'crt-panel crt-skip';
+      el.innerHTML = '<div class="crt-panel-head"><strong>CRT</strong><span>press T to hide</span></div>';
+      const rows = {};
+      const add = (k) => {
+        const [min, max, step] = RANGES[k];
+        const row = document.createElement('label');
+        row.innerHTML = `<span>${k}</span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
+        const input = row.querySelector('input'), out = row.querySelector('output');
+        input.addEventListener('input', () => { params[k] = parseFloat(input.value); out.textContent = input.value; dirty = true; });
+        el.appendChild(row);
+        rows[k] = { input, out };
+      };
+      Object.keys(RANGES).forEach(add);
+      const tog = document.createElement('label');
+      tog.innerHTML = '<span>enabled</span><input type="checkbox"><output></output>';
+      tog.querySelector('input').addEventListener('change', (e) => { params.enabled = e.target.checked; });
+      el.appendChild(tog);
+      const sm = document.createElement('label');
+      sm.innerHTML = '<span>smoothing</span><input type="checkbox"><output></output>';
+      sm.querySelector('input').addEventListener('change', (e) => { params.smoothing = e.target.checked; smoothing(params.smoothing); dirty = true; });
+      el.appendChild(sm);
+      const btns = document.createElement('div');
+      btns.className = 'crt-panel-btns';
+      btns.innerHTML = '<button type="button" data-a="theme">invert</button><button type="button" data-a="copy">copy params</button><button type="button" data-a="reset">reset</button>';
+      btns.addEventListener('click', (e) => {
+        const a = e.target.dataset.a;
+        if (a === 'theme') api.toggleTheme();
+        if (a === 'reset') { applyThemeParams(theme); dirty = true; refresh(); }
+        if (a === 'copy') {
+          const out = {}; for (const k in RANGES) out[k] = params[k];
+          const s = JSON.stringify(out, null, 2);
+          try { navigator.clipboard.writeText(s); } catch (err) {}
+          e.target.textContent = 'copied'; setTimeout(() => (e.target.textContent = 'copy params'), 900);
+        }
+      });
+      el.appendChild(btns);
+      function refresh() {
+        for (const k in rows) { rows[k].input.value = params[k]; rows[k].out.textContent = params[k]; }
+        tog.querySelector('input').checked = params.enabled;
+        sm.querySelector('input').checked = params.smoothing;
+      }
+      refresh();
+      document.body.appendChild(el);
+      return { el, refresh };
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 't' && !e.metaKey && !e.ctrlKey && !e.altKey && !/input|textarea/i.test(document.activeElement.tagName)) {
+        if (!panel) panel = buildPanel(); else panel.el.hidden = !panel.el.hidden;
+      }
+    });
+    if (opts.tune || query.get('tune') === '1') panel = buildPanel();
+
+    // ---- go -----------------------------------------------------------------
+    resize();
+    requestAnimationFrame(frame);
+    if (opts.powerOn !== false && !query.has('theme')) powerOn();
+
+    const api = {
+      setTheme,
+      toggleTheme: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+      invalidate,
+      params,
+      get theme() { return theme; },
+    };
+    return api;
+  }
+
+  function link(gl, vs, fs) {
+    const compile = (type, src) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+
+  // Base styles the engine needs. Pages add their own on top.
+  const style = document.createElement('style');
+  style.textContent = `
+    .crt-source { opacity: 0 !important; }
+    .crt-source ::selection { background: transparent; }
+    .crt-canvas { position: fixed; inset: 0; display: block; pointer-events: none; z-index: 5; }
+    .crt-container { position: relative; }
+    .crt-container > .crt-canvas { position: absolute; }
+    .crt-panel { position: fixed; right: 12px; top: 12px; z-index: 50; width: 260px; padding: 10px 12px 12px; background: rgba(20,20,20,.92);
+      color: #ddd; font: 11px/1.5 ui-monospace, Menlo, Consolas, monospace; border: 1px solid rgba(255,255,255,.15); border-radius: 6px;
+      backdrop-filter: blur(6px); max-height: calc(100vh - 24px); overflow: auto; }
+    .crt-panel-head { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .crt-panel-head span { color: #888; }
+    .crt-panel label { display: grid; grid-template-columns: 96px 1fr 44px; gap: 8px; align-items: center; }
+    .crt-panel input[type=range] { width: 100%; accent-color: #fff; }
+    .crt-panel output { text-align: right; color: #aaa; font-variant-numeric: tabular-nums; }
+    .crt-panel-btns { display: flex; gap: 6px; margin-top: 8px; }
+    .crt-panel-btns button { flex: 1; font: inherit; color: #ddd; background: #333; border: 1px solid #555; border-radius: 4px; padding: 4px 6px; cursor: pointer; }
+    .crt-panel-btns button:hover { background: #444; }
+  `;
+  document.head.appendChild(style);
+
+  window.CRT = { mount, DEFAULTS };
+})();
