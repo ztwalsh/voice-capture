@@ -1,0 +1,1877 @@
+From 4933413a0016e18f732368b1230f923b7c2e1966 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 22 Sep 2026 02:00:52 +0000
+Subject: [PATCH] Rebuild the site as Broadcast: monochrome Geist through a CRT
+ shader
+
+The page stays ordinary HTML. A client component mounts src/lib/crt.js,
+which mirrors #page onto a canvas and draws it through Matt Sephton's
+Serenity CRT shader (MIT). Black by default; the invert control flips to
+white with a TV power cycle and the choice persists in localStorage.
+
+- Home: name, intro line, experiments, contact/linkedin/invert footer
+- Contact: same form, validation and API route; red error state
+- Remove the Inria Serif logo, Header component and Hugeicons deps
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UNsktdWxri7c8KBgQu129Q
+---
+ package-lock.json               |  17 -
+ package.json                    |   2 -
+ src/app/contact/page.tsx        | 224 +++++-----
+ src/app/globals.css             | 262 +++++------
+ src/app/layout.tsx              |  23 +-
+ src/app/page.tsx                | 118 ++---
+ src/components/CRT.tsx          |  33 ++
+ src/components/Header.tsx       |  15 -
+ src/components/InvertButton.tsx |  16 +
+ src/lib/crt.d.ts                |  38 ++
+ src/lib/crt.js                  | 753 ++++++++++++++++++++++++++++++++
+ 11 files changed, 1133 insertions(+), 368 deletions(-)
+ create mode 100644 src/components/CRT.tsx
+ delete mode 100644 src/components/Header.tsx
+ create mode 100644 src/components/InvertButton.tsx
+ create mode 100644 src/lib/crt.d.ts
+ create mode 100644 src/lib/crt.js
+
+diff --git a/package-lock.json b/package-lock.json
+index b1eb8f0..818859b 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -8,8 +8,6 @@
+       "name": "ztwalsh.com",
+       "version": "0.1.0",
+       "dependencies": {
+-        "@hugeicons/core-free-icons": "^4.3.3",
+-        "@hugeicons/react": "^1.1.10",
+         "next": "15.5.9",
+         "react": "19.1.0",
+         "react-dom": "19.1.0",
+@@ -214,21 +212,6 @@
+         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+       }
+     },
+-    "node_modules/@hugeicons/core-free-icons": {
+-      "version": "4.3.3",
+-      "resolved": "https://registry.npmjs.org/@hugeicons/core-free-icons/-/core-free-icons-4.3.3.tgz",
+-      "integrity": "sha512-rpCPwJXhIjEKhMYb2AbNU6nS1HD2vXjeT65LL8SOaEHoN0cI57UTgnroU8q/TlocQQfnxeGz9C3KiyIausfzxg==",
+-      "license": "MIT"
+-    },
+-    "node_modules/@hugeicons/react": {
+-      "version": "1.1.10",
+-      "resolved": "https://registry.npmjs.org/@hugeicons/react/-/react-1.1.10.tgz",
+-      "integrity": "sha512-9tAsd92yMVVGP+E+d8cM+wc0VnXuYZHNbWQi7TOe8k2neawmhiaFmVFbzyruejhOMa197/LbgvSED32ayUo3ZA==",
+-      "license": "MIT",
+-      "peerDependencies": {
+-        "react": ">=16.0.0"
+-      }
+-    },
+     "node_modules/@humanfs/core": {
+       "version": "0.19.1",
+       "resolved": "https://registry.npmjs.org/@humanfs/core/-/core-0.19.1.tgz",
+diff --git a/package.json b/package.json
+index 3a56791..54586f1 100644
+--- a/package.json
++++ b/package.json
+@@ -9,8 +9,6 @@
+     "lint": "eslint"
+   },
+   "dependencies": {
+-    "@hugeicons/core-free-icons": "^4.3.3",
+-    "@hugeicons/react": "^1.1.10",
+     "next": "15.5.9",
+     "react": "19.1.0",
+     "react-dom": "19.1.0",
+diff --git a/src/app/contact/page.tsx b/src/app/contact/page.tsx
+index 6c9023c..ef4276a 100644
+--- a/src/app/contact/page.tsx
++++ b/src/app/contact/page.tsx
+@@ -1,27 +1,30 @@
+ "use client";
+ 
+ import { useState, FormEvent } from "react";
+-import Header from "../../components/Header";
++import Link from "next/link";
++import InvertButton from "@/components/InvertButton";
++
++type Status = "idle" | "sending" | "success" | "error";
+ 
+ export default function Contact() {
+-  const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
++  const [status, setStatus] = useState<Status>("idle");
+   const [errorMessage, setErrorMessage] = useState("");
+   const [missingFields, setMissingFields] = useState<Set<string>>(new Set());
+ 
+-  function validate(data: { name: string; email: string; message: string }) {
+-    const missing = new Set<string>();
+-    if (!data.name.trim()) missing.add("name");
+-    if (!data.email.trim()) missing.add("email");
+-    if (!data.message.trim()) missing.add("message");
+-    return missing;
++  function clearMissing(field: string) {
++    if (!missingFields.has(field)) return;
++    setMissingFields((prev) => {
++      const next = new Set(prev);
++      next.delete(field);
++      return next;
++    });
+   }
+ 
+   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+     e.preventDefault();
+     setErrorMessage("");
+ 
+-    const form = e.currentTarget;
+-    const formData = new FormData(form);
++    const formData = new FormData(e.currentTarget);
+     const data = {
+       name: (formData.get("name") as string) || "",
+       email: (formData.get("email") as string) || "",
+@@ -29,7 +32,10 @@ export default function Contact() {
+       website: formData.get("website") as string,
+     };
+ 
+-    const missing = validate(data);
++    const missing = new Set<string>();
++    if (!data.name.trim()) missing.add("name");
++    if (!data.email.trim()) missing.add("email");
++    if (!data.message.trim()) missing.add("message");
+     setMissingFields(missing);
+ 
+     if (missing.size > 0) {
+@@ -48,7 +54,7 @@ export default function Contact() {
+       });
+ 
+       if (!res.ok) {
+-        const body = await res.json();
++        const body = await res.json().catch(() => ({}));
+         throw new Error(body.error || "Something went wrong.");
+       }
+ 
+@@ -62,120 +68,90 @@ export default function Contact() {
+   }
+ 
+   return (
+-    <div className="min-h-screen">
+-      <Header />
+-
+-      <main className="container">
+-        <div className="page-hero">
+-          <h1 className="page-title">contact</h1>
++    <main className="wrap wrap-tall">
++      <header className="page-hero">
++        <h1 className="page-title">contact</h1>
++      </header>
++
++      {status === "success" ? (
++        <div className="form-success">
++          Thanks for reaching out. I&apos;ll get back to you as soon as I can.
+         </div>
++      ) : (
++        <form onSubmit={handleSubmit} className="contact-form" noValidate>
++          {status === "error" && <p className="form-error">{errorMessage}</p>}
++
++          {/* Honeypot */}
++          <div className="honeypot" aria-hidden="true">
++            <label htmlFor="website">Website</label>
++            <input type="text" id="website" name="website" tabIndex={-1} autoComplete="off" />
++          </div>
+ 
+-        <div className="content-section">
+-          <div className="section-content">
+-            {status === "success" ? (
+-              <div className="form-success">
+-                <p className="form-success-body">
+-                  Thanks for reaching out. I&apos;ll get back to you as soon as I
+-                  can.
+-                </p>
+-              </div>
+-            ) : (
+-              <form onSubmit={handleSubmit} className="contact-form" noValidate>
+-                {status === "error" && (
+-                  <p className="form-error">{errorMessage}</p>
+-                )}
+-
+-                {/* Honeypot */}
+-                <div aria-hidden="true" style={{ position: "absolute", left: "-9999px" }}>
+-                  <label htmlFor="website">Website</label>
+-                  <input
+-                    type="text"
+-                    id="website"
+-                    name="website"
+-                    tabIndex={-1}
+-                    autoComplete="off"
+-                  />
+-                </div>
+-
+-                <div className="form-field">
+-                  <label htmlFor="name">Full name</label>
+-                  <input
+-                    type="text"
+-                    id="name"
+-                    name="name"
+-                    required
+-                    maxLength={100}
+-                    placeholder="Your name"
+-                    className={missingFields.has("name") ? "field-error" : ""}
+-                    onChange={() => {
+-                      if (missingFields.has("name")) {
+-                        setMissingFields((prev) => { const next = new Set(prev); next.delete("name"); return next; });
+-                      }
+-                    }}
+-                  />
+-                </div>
+-
+-                <div className="form-field">
+-                  <label htmlFor="email">Email address</label>
+-                  <input
+-                    type="email"
+-                    id="email"
+-                    name="email"
+-                    required
+-                    placeholder="you@example.com"
+-                    className={missingFields.has("email") ? "field-error" : ""}
+-                    onChange={() => {
+-                      if (missingFields.has("email")) {
+-                        setMissingFields((prev) => { const next = new Set(prev); next.delete("email"); return next; });
+-                      }
+-                    }}
+-                  />
+-                </div>
+-
+-                <div className="form-field">
+-                  <label htmlFor="message">Message</label>
+-                  <textarea
+-                    id="message"
+-                    name="message"
+-                    required
+-                    rows={6}
+-                    minLength={10}
+-                    maxLength={5000}
+-                    placeholder="What's on your mind?"
+-                    className={missingFields.has("message") ? "field-error" : ""}
+-                    onChange={() => {
+-                      if (missingFields.has("message")) {
+-                        setMissingFields((prev) => { const next = new Set(prev); next.delete("message"); return next; });
+-                      }
+-                    }}
+-                  />
+-                </div>
+-
+-                <button
+-                  type="submit"
+-                  className="form-submit"
+-                  disabled={status === "sending"}
+-                >
+-                  {status === "sending" ? "Sending..." : "Send message"}
+-                </button>
+-              </form>
+-            )}
+-
+-            <p className="contact-alt">
+-              You can also reach me at{" "}
+-              <a href="mailto:ztwalsh@gmail.com">ztwalsh@gmail.com</a> or on{" "}
+-              <a
+-                href="https://www.linkedin.com/in/zacharywalsh/"
+-                target="_blank"
+-                rel="noopener noreferrer"
+-              >
+-                LinkedIn
+-              </a>
+-              .
+-            </p>
++          <div className="form-field">
++            <label htmlFor="name">Full name</label>
++            <input
++              type="text"
++              id="name"
++              name="name"
++              required
++              maxLength={100}
++              placeholder="Your name"
++              autoComplete="name"
++              className={missingFields.has("name") ? "field-error" : ""}
++              onChange={() => clearMissing("name")}
++            />
+           </div>
+-        </div>
+-      </main>
+-    </div>
++
++          <div className="form-field">
++            <label htmlFor="email">Email address</label>
++            <input
++              type="email"
++              id="email"
++              name="email"
++              required
++              placeholder="you@example.com"
++              autoComplete="email"
++              className={missingFields.has("email") ? "field-error" : ""}
++              onChange={() => clearMissing("email")}
++            />
++          </div>
++
++          <div className="form-field">
++            <label htmlFor="message">Message</label>
++            <textarea
++              id="message"
++              name="message"
++              required
++              rows={6}
++              minLength={10}
++              maxLength={5000}
++              placeholder="What's on your mind?"
++              className={missingFields.has("message") ? "field-error" : ""}
++              onChange={() => clearMissing("message")}
++            />
++          </div>
++
++          <button type="submit" className="form-submit" disabled={status === "sending"}>
++            {status === "sending" ? "Sending..." : "Send message"}
++          </button>
++        </form>
++      )}
++
++      <p className="contact-alt">
++        You can also reach me at <a href="mailto:ztwalsh@gmail.com">ztwalsh@gmail.com</a> or on{" "}
++        <a href="https://www.linkedin.com/in/zacharywalsh/" target="_blank" rel="noopener noreferrer">
++          LinkedIn
++        </a>
++        .
++      </p>
++
++      <footer className="foot">
++        <Link href="/">home</Link>
++        <a href="https://www.linkedin.com/in/zacharywalsh/" target="_blank" rel="noopener noreferrer">
++          linkedin
++        </a>
++        <InvertButton />
++      </footer>
++    </main>
+   );
+ }
+diff --git a/src/app/globals.css b/src/app/globals.css
+index 3317911..9014a4f 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -1,122 +1,115 @@
+-@import "tailwindcss";
++/*
++  ztwalsh.com — monochrome, Geist, rendered through a CRT shader (see
++  src/lib/crt.js and src/components/CRT.tsx). The page is ordinary HTML; the
++  shader only changes how it is painted. Theme is data-theme on <html>.
++*/
+ 
+ :root {
+-  --color-bg: #4F654F;
+-  --color-text: #F7F7EF;
+-  --color-muted: rgba(247, 247, 239, 0.55);
+-  --color-faint: rgba(247, 247, 239, 0.35);
+-  --color-accent: #E5C862;
++  --bg: #000;
++  --fg: #fff;
++  --muted: rgba(255, 255, 255, 0.62);
++  --faint: rgba(255, 255, 255, 0.36);
++  --line: rgba(255, 255, 255, 0.18);
++  --error: #ff5a4f;
++  color-scheme: dark;
++}
++
++html[data-theme="light"] {
++  --bg: #fff;
++  --fg: #000;
++  --muted: rgba(0, 0, 0, 0.8);
++  --faint: rgba(0, 0, 0, 0.55);
++  --line: rgba(0, 0, 0, 0.18);
++  --error: #d7261a;
++  color-scheme: light;
+ }
+ 
+ * {
++  box-sizing: border-box;
+   margin: 0;
+   padding: 0;
+-  box-sizing: border-box;
++}
++
++html,
++body {
++  background: #000;
+ }
+ 
+ body {
+-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
++  min-height: 100vh;
++  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
++  font-size: 16px;
+   line-height: 1.5;
+-  color: var(--color-text);
+-  background: var(--color-bg);
+-  font-weight: 400;
++  color: var(--fg);
+   -webkit-font-smoothing: antialiased;
+-  -moz-osx-font-smoothing: grayscale;
++  text-rendering: geometricPrecision;
++}
++
++#page {
++  background: var(--bg);
++  color: var(--fg);
++  min-height: 100vh;
+ }
+ 
+ a {
+   color: inherit;
+   text-decoration: none;
+-  transition: color 200ms ease;
+-}
+-
+-/* Layout */
+-.container {
+-  max-width: 640px;
+-  margin: 0 auto;
+-  padding: 0 24px;
+ }
+ 
+-/* Header */
+-
+-
+-.navigation {
+-  padding: 32px 24px 0;
++ul {
++  list-style: none;
+ }
+ 
+-.logo {
+-  font-family: var(--font-inria), Georgia, serif;
+-  font-size: 22px;
+-  font-weight: 400;
+-  font-style: italic;
+-  letter-spacing: 0.02em;
+-  color: var(--color-text);
++[hidden] {
++  display: none !important;
+ }
+ 
+-.logo a {
+-  transition: color 200ms ease;
++/* Layout */
++.wrap {
++  max-width: 640px;
++  margin: 0 auto;
++  padding: 0 24px;
+ }
+ 
+-.logo a:hover {
+-  color: var(--color-accent);
++.wrap-tall {
++  min-height: 100vh;
++  display: flex;
++  flex-direction: column;
+ }
+ 
+-/* Profile */
++/* Home */
+ .profile {
+-  padding: 96px 0 56px;
++  padding: 112px 0 56px;
+ }
+ 
+ .profile-name {
+   font-size: 56px;
+   font-weight: 500;
+   letter-spacing: -0.02em;
+-  color: var(--color-text);
+-  margin-bottom: 4px;
++  line-height: 1.1;
++  margin-bottom: 8px;
+ }
+ 
+ .profile-bio {
+   font-size: 24px;
+-  font-weight: 400;
+   line-height: 1.4;
+   letter-spacing: -0.01em;
+-  color: var(--color-accent);
++  color: var(--muted);
+   max-width: 560px;
+-  margin-bottom: 32px;
+-}
+-
+-.profile-links {
+-  display: flex;
+-  gap: 10px;
+-  align-items: center;
+-}
+-
+-.profile-link {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  color: var(--color-faint);
+-  transition: color 200ms ease;
+-}
+-
+-.profile-link:hover {
+-  color: var(--color-text);
+ }
+ 
+-/* Sections */
+ .section {
+-  padding: 32px 0 96px;
++  padding: 24px 0 72px;
+ }
+ 
+ .section-label {
+   font-size: 13px;
+   font-weight: 400;
+-  color: var(--color-muted);
++  color: var(--faint);
+   margin-bottom: 20px;
+ }
+ 
+-/* Link list (experiments / projects style) */
+ .link-list {
+-  list-style: none;
+   display: flex;
+   flex-direction: column;
+   gap: 14px;
+@@ -124,60 +117,74 @@ a {
+ 
+ .link-list-link {
+   display: block;
+-  color: var(--color-text);
+ }
+ 
+ .link-title {
+-  font-size: 16px;
+   font-weight: 700;
+-  color: var(--color-text);
+   display: inline-flex;
+-  align-items: center;
++  align-items: baseline;
+   gap: 6px;
+-  transition: color 200ms ease;
+ }
+ 
+ .link-arrow {
+   font-size: 13px;
+-  color: var(--color-faint);
+   font-weight: 400;
++  color: var(--faint);
+   transition: color 200ms ease;
+ }
+ 
+ .link-description {
+-  font-size: 16px;
+-  font-weight: 400;
+-  color: var(--color-muted);
++  color: var(--muted);
+   margin-left: 8px;
+   transition: color 200ms ease;
+ }
+ 
++.link-list-link:hover .link-description,
++.link-list-link:focus-visible .link-description,
+ .link-list-link:hover .link-arrow {
+-  color: var(--color-accent);
++  color: var(--fg);
+ }
+ 
+-.link-list-link:hover .link-description {
+-  color: var(--color-text);
++/* Footer, shared */
++.foot {
++  display: flex;
++  gap: 24px;
++  padding: 0 0 64px;
++  font-size: 14px;
++  color: var(--muted);
+ }
+ 
+-/* Contact page */
++.wrap-tall .foot {
++  margin-top: auto;
++  padding-top: 64px;
++  padding-bottom: 40px;
++}
++
++.foot a:hover,
++.foot button:hover {
++  color: var(--fg);
++}
++
++.invert {
++  margin-left: auto;
++  font: inherit;
++  color: var(--faint);
++  background: none;
++  border: 0;
++  padding: 0;
++  cursor: pointer;
++}
++
++/* Contact */
+ .page-hero {
+-  padding: 96px 0 32px;
++  padding: 112px 0 32px;
+ }
+ 
+ .page-title {
+   font-size: 56px;
+   font-weight: 500;
+   letter-spacing: -0.02em;
+-  color: var(--color-text);
+-}
+-
+-.content-section {
+-  padding-bottom: 96px;
+-}
+-
+-.section-content {
+-  max-width: 640px;
++  line-height: 1.1;
+ }
+ 
+ .contact-form {
+@@ -195,34 +202,34 @@ a {
+ .form-field label {
+   font-size: 13px;
+   font-weight: 500;
+-  color: var(--color-muted);
++  color: var(--muted);
+ }
+ 
+ .form-field input,
+ .form-field textarea {
+-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
++  font: inherit;
+   font-size: 16px;
+-  font-weight: 400;
+   line-height: 1.5;
+-  color: var(--color-text);
+-  background: rgba(247, 247, 239, 0.04);
+-  border: 1px solid rgba(247, 247, 239, 0.15);
++  color: var(--fg);
++  background: transparent;
++  border: 1px solid var(--line);
+   border-radius: 6px;
+   padding: 12px 14px;
+   width: 100%;
+-  transition: border-color 200ms ease, background 200ms ease;
++  transition: border-color 200ms ease;
++  -webkit-appearance: none;
++  appearance: none;
+ }
+ 
+ .form-field input::placeholder,
+ .form-field textarea::placeholder {
+-  color: var(--color-faint);
++  color: var(--faint);
+ }
+ 
+ .form-field input:focus,
+ .form-field textarea:focus {
+   outline: none;
+-  border-color: var(--color-accent);
+-  background: rgba(247, 247, 239, 0.06);
++  border-color: var(--fg);
+ }
+ 
+ .form-field textarea {
+@@ -232,25 +239,25 @@ a {
+ 
+ .form-field input.field-error,
+ .form-field textarea.field-error {
+-  border-color: #e89a9a;
++  border-color: var(--error);
+ }
+ 
+ .form-submit {
+-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
++  align-self: flex-start;
++  font: inherit;
+   font-size: 15px;
+   font-weight: 500;
+-  color: var(--color-bg);
+-  background: var(--color-accent);
+-  border: none;
++  color: var(--bg);
++  background: var(--fg);
++  border: 0;
+   border-radius: 999px;
+   padding: 12px 22px;
+   cursor: pointer;
+   transition: opacity 200ms ease;
+-  align-self: flex-start;
+ }
+ 
+ .form-submit:hover {
+-  opacity: 0.9;
++  opacity: 0.85;
+ }
+ 
+ .form-submit:disabled {
+@@ -260,54 +267,59 @@ a {
+ 
+ .form-error {
+   font-size: 14px;
+-  color: #f1b3b3;
+-  background: rgba(230, 83, 83, 0.08);
++  color: var(--error);
++  border: 1px solid var(--error);
+   border-radius: 6px;
+   padding: 10px 14px;
+ }
+ 
+ .form-success {
+-  border: 1px solid rgba(247, 247, 239, 0.15);
++  border: 1px solid var(--line);
+   border-radius: 8px;
+   padding: 24px;
+-}
+-
+-.form-success-body {
+-  font-size: 16px;
+   line-height: 1.5;
+-  color: var(--color-text);
+ }
+ 
+ .contact-alt {
+   margin-top: 32px;
+   font-size: 14px;
+-  color: var(--color-muted);
++  color: var(--muted);
+ }
+ 
+ .contact-alt a {
+-  color: var(--color-accent);
++  text-decoration: underline;
++  text-underline-offset: 3px;
+ }
+ 
+ .contact-alt a:hover {
+-  opacity: 0.85;
++  color: var(--fg);
++}
++
++.honeypot {
++  position: absolute;
++  left: -9999px;
+ }
+ 
+ @media (max-width: 600px) {
+   .profile {
+-    padding: 64px 0 40px;
++    padding: 72px 0 40px;
++  }
++
++  .profile-name,
++  .page-title {
++    font-size: 40px;
++  }
++
++  .profile-bio {
++    font-size: 20px;
+   }
+ 
+   .link-description {
+     display: block;
+-    margin-left: 0;
+-    margin-top: 2px;
++    margin: 2px 0 0;
+   }
+ 
+   .page-hero {
+-    padding: 64px 0 24px;
+-  }
+-
+-  .page-title {
+-    font-size: 28px;
++    padding: 72px 0 24px;
+   }
+ }
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index 5eee302..688c758 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -1,16 +1,9 @@
+ import type { Metadata } from "next";
+-import { Geist, Inria_Serif } from "next/font/google";
++import { Geist } from "next/font/google";
+ import Script from "next/script";
++import CRT from "@/components/CRT";
+ import "./globals.css";
+ 
+-const inriaSerif = Inria_Serif({
+-  subsets: ["latin"],
+-  weight: ["400"],
+-  style: ["italic"],
+-  variable: "--font-inria",
+-  display: "swap",
+-});
+-
+ const geist = Geist({
+   subsets: ["latin"],
+   weight: ["400", "500", "700"],
+@@ -24,14 +17,19 @@ export const metadata: Metadata = {
+     "Design leader focused on experimentation, tinkering, and building at Zapier",
+ };
+ 
++// Applies the saved theme before first paint so a light-mode visitor does
++// not see a black flash. The CRT engine reads the same key on mount.
++const themeScript = `try{var t=localStorage.getItem('crt-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}`;
++
+ export default function RootLayout({
+   children,
+ }: Readonly<{
+   children: React.ReactNode;
+ }>) {
+   return (
+-    <html lang="en">
++    <html lang="en" data-theme="dark" suppressHydrationWarning>
+       <head>
++        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+         <Script
+           src="https://www.googletagmanager.com/gtag/js?id=G-8H02CWQTGC"
+           strategy="afterInteractive"
+@@ -45,8 +43,9 @@ export default function RootLayout({
+           `}
+         </Script>
+       </head>
+-      <body className={`${geist.variable} ${inriaSerif.variable}`}>
+-        {children}
++      <body className={geist.variable}>
++        <div id="page">{children}</div>
++        <CRT />
+       </body>
+     </html>
+   );
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index 169abb6..751c061 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -1,7 +1,5 @@
+ import Link from "next/link";
+-import { HugeiconsIcon } from "@hugeicons/react";
+-import { Mail01Icon, Linkedin01Icon } from "@hugeicons/core-free-icons";
+-import Header from "../components/Header";
++import InvertButton from "@/components/InvertButton";
+ 
+ const experiments = [
+   {
+@@ -28,81 +26,55 @@ const experiments = [
+       "No secrets. Get to know about working with me by chatting directly with my performance feedback, 360 feedback, and upward manager feedback.",
+     url: "https://readme.ztwalsh.com/",
+   },
+-  /*{
+-    title: "Async design feedback",
+-    description:
+-      "Scales design by giving non-designers reliable, brand-specific design feedback on their vibe coded work.",
+-    url: "https://design-feedback-kappa.vercel.app/",
+-  },*/
+ ];
+ 
+ export default function Home() {
+   return (
+-    <div className="min-h-screen flex flex-col">
+-      <Header />
+-
+-      <main className="container">
+-        <div className="profile">
+-          <h1 className="profile-name">zach walsh</h1>
+-          <p className="profile-bio">
+-            I connect people, simplify complexity, and ship products that
+-            matter.
+-          </p>
++    <main className="wrap">
++      <header className="profile">
++        <h1 className="profile-name">zach walsh</h1>
++        <p className="profile-bio">
++          I connect people, simplify complexity, and ship products that matter.
++        </p>
++      </header>
+ 
+-          <div className="profile-links">
+-            <Link
+-              href="/contact"
+-              aria-label="Contact"
+-              className="profile-link"
+-            >
+-              <HugeiconsIcon
+-                icon={Mail01Icon}
+-                size={26}
+-                strokeWidth={1.5}
+-                aria-hidden="true"
+-              />
+-            </Link>
+-            <a
+-              href="https://www.linkedin.com/in/zacharywalsh/"
+-              target="_blank"
+-              rel="noopener noreferrer"
+-              aria-label="LinkedIn"
+-              className="profile-link"
+-            >
+-              <HugeiconsIcon
+-                icon={Linkedin01Icon}
+-                size={26}
+-                strokeWidth={1.5}
+-                aria-hidden="true"
+-              />
+-            </a>
+-          </div>
+-        </div>
+-
+-        <section className="section">
+-          <h2 className="section-label">Experiments</h2>
+-          <ul className="link-list">
+-            {experiments.map((e) => (
+-              <li key={e.title} className="link-list-item">
+-                <a
+-                  href={e.url}
+-                  target="_blank"
+-                  rel="noopener noreferrer"
+-                  className="link-list-link"
+-                >
+-                  <span className="link-title">
+-                    {e.title}
+-                    <span className="link-arrow" aria-hidden="true">
+-                      ↗
+-                    </span>
++      <section className="section" aria-labelledby="experiments">
++        <h2 id="experiments" className="section-label">
++          Experiments
++        </h2>
++        <ul className="link-list">
++          {experiments.map((e) => (
++            <li key={e.title} className="link-list-item">
++              <a
++                href={e.url}
++                target="_blank"
++                rel="noopener noreferrer"
++                className="link-list-link"
++              >
++                <span className="link-title">
++                  {e.title}
++                  <span className="link-arrow" aria-hidden="true">
++                    ↗
+                   </span>
+-                  <span className="link-description">{e.description}</span>
+-                </a>
+-              </li>
+-            ))}
+-          </ul>
+-        </section>
+-      </main>
+-    </div>
++                </span>
++                <span className="link-description">{e.description}</span>
++              </a>
++            </li>
++          ))}
++        </ul>
++      </section>
++
++      <footer className="foot">
++        <Link href="/contact">contact</Link>
++        <a
++          href="https://www.linkedin.com/in/zacharywalsh/"
++          target="_blank"
++          rel="noopener noreferrer"
++        >
++          linkedin
++        </a>
++        <InvertButton />
++      </footer>
++    </main>
+   );
+ }
+diff --git a/src/components/CRT.tsx b/src/components/CRT.tsx
+new file mode 100644
+index 0000000..d49f466
+--- /dev/null
++++ b/src/components/CRT.tsx
+@@ -0,0 +1,33 @@
++"use client";
++
++import { useEffect } from "react";
++import { mount } from "@/lib/crt";
++
++// Shader settings for the site. These are the "Broadcast" numbers from the
++// explorations: flat tube, soft scanlines, a little bloom, a gentle vignette.
++const PARAMS = {
++  scanlineIntensity: 0.35,
++  bloomIntensity: 0.4,
++  rgbShift: 0.2,
++  curvature: 0,
++  vignetteStrength: 0.35,
++};
++
++export const TOGGLE_EVENT = "crt:toggle";
++
++/**
++ * Mounts the CRT treatment over #page. Renders nothing itself.
++ * Any element can flip the theme by dispatching `crt:toggle` on window.
++ */
++export default function CRT() {
++  useEffect(() => {
++    const crt = mount({ root: "#page", params: PARAMS });
++    const onToggle = () => crt.toggleTheme();
++    window.addEventListener(TOGGLE_EVENT, onToggle);
++    return () => {
++      window.removeEventListener(TOGGLE_EVENT, onToggle);
++      crt.destroy();
++    };
++  }, []);
++  return null;
++}
+diff --git a/src/components/Header.tsx b/src/components/Header.tsx
+deleted file mode 100644
+index 5844ae0..0000000
+--- a/src/components/Header.tsx
++++ /dev/null
+@@ -1,15 +0,0 @@
+-"use client";
+-
+-import Link from "next/link";
+-
+-export default function Header() {
+-  return (
+-    <header className="site-header">
+-      <div className="container navigation">
+-        <div className="logo">
+-          <Link href="/">zw</Link>
+-        </div>
+-      </div>
+-    </header>
+-  );
+-}
+diff --git a/src/components/InvertButton.tsx b/src/components/InvertButton.tsx
+new file mode 100644
+index 0000000..0de8361
+--- /dev/null
++++ b/src/components/InvertButton.tsx
+@@ -0,0 +1,16 @@
++"use client";
++
++import { TOGGLE_EVENT } from "./CRT";
++
++export default function InvertButton() {
++  return (
++    <button
++      type="button"
++      className="invert"
++      aria-label="Invert colours"
++      onClick={() => window.dispatchEvent(new Event(TOGGLE_EVENT))}
++    >
++      invert
++    </button>
++  );
++}
+diff --git a/src/lib/crt.d.ts b/src/lib/crt.d.ts
+new file mode 100644
+index 0000000..70f4d2f
+--- /dev/null
++++ b/src/lib/crt.d.ts
+@@ -0,0 +1,38 @@
++export interface CRTParams {
++  enabled?: boolean;
++  smoothing?: boolean;
++  scanlineIntensity?: number;
++  scanlineCount?: number;
++  adaptiveIntensity?: number;
++  brightness?: number;
++  contrast?: number;
++  saturation?: number;
++  bloomIntensity?: number;
++  bloomThreshold?: number;
++  rgbShift?: number;
++  vignetteStrength?: number;
++  curvature?: number;
++  flickerStrength?: number;
++}
++
++export interface CRTOptions {
++  root?: string | Element;
++  container?: string | Element;
++  theme?: "dark" | "light";
++  params?: CRTParams;
++  themes?: { dark?: CRTParams; light?: CRTParams };
++  tune?: boolean;
++  powerOn?: boolean;
++}
++
++export interface CRTInstance {
++  setTheme(theme: "dark" | "light", animate?: boolean): Promise<void> | void;
++  toggleTheme(): Promise<void> | void;
++  invalidate(ms?: number): void;
++  destroy(): void;
++  params: Required<CRTParams>;
++  readonly theme: "dark" | "light";
++}
++
++export const DEFAULTS: Required<CRTParams>;
++export function mount(opts?: CRTOptions): CRTInstance;
+diff --git a/src/lib/crt.js b/src/lib/crt.js
+new file mode 100644
+index 0000000..da7c62e
+--- /dev/null
++++ b/src/lib/crt.js
+@@ -0,0 +1,753 @@
++/*
++  crt.js — vintage TV treatment for a plain HTML page.
++
++  How it works
++  ------------
++  1. The real DOM stays in the page (links, focus, screen readers, layout all
++     work as normal) but is made invisible with opacity: 0.
++  2. Every time something changes (resize, scroll, hover, focus, a DOM
++     mutation) the engine walks the page, asks the browser where each word
++     and box actually landed, and paints the same thing onto a 2D canvas
++     with the same fonts and colours.
++  3. That canvas is uploaded as a texture and drawn through a WebGL2 CRT
++     fragment shader (scanlines, curvature, bloom, vignette, RGB shift,
++     flicker) every frame.
++
++  The shader is Matt Sephton's "Serenity" WebGL CRT shader (MIT):
++  https://github.com/gingerbeardman/webgl-crt-shader
++  It is reproduced here with two additions: a power-on/off collapse and an
++  edge colour for the area outside the curved tube.
++
++  Usage (this copy is the ES module used by src/components/CRT.tsx)
++  -----
++    import { mount } from '@/lib/crt';
++    const crt = mount({ root: '#page', params: { curvature: 0 } });
++    crt.destroy();
++
++  Options
++    root        element or selector to mirror (default '#page')
++    container   element the screen fills (default: the viewport)
++    theme       'dark' | 'light' (default: ?theme= query, then saved, then 'dark')
++    params      shader overrides (see DEFAULTS)
++    themes      { dark: {...params}, light: {...params} } per-theme overrides
++    draw(ctx, w, h, t)  optional extra 2D painting on top of the mirrored DOM
++    tune        show the tuning panel ('t' key toggles it either way)
++
++  Themes are switched by toggling data-theme on <html>. The page's own CSS
++  decides what that means; the engine only reads --bg from <html>.
++*/
++
++export const DEFAULTS = {
++  enabled: true,
++  smoothing: true,
++  scanlineIntensity: 0.35,
++  scanlineCount: 0,          // 0 = auto (one line per 3 CSS px of height)
++  adaptiveIntensity: 0.3,
++  brightness: 1.25,
++  contrast: 1.05,
++  saturation: 1.1,
++  bloomIntensity: 0.4,
++  bloomThreshold: 0.5,
++  rgbShift: 0.2,
++  vignetteStrength: 0.35,
++  curvature: 0.1,
++  flickerStrength: 0.01,
++};
++
++const LIGHT_ADJUST = {
++  // White phosphor needs less push or it just clips.
++  brightness: 1.0,
++  contrast: 1.08,
++  scanlineIntensity: 0.2,
++  bloomIntensity: 0.12,
++  rgbShift: 0.15,
++};
++
++const RANGES = {
++  scanlineIntensity: [0, 1, 0.01],
++  scanlineCount: [0, 1200, 1],
++  adaptiveIntensity: [0, 1, 0.01],
++  brightness: [0.6, 1.8, 0.01],
++  contrast: [0.6, 1.8, 0.01],
++  saturation: [0, 2, 0.01],
++  bloomIntensity: [0, 1.5, 0.01],
++  bloomThreshold: [0, 1, 0.01],
++  rgbShift: [0, 1, 0.01],
++  vignetteStrength: [0, 2, 0.01],
++  curvature: [0, 0.5, 0.005],
++  flickerStrength: [0, 0.15, 0.001],
++};
++
++const VERT = `#version 300 es
++  precision highp float;
++  const vec2 pos[4] = vec2[4](vec2(-1.,-1.), vec2(1.,-1.), vec2(-1.,1.), vec2(1.,1.));
++  const vec2 uvs[4] = vec2[4](vec2(0.,0.), vec2(1.,0.), vec2(0.,1.), vec2(1.,1.));
++  out vec2 vUv;
++  void main() { vUv = uvs[gl_VertexID]; gl_Position = vec4(pos[gl_VertexID], 0., 1.); }
++`;
++
++// Serenity shader (MIT, Matt Sephton) with uPower / uEdge added.
++const FRAG = `#version 300 es
++  precision highp float;
++  uniform sampler2D uTexture;
++  uniform bool uEnabled;
++  uniform float scanlineIntensity, scanlineCount, time, yOffset, brightness, contrast,
++                saturation, bloomIntensity, bloomThreshold, rgbShift, adaptiveIntensity,
++                vignetteStrength, curvature, flickerStrength, uPower;
++  uniform vec3 uEdge;
++  in vec2 vUv;
++  out vec4 fragColor;
++
++  const float PI = 3.14159265;
++  const vec3 LUMA = vec3(0.299, 0.587, 0.114);
++  const float BLOOM_THRESHOLD_FACTOR = 0.5;
++  const float BLOOM_FACTOR_MULT = 1.5;
++  const float RGB_SHIFT_SCALE = 0.005;
++  const float RGB_SHIFT_INTENSITY = 0.08;
++
++  vec2 curveRemapUV(vec2 uv, float c) {
++    vec2 coords = uv * 2.0 - 1.0;
++    float dist = dot(coords, coords);
++    coords = coords * (1.0 + dist * c * 0.25);
++    return coords * 0.5 + 0.5;
++  }
++  vec4 sampleBloom(sampler2D tex, vec2 uv, float radius, vec4 centre) {
++    vec2 o = vec2(radius);
++    vec4 c = centre * 0.4;
++    vec4 cross = (texture(tex, uv + vec2(o.x, 0.)) + texture(tex, uv - vec2(o.x, 0.)) +
++                  texture(tex, uv + vec2(0., o.y)) + texture(tex, uv - vec2(0., o.y))) * 0.15;
++    return c + cross;
++  }
++  float vignetteApprox(vec2 uv, float s) {
++    vec2 v = uv * 2.0 - 1.0;
++    float d = max(abs(v.x), abs(v.y));
++    return 1.0 - d * d * s;
++  }
++  void main() {
++    if (!uEnabled) { fragColor = texture(uTexture, vUv); return; }
++    vec2 uv = vUv;
++
++    // Power collapse: 0 = on, 1 = squashed to a line, 2 = gone.
++    if (uPower > 0.001) {
++      float sy = 1.0 - clamp(uPower, 0.0, 1.0) * 0.995;
++      float sx = 1.0 - clamp(uPower - 1.0, 0.0, 1.0) * 0.995;
++      uv = (uv - 0.5) / vec2(sx, sy) + 0.5;
++      if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
++    }
++
++    if (curvature > 0.001) {
++      uv = curveRemapUV(uv, curvature);
++      if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
++    }
++
++    vec4 pixel = texture(uTexture, uv);
++
++    if (bloomIntensity > 0.001) {
++      float lum = dot(pixel.rgb, LUMA);
++      if (lum > bloomThreshold * BLOOM_THRESHOLD_FACTOR) {
++        vec4 b = sampleBloom(uTexture, uv, 0.005, pixel);
++        b.rgb *= brightness;
++        float bl = dot(b.rgb, LUMA);
++        float f = bloomIntensity * max(0.0, (bl - bloomThreshold) * BLOOM_FACTOR_MULT);
++        pixel.rgb += b.rgb * f;
++      }
++    }
++    if (rgbShift > 0.005) {
++      // Departure from the original: fringe only where the shifted sample
++      // differs from the centre, so flat white areas keep no colour cast.
++      float s = rgbShift * RGB_SHIFT_SCALE;
++      pixel.r += (texture(uTexture, vec2(uv.x + s, uv.y)).r - pixel.r) * RGB_SHIFT_INTENSITY * 3.0;
++      pixel.b += (texture(uTexture, vec2(uv.x - s, uv.y)).b - pixel.b) * RGB_SHIFT_INTENSITY * 3.0;
++    }
++    pixel.rgb *= brightness;
++    float luminance = dot(pixel.rgb, LUMA);
++    pixel.rgb = (pixel.rgb - 0.5) * contrast + 0.5;
++    pixel.rgb = mix(vec3(luminance), pixel.rgb, saturation);
++
++    float mask = 1.0;
++    if (scanlineIntensity > 0.001) {
++      float y = (uv.y + yOffset) * scanlineCount;
++      float pattern = abs(sin(y * PI));
++      float adaptive = 1.0;
++      if (adaptiveIntensity > 0.001) {
++        float yp = sin(uv.y * 30.0) * 0.5 + 0.5;
++        adaptive = 1.0 - yp * adaptiveIntensity * 0.2;
++      }
++      mask *= 1.0 - pattern * scanlineIntensity * adaptive;
++    }
++    if (flickerStrength > 0.001) mask *= 1.0 + sin(time * 110.0) * flickerStrength;
++    if (vignetteStrength > 0.001) mask *= vignetteApprox(uv, vignetteStrength);
++    pixel.rgb *= mask;
++    pixel.rgb *= 1.0 + uPower * 1.2;   // the tube brightens as it collapses
++    fragColor = vec4(pixel.rgb, 1.0);
++  }
++`;
++
++const $ = (s) => (typeof s === 'string' ? document.querySelector(s) : s);
++const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
++const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
++
++function parseColor(str) {
++  const m = /rgba?\(([^)]+)\)/.exec(str || '');
++  if (!m) return null;
++  const p = m[1].split(/[\s,\/]+/).filter(Boolean).map(parseFloat);
++  return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
++}
++
++export function mount(opts = {}) {
++  const root = $(opts.root || '#page');
++  if (!root) throw new Error('CRT.mount: root not found');
++  const container = opts.container ? $(opts.container) : null;
++  const params = Object.assign({}, DEFAULTS, opts.params || {});
++  const themes = opts.themes || {};
++  const query = new URLSearchParams(location.search);
++
++  let dirty = true, dirtyUntil = 0, power = 0, animating = false;
++  let panel = null;
++  let alive = true;
++  const cleanups = [];
++  const listen = (target, ev, fn, o) => { target.addEventListener(ev, fn, o); cleanups.push(() => target.removeEventListener(ev, fn, o)); };
++  injectStyles();
++
++  // ---- theme ------------------------------------------------------------
++  let saved = null;
++  try { saved = localStorage.getItem('crt-theme'); } catch {}
++  let theme = query.get('theme') || opts.theme || saved || 'dark';
++  const userBase = Object.assign({}, DEFAULTS, opts.params || {});
++  function applyThemeParams(t) {
++    const base = Object.assign({}, userBase, t === 'light' ? LIGHT_ADJUST : {}, themes[t] || {});
++    for (const k in base) if (k in DEFAULTS) params[k] = base[k];
++  }
++  function setThemeAttr(t) {
++    theme = t;
++    document.documentElement.dataset.theme = t;
++    try { localStorage.setItem('crt-theme', t); } catch {}
++    applyThemeParams(t);
++    // Colours may be mid-transition for a while; keep repainting until they settle.
++    invalidate(800);
++    if (panel) panel.refresh();
++  }
++  setThemeAttr(theme);
++
++  // ---- canvases -----------------------------------------------------------
++  const canvas = document.createElement('canvas');
++  canvas.className = 'crt-canvas';
++  canvas.setAttribute('aria-hidden', 'true');
++  const host = container || document.body;
++  host.appendChild(canvas);
++  root.classList.add('crt-source');
++  if (container) container.classList.add('crt-container');
++
++  const crtOff = query.get('crt') === 'off';
++  const gl = crtOff ? null : canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false });
++  if (!gl) {
++    // Graceful fallback: just show the real page.
++    root.classList.remove('crt-source');
++    canvas.remove();
++    return { setTheme: setThemeAttr, toggleTheme: () => setThemeAttr(theme === 'dark' ? 'light' : 'dark'), invalidate: () => {}, params, get theme() { return theme; }, destroy() {} };
++  }
++
++  const scene = document.createElement('canvas');
++  const ctx = scene.getContext('2d', { alpha: false });
++
++  const program = link(gl, VERT, FRAG);
++  const vao = gl.createVertexArray();
++  gl.bindVertexArray(vao);
++  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
++  const U = {};
++  ['uTexture', 'uEnabled', 'scanlineIntensity', 'scanlineCount', 'time', 'yOffset', 'brightness', 'contrast',
++   'saturation', 'bloomIntensity', 'bloomThreshold', 'rgbShift', 'adaptiveIntensity', 'vignetteStrength',
++   'curvature', 'flickerStrength', 'uPower', 'uEdge'].forEach((n) => { U[n] = gl.getUniformLocation(program, n); });
++  const tex = gl.createTexture();
++  gl.bindTexture(gl.TEXTURE_2D, tex);
++  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
++  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
++
++  let dpr = 1, W = 0, H = 0, ox = 0, oy = 0;
++
++  function smoothing(on) {
++    ctx.imageSmoothingEnabled = on;
++    gl.bindTexture(gl.TEXTURE_2D, tex);
++    const f = on ? gl.LINEAR : gl.NEAREST;
++    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, f);
++    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f);
++  }
++
++  function resize() {
++    dpr = Math.min(window.devicePixelRatio || 1, 2);
++    const box = container ? container.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
++    W = Math.max(1, Math.round(box.width));
++    H = Math.max(1, Math.round(box.height));
++    canvas.width = scene.width = Math.floor(W * dpr);
++    canvas.height = scene.height = Math.floor(H * dpr);
++    canvas.style.width = W + 'px';
++    canvas.style.height = H + 'px';
++    gl.bindTexture(gl.TEXTURE_2D, tex);
++    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, scene.width, scene.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
++    smoothing(params.smoothing);
++    dirty = true;
++  }
++
++  // ---- DOM mirror -----------------------------------------------------------
++  const measureCache = new Map();
++  function metrics(font) {
++    let m = measureCache.get(font);
++    if (!m) {
++      ctx.font = font;
++      const t = ctx.measureText('Hg');
++      m = { asc: t.fontBoundingBoxAscent || t.actualBoundingBoxAscent || 0, desc: t.fontBoundingBoxDescent || t.actualBoundingBoxDescent || 0 };
++      measureCache.set(font, m);
++    }
++    return m;
++  }
++  function fontOf(cs) {
++    return `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
++  }
++  function transformText(s, mode) {
++    if (mode === 'uppercase') return s.toUpperCase();
++    if (mode === 'lowercase') return s.toLowerCase();
++    if (mode === 'capitalize') return s.replace(/\b\w/g, (c) => c.toUpperCase());
++    return s;
++  }
++
++  function paint() {
++    const baseRect = container ? container.getBoundingClientRect() : { left: 0, top: 0 };
++    ox = baseRect.left; oy = baseRect.top;
++    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
++    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || (theme === 'light' ? '#fff' : '#000');
++    ctx.fillStyle = bg;
++    ctx.fillRect(0, 0, W, H);
++    ctx.textBaseline = 'alphabetic';
++
++    const range = document.createRange();
++    const focused = document.activeElement;
++    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
++      acceptNode(n) {
++        if (n.nodeType === 1) {
++          if (n.classList.contains('crt-skip')) return NodeFilter.FILTER_REJECT;
++          const cs = getComputedStyle(n);
++          if (cs.display === 'none' || cs.visibility === 'hidden') return NodeFilter.FILTER_REJECT;
++          return NodeFilter.FILTER_ACCEPT;
++        }
++        return /\S/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
++      },
++    });
++
++    // Opacity is accumulated from ancestors (excluding root, which is 0).
++    const alphaOf = (el) => {
++      let a = 1;
++      for (let e = el; e && e !== root; e = e.parentElement) {
++        const o = parseFloat(getComputedStyle(e).opacity);
++        if (!isNaN(o)) a *= o;
++      }
++      return a;
++    };
++    const underlineOf = (el) => {
++      for (let e = el; e && e !== root; e = e.parentElement) {
++        const cs = getComputedStyle(e);
++        if (cs.textDecorationLine && cs.textDecorationLine.includes('underline')) return cs;
++      }
++      return null;
++    };
++
++    let n;
++    while ((n = walker.nextNode())) {
++      if (n.nodeType === 1) {
++        const cs = getComputedStyle(n);
++        const r = n.getBoundingClientRect();
++        if (r.width <= 0 || r.height <= 0) continue;
++        const x = r.left - ox, y = r.top - oy;
++        if (y > H || y + r.height < 0 || x > W || x + r.width < 0) continue;
++        const alpha = alphaOf(n);
++        const bgc = parseColor(cs.backgroundColor);
++        const radius = parseFloat(cs.borderTopLeftRadius) || 0;
++        if (bgc && bgc.a > 0) {
++          ctx.globalAlpha = alpha * bgc.a;
++          ctx.fillStyle = `rgb(${bgc.r},${bgc.g},${bgc.b})`;
++          ctx.beginPath();
++          if (ctx.roundRect) ctx.roundRect(x, y, r.width, r.height, radius); else ctx.rect(x, y, r.width, r.height);
++          ctx.fill();
++        }
++        if (n.tagName === 'IMG' && n.complete && n.naturalWidth) {
++          ctx.globalAlpha = alpha;
++          try { ctx.drawImage(n, x, y, r.width, r.height); } catch {}
++        }
++        const bw = parseFloat(cs.borderTopWidth) || 0;
++        const bc = parseColor(cs.borderTopColor);
++        if (bw > 0 && bc && bc.a > 0 && cs.borderTopStyle !== 'none') {
++          ctx.globalAlpha = alpha * bc.a;
++          ctx.strokeStyle = `rgb(${bc.r},${bc.g},${bc.b})`;
++          ctx.lineWidth = bw;
++          ctx.beginPath();
++          const sides = ['Top', 'Right', 'Bottom', 'Left'].map((s) => parseFloat(cs['border' + s + 'Width']) > 0);
++          if (sides.every(Boolean)) {
++            if (ctx.roundRect) ctx.roundRect(x + bw / 2, y + bw / 2, r.width - bw, r.height - bw, Math.max(0, radius - bw / 2)); else ctx.rect(x + bw / 2, y + bw / 2, r.width - bw, r.height - bw);
++          } else {
++            if (sides[0]) { ctx.moveTo(x, y + bw / 2); ctx.lineTo(x + r.width, y + bw / 2); }
++            if (sides[2]) { ctx.moveTo(x, y + r.height - bw / 2); ctx.lineTo(x + r.width, y + r.height - bw / 2); }
++            if (sides[3]) { ctx.moveTo(x + bw / 2, y); ctx.lineTo(x + bw / 2, y + r.height); }
++            if (sides[1]) { ctx.moveTo(x + r.width - bw / 2, y); ctx.lineTo(x + r.width - bw / 2, y + r.height); }
++          }
++          ctx.stroke();
++        }
++        if ((n.tagName === 'INPUT' || n.tagName === 'TEXTAREA') && r.left - ox < W && r.right - ox > 0) {
++          drawField(n, cs, r, x, y, alpha, n === focused);
++        }
++        if (n === focused && n.matches(':focus-visible') && n.tagName !== 'INPUT' && n.tagName !== 'TEXTAREA') {
++          ctx.globalAlpha = 1;
++          ctx.strokeStyle = cs.color;
++          ctx.lineWidth = 1.5;
++          ctx.setLineDash([3, 3]);
++          ctx.strokeRect(x - 3, y - 3, r.width + 6, r.height + 6);
++          ctx.setLineDash([]);
++        }
++        continue;
++      }
++
++      // Text node: paint word by word at the browser's own positions.
++      const el = n.parentElement;
++      const cs = getComputedStyle(el);
++      const font = fontOf(cs);
++      const col = parseColor(cs.color);
++      if (!col || col.a === 0) continue;
++      const alpha = alphaOf(el) * col.a;
++      if (alpha <= 0) continue;
++      const m = metrics(font);
++      ctx.font = font;
++      ctx.fillStyle = `rgb(${col.r},${col.g},${col.b})`;
++      ctx.globalAlpha = alpha;
++      if ('letterSpacing' in ctx) ctx.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
++      const ul = underlineOf(el);
++      const text = n.nodeValue;
++      const re = /\S+/g;
++      let match;
++      while ((match = re.exec(text))) {
++        range.setStart(n, match.index);
++        range.setEnd(n, match.index + match[0].length);
++        const rects = range.getClientRects();
++        if (!rects.length) continue;
++        if (rects.length === 1) {
++          drawRun(rects[0], transformText(match[0], cs.textTransform), m, ul, cs);
++        } else {
++          // The word wrapped mid-way (a long URL): fall back to per character.
++          for (let i = 0; i < match[0].length; i++) {
++            range.setStart(n, match.index + i);
++            range.setEnd(n, match.index + i + 1);
++            const rr = range.getClientRects();
++            if (rr.length) drawRun(rr[0], transformText(match[0][i], cs.textTransform), m, ul, cs);
++          }
++        }
++      }
++    }
++    ctx.globalAlpha = 1;
++    if (opts.draw) opts.draw(ctx, W, H, performance.now() / 1000, theme);
++  }
++
++  // Inputs and textareas have no text nodes, so their value, placeholder
++  // and caret are painted by hand inside the element's content box.
++  const TEXT_INPUTS = /^(text|email|search|url|tel|password|number|)$/;
++  function drawField(n, cs, r, x, y, alpha, focused) {
++    if (n.tagName === 'INPUT' && !TEXT_INPUTS.test(n.type)) return;
++    const font = fontOf(cs);
++    const m = metrics(font);
++    const padL = parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth);
++    const padR = parseFloat(cs.paddingRight) + parseFloat(cs.borderRightWidth);
++    const padT = parseFloat(cs.paddingTop) + parseFloat(cs.borderTopWidth);
++    const padB = parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth);
++    const cw = r.width - padL - padR, ch = r.height - padT - padB;
++    let value = n.type === 'password' ? '•'.repeat(n.value.length) : n.value;
++    let color = cs.color;
++    if (!value && n.placeholder) {
++      value = n.placeholder;
++      let pc = null;
++      try { pc = getComputedStyle(n, '::placeholder').color; } catch {}
++      color = pc && pc !== cs.color ? pc : null;
++    }
++    const col = parseColor(color || cs.color);
++    if (!col) return;
++    ctx.save();
++    ctx.beginPath();
++    ctx.rect(x + padL - 1, y + padT - 1, cw + 2, ch + 2);
++    ctx.clip();
++    ctx.font = font;
++    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
++    ctx.fillStyle = `rgb(${col.r},${col.g},${col.b})`;
++    ctx.globalAlpha = alpha * (color ? col.a : col.a * 0.5);
++    const lh = parseFloat(cs.lineHeight) || (m.asc + m.desc) * 1.2;
++    const showCaret = focused && !reduceMotion() ? Math.floor(performance.now() / 530) % 2 === 0 : focused;
++    const caretColor = parseColor(cs.color);
++    let caretX, caretY;
++    if (n.tagName === 'TEXTAREA') {
++      const lines = [];
++      for (const para of value.split('\n')) {
++        let line = '';
++        for (const word of para.split(' ')) {
++          const test = line ? line + ' ' + word : word;
++          if (line && ctx.measureText(test).width > cw) { lines.push(line); line = word; } else line = test;
++        }
++        lines.push(line);
++      }
++      const top = y + padT - n.scrollTop;
++      lines.forEach((line, i) => {
++        const base = top + i * lh + (lh - (m.asc + m.desc)) / 2 + m.asc;
++        ctx.fillText(line, x + padL, base);
++        if (i === lines.length - 1) { caretX = x + padL + ctx.measureText(n.value ? line : '').width; caretY = base; }
++      });
++    } else {
++      const base = y + padT + (ch - (m.asc + m.desc)) / 2 + m.asc;
++      const w = ctx.measureText(value).width;
++      const shift = n.value && w > cw ? cw - w : 0;   // keep the end visible while typing
++      ctx.fillText(value, x + padL + shift, base);
++      caretX = x + padL + (n.value ? w + shift : 0); caretY = base;
++    }
++    if (showCaret && caretColor && caretX !== undefined) {
++      ctx.globalAlpha = alpha;
++      ctx.fillStyle = `rgb(${caretColor.r},${caretColor.g},${caretColor.b})`;
++      ctx.fillRect(caretX + 1, caretY - m.asc, 1.5, m.asc + m.desc);
++    }
++    ctx.restore();
++  }
++
++  function drawRun(r, str, m, ul, cs) {
++    const x = r.left - ox;
++    const top = r.top - oy;
++    if (top > H || top + r.height < 0) return;
++    const content = m.asc + m.desc;
++    const baseline = top + (content > 0 ? (r.height - content) / 2 + m.asc : r.height * 0.8);
++    // Canvas and DOM can disagree on glyph advances by a pixel or two per
++    // word (hinting, subpixel positioning). Fit the run to the DOM width.
++    const w = ctx.measureText(str).width;
++    if (w > 0 && Math.abs(w - r.width) > 0.4) {
++      ctx.save();
++      ctx.translate(x, baseline);
++      ctx.scale(r.width / w, 1);
++      ctx.fillText(str, 0, 0);
++      ctx.restore();
++    } else {
++      ctx.fillText(str, x, baseline);
++    }
++    if (ul) {
++      const th = parseFloat(ul.textDecorationThickness) || Math.max(1, parseFloat(cs.fontSize) / 16);
++      ctx.fillRect(x, baseline + Math.max(1.5, th), r.width, th);
++    }
++  }
++
++  // ---- invalidation -----------------------------------------------------
++  function invalidate(ms) {
++    dirty = true;
++    if (ms) dirtyUntil = Math.max(dirtyUntil, performance.now() + ms);
++  }
++  listen(window, 'resize', resize, { passive: true });
++  listen(document, 'scroll', () => invalidate(), { passive: true, capture: true });
++  ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout', 'keydown', 'input', 'change'].forEach((ev) =>
++    listen(root, ev, () => invalidate(450), { passive: true }));
++  // CSS transitions change computed colours over time without any DOM event
++  // we would otherwise see, so follow them frame by frame.
++  ['transitionstart', 'transitionend', 'transitioncancel', 'animationstart', 'animationend'].forEach((ev) =>
++    listen(root, ev, () => invalidate(600), { passive: true }));
++  const mo = new MutationObserver(() => invalidate(50));
++  mo.observe(root, { subtree: true, childList: true, characterData: true, attributes: true });
++  cleanups.push(() => mo.disconnect());
++  const caretTimer = setInterval(() => {
++    const a = document.activeElement;
++    if (a && root.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) invalidate();
++  }, 265);
++  cleanups.push(() => clearInterval(caretTimer));
++  if (document.fonts) {
++    document.fonts.ready.then(() => { measureCache.clear(); invalidate(); });
++    listen(document.fonts, 'loadingdone', () => { measureCache.clear(); invalidate(); });
++  }
++
++  // ---- render loop -------------------------------------------------------
++  function frame(ts) {
++    if (!alive) return;
++    const t = ts / 1000;
++    if (dirty || ts < dirtyUntil) {
++      paint();
++      gl.bindTexture(gl.TEXTURE_2D, tex);
++      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, scene);
++      dirty = false;
++    }
++    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
++    gl.useProgram(program);
++    gl.bindVertexArray(vao);
++    gl.activeTexture(gl.TEXTURE0);
++    gl.bindTexture(gl.TEXTURE_2D, tex);
++    gl.uniform1i(U.uTexture, 0);
++    gl.uniform1i(U.uEnabled, params.enabled ? 1 : 0);
++    gl.uniform1f(U.scanlineIntensity, params.scanlineIntensity);
++    gl.uniform1f(U.scanlineCount, params.scanlineCount > 0 ? params.scanlineCount : Math.round(H / 3));
++    gl.uniform1f(U.time, t);
++    gl.uniform1f(U.yOffset, 0);
++    gl.uniform1f(U.brightness, params.brightness);
++    gl.uniform1f(U.contrast, params.contrast);
++    gl.uniform1f(U.saturation, params.saturation);
++    gl.uniform1f(U.bloomIntensity, params.bloomIntensity);
++    gl.uniform1f(U.bloomThreshold, params.bloomThreshold);
++    gl.uniform1f(U.rgbShift, params.rgbShift);
++    gl.uniform1f(U.adaptiveIntensity, params.adaptiveIntensity);
++    gl.uniform1f(U.vignetteStrength, params.vignetteStrength);
++    gl.uniform1f(U.curvature, params.curvature);
++    gl.uniform1f(U.flickerStrength, reduceMotion() ? 0 : params.flickerStrength);
++    gl.uniform1f(U.uPower, power);
++    gl.uniform3f(U.uEdge, 0, 0, 0);
++    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
++    requestAnimationFrame(frame);
++  }
++
++  // ---- power animation (used by theme switch) ------------------------------
++  function tween(from, to, ms, ease) {
++    return new Promise((res) => {
++      const start = performance.now();
++      (function step(now) {
++        const k = clamp((now - start) / ms, 0, 1);
++        power = from + (to - from) * ease(k);
++        if (k < 1) requestAnimationFrame(step); else res();
++      })(start);
++    });
++  }
++  const easeIn = (k) => k * k * k;
++  const easeOut = (k) => 1 - Math.pow(1 - k, 3);
++
++  async function setTheme(t, animate = true) {
++    if (t === theme || animating) return;
++    if (!animate || reduceMotion()) { setThemeAttr(t); return; }
++    animating = true;
++    await tween(0, 1, 260, easeIn);
++    await tween(1, 2, 160, easeIn);
++    setThemeAttr(t);
++    paint();
++    await new Promise((r) => setTimeout(r, 120));
++    await tween(2, 1, 180, easeOut);
++    await tween(1, 0, 320, easeOut);
++    animating = false;
++  }
++  async function powerOn() {
++    if (reduceMotion()) return;
++    power = 2;
++    await new Promise((r) => setTimeout(r, 80));
++    await tween(2, 1, 200, easeOut);
++    await tween(1, 0, 380, easeOut);
++  }
++
++  // ---- tuning panel ---------------------------------------------------------
++  function buildPanel() {
++    const el = document.createElement('div');
++    el.className = 'crt-panel crt-skip';
++    el.innerHTML = '<div class="crt-panel-head"><strong>CRT</strong><span>press T to hide</span></div>';
++    const rows = {};
++    const add = (k) => {
++      const [min, max, step] = RANGES[k];
++      const row = document.createElement('label');
++      row.innerHTML = `<span>${k}</span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
++      const input = row.querySelector('input'), out = row.querySelector('output');
++      input.addEventListener('input', () => { params[k] = parseFloat(input.value); out.textContent = input.value; dirty = true; });
++      el.appendChild(row);
++      rows[k] = { input, out };
++    };
++    Object.keys(RANGES).forEach(add);
++    const tog = document.createElement('label');
++    tog.innerHTML = '<span>enabled</span><input type="checkbox"><output></output>';
++    tog.querySelector('input').addEventListener('change', (e) => { params.enabled = e.target.checked; });
++    el.appendChild(tog);
++    const sm = document.createElement('label');
++    sm.innerHTML = '<span>smoothing</span><input type="checkbox"><output></output>';
++    sm.querySelector('input').addEventListener('change', (e) => { params.smoothing = e.target.checked; smoothing(params.smoothing); dirty = true; });
++    el.appendChild(sm);
++    const btns = document.createElement('div');
++    btns.className = 'crt-panel-btns';
++    btns.innerHTML = '<button type="button" data-a="theme">invert</button><button type="button" data-a="copy">copy params</button><button type="button" data-a="reset">reset</button>';
++    btns.addEventListener('click', (e) => {
++      const a = e.target.dataset.a;
++      if (a === 'theme') api.toggleTheme();
++      if (a === 'reset') { applyThemeParams(theme); dirty = true; refresh(); }
++      if (a === 'copy') {
++        const out = {}; for (const k in RANGES) out[k] = params[k];
++        const s = JSON.stringify(out, null, 2);
++        try { navigator.clipboard.writeText(s); } catch {}
++        e.target.textContent = 'copied'; setTimeout(() => (e.target.textContent = 'copy params'), 900);
++      }
++    });
++    el.appendChild(btns);
++    function refresh() {
++      for (const k in rows) { rows[k].input.value = params[k]; rows[k].out.textContent = params[k]; }
++      tog.querySelector('input').checked = params.enabled;
++      sm.querySelector('input').checked = params.smoothing;
++    }
++    refresh();
++    document.body.appendChild(el);
++    return { el, refresh };
++  }
++  listen(document, 'keydown', (e) => {
++    if (e.key.toLowerCase() === 't' && !e.metaKey && !e.ctrlKey && !e.altKey && !/input|textarea/i.test(document.activeElement.tagName)) {
++      if (!panel) panel = buildPanel(); else panel.el.hidden = !panel.el.hidden;
++    }
++  });
++  if (opts.tune || query.get('tune') === '1') panel = buildPanel();
++
++  // ---- go -----------------------------------------------------------------
++  resize();
++  requestAnimationFrame(frame);
++  if (opts.powerOn !== false && !query.has('theme')) powerOn();
++
++  const api = {
++    setTheme,
++    toggleTheme: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
++    invalidate,
++    params,
++    get theme() { return theme; },
++    destroy() {
++      alive = false;
++      cleanups.forEach((fn) => fn());
++      canvas.remove();
++      if (panel) panel.el.remove();
++      root.classList.remove('crt-source');
++      if (container) container.classList.remove('crt-container');
++      try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch {}
++    },
++  };
++  return api;
++}
++
++function link(gl, vs, fs) {
++  const compile = (type, src) => {
++    const s = gl.createShader(type);
++    gl.shaderSource(s, src);
++    gl.compileShader(s);
++    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
++    return s;
++  };
++  const p = gl.createProgram();
++  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
++  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
++  gl.linkProgram(p);
++  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
++  return p;
++}
++
++// Base styles the engine needs. Pages add their own on top.
++function injectStyles() {
++  if (document.getElementById('crt-base-style')) return;
++  const style = document.createElement('style');
++  style.id = 'crt-base-style';
++  style.textContent = `
++  .crt-source { opacity: 0 !important; }
++  .crt-source ::selection { background: transparent; }
++  .crt-canvas { position: fixed; inset: 0; display: block; pointer-events: none; z-index: 5; }
++  .crt-container { position: relative; }
++  .crt-container > .crt-canvas { position: absolute; }
++  .crt-panel { position: fixed; right: 12px; top: 12px; z-index: 50; width: 260px; padding: 10px 12px 12px; background: rgba(20,20,20,.92);
++    color: #ddd; font: 11px/1.5 ui-monospace, Menlo, Consolas, monospace; border: 1px solid rgba(255,255,255,.15); border-radius: 6px;
++    backdrop-filter: blur(6px); max-height: calc(100vh - 24px); overflow: auto; }
++  .crt-panel-head { display: flex; justify-content: space-between; margin-bottom: 6px; }
++  .crt-panel-head span { color: #888; }
++  .crt-panel label { display: grid; grid-template-columns: 96px 1fr 44px; gap: 8px; align-items: center; }
++  .crt-panel input[type=range] { width: 100%; accent-color: #fff; }
++  .crt-panel output { text-align: right; color: #aaa; font-variant-numeric: tabular-nums; }
++  .crt-panel-btns { display: flex; gap: 6px; margin-top: 8px; }
++  .crt-panel-btns button { flex: 1; font: inherit; color: #ddd; background: #333; border: 1px solid #555; border-radius: 4px; padding: 4px 6px; cursor: pointer; }
++  .crt-panel-btns button:hover { background: #444; }
++`;
++  document.head.appendChild(style);
++}
++
+-- 
+2.43.0
+
