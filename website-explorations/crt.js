@@ -215,7 +215,7 @@
 
     // ---- theme ------------------------------------------------------------
     let saved = null;
-    try { saved = localStorage.getItem('crt-theme'); } catch (e) {}
+    try { saved = localStorage.getItem('crt-theme'); } catch {}
     let theme = query.get('theme') || opts.theme || saved || 'dark';
     const userBase = Object.assign({}, DEFAULTS, opts.params || {});
     function applyThemeParams(t) {
@@ -225,7 +225,7 @@
     function setThemeAttr(t) {
       theme = t;
       document.documentElement.dataset.theme = t;
-      try { localStorage.setItem('crt-theme', t); } catch (e) {}
+      try { localStorage.setItem('crt-theme', t); } catch {}
       applyThemeParams(t);
       // Colours may be mid-transition for a while; keep repainting until they settle.
       invalidate(800);
@@ -374,7 +374,7 @@
           }
           if (n.tagName === 'IMG' && n.complete && n.naturalWidth) {
             ctx.globalAlpha = alpha;
-            try { ctx.drawImage(n, x, y, r.width, r.height); } catch (e) {}
+            try { ctx.drawImage(n, x, y, r.width, r.height); } catch {}
           }
           const bw = parseFloat(cs.borderTopWidth) || 0;
           const bc = parseColor(cs.borderTopColor);
@@ -464,7 +464,7 @@
       if (!value && n.placeholder) {
         value = n.placeholder;
         let pc = null;
-        try { pc = getComputedStyle(n, '::placeholder').color; } catch (e) {}
+        try { pc = getComputedStyle(n, '::placeholder').color; } catch {}
         color = pc && pc !== cs.color ? pc : null;
       }
       const col = parseColor(color || cs.color);
@@ -563,7 +563,6 @@
     }
 
     // ---- render loop -------------------------------------------------------
-    let last = 0;
     function frame(ts) {
       if (!alive) return;
       const t = ts / 1000;
@@ -597,7 +596,6 @@
       gl.uniform1f(U.uPower, power);
       gl.uniform3f(U.uEdge, 0, 0, 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      last = ts;
       requestAnimationFrame(frame);
     }
 
@@ -670,7 +668,7 @@
         if (a === 'copy') {
           const out = {}; for (const k in RANGES) out[k] = params[k];
           const s = JSON.stringify(out, null, 2);
-          try { navigator.clipboard.writeText(s); } catch (err) {}
+          try { navigator.clipboard.writeText(s); } catch {}
           e.target.textContent = 'copied'; setTimeout(() => (e.target.textContent = 'copy params'), 900);
         }
       });
@@ -709,7 +707,7 @@
         if (panel) panel.el.remove();
         root.classList.remove('crt-source');
         if (container) container.classList.remove('crt-container');
-        try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) {}
+        try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch {}
       },
     };
     return api;
