@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aperture</title>
+<meta name="description" content="Two nested lattice shells with a travelling cut, drawn through a CRT.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap">
+<style>
+  /*
+    Aperture — a code-art object.
+
+    Two spherical lattices of points, one inside the other, turning against
+    each other. A rectangular cut travels over the outer shell and breathes
+    open and shut; through it you see the inner shell, which carries its own
+    cut on the far side. The whole scene is rendered to a texture and pushed
+    through the same Serenity CRT shader used on the ztwalsh.com explorations
+    (scanlines, bloom, curvature, vignette, flicker, power collapse).
+
+    Controls
+      drag / swipe   turn the object (it keeps its momentum)
+      invert / I     black-on-white <-> white-on-black, through a power cycle
+      space          pause
+      ?theme=light   open inverted, skipping the power-on
+      ?crt=off       raw points, no tube
+  */
+  :root {
+    --bg: #000;
+    --ink: #fff;
+    --muted: rgba(255, 255, 255, 0.62);
+    --faint: rgba(255, 255, 255, 0.36);
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #fff;
+    --ink: #000;
+    --muted: rgba(0, 0, 0, 0.72);
+    --faint: rgba(0, 0, 0, 0.5);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #000; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #stage {
+    position: fixed; inset: 0; display: block; width: 100%; height: 100%;
+    cursor: grab;
+  }
+  #stage.dragging { cursor: grabbing; }
+  /* The real controls stay in the DOM for clicks, focus and screen readers,
+     but are drawn by the overlay so they pass through the tube too. */
+  .ui {
+    position: fixed; z-index: 2; opacity: 0;
+    font: inherit; color: inherit; letter-spacing: inherit; text-transform: uppercase;
+    background: none; border: 0; cursor: pointer; padding: 8px;
+  }
+  .ui:focus-visible { opacity: 1; outline: 1px dashed var(--ink); outline-offset: 2px; }
+  #invert { right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #fallback {
+    position: fixed; inset: 0; display: none; place-items: center; text-align: center;
+    padding: 24px; color: var(--muted); line-height: 1.7;
+  }
+  #fallback.show { display: grid; }
+</style>
+</head>
+<body>
+<h1 class="sr-only">Aperture</h1>
+<canvas id="stage" aria-label="Aperture: two nested lattice spheres with a travelling cut, rendered through a CRT shader"></canvas>
+<button class="ui" id="invert" type="button" aria-label="Invert colours">invert</button>
+<div id="fallback">This piece needs WebGL2.<br>Open it in a current browser.</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------------
+  // CRT parameters: the Serenity presets used on the ztwalsh.com explorations.
+  // ---------------------------------------------------------------------
+  const DEFAULTS = {
+    scanlineIntensity: 0.35,
+    scanlineCount: 0,            // 0 = one line per 3 CSS px of height
+    adaptiveIntensity: 0.3,
+    brightness: 1.25,
+    contrast: 1.05,
+    saturation: 1.1,
+    bloomIntensity: 0.4,
+    bloomThreshold: 0.5,
+    rgbShift: 0.2,
+    vignetteStrength: 0.35,
+    curvature: 0.1,
+    flickerStrength: 0.01,
+  };
+  const LIGHT_ADJUST = {
+    brightness: 1.0,
+    contrast: 1.08,
+    scanlineIntensity: 0.2,
+    bloomIntensity: 0.12,
+    rgbShift: 0.15,
+  };
+
+  // ---------------------------------------------------------------------
+  // The object.
+  // ---------------------------------------------------------------------
+  const OUTER = { rings: 88, perRing: 176, radius: 1.0 };
+  const INNER = { rings: 56, perRing: 112, radius: 0.56 };
+  const PERSIST = 0.42;          // phosphor persistence: how much of the last frame survives
+  const CAM_DIST = 3.4;
+  const FOV_DEG = 28;
+
+  const PI = Math.PI;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const query = new URLSearchParams(location.search);
+
+  const canvas = document.getElementById('stage');
+  const invertBtn = document.getElementById('invert');
+  const crtOff = query.get('crt') === 'off';
+  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false });
+  if (!gl) {
+    document.getElementById('fallback').classList.add('show');
+    return;
+  }
+
+  // ---- shaders ----------------------------------------------------------
+  const POINT_VERT = `#version 300 es
+    precision highp float;
+    in vec3 aData;                 // latitude, azimuth, shell (0 outer, 1 inner)
+    uniform mat3 uRotOuter, uRotInner;
+    uniform vec4 uApOuter, uApInner;   // gap azimuth, band centre (lat), band half-height, slot half-width
+    uniform float uInnerR, uAspect, uScale, uBaseSize, uDpr, uCamD, uFocal;
+    out float vAlpha;
+    out float vRim;
+    const float PI = 3.14159265;
+
+    // A rectangular slot cut through the front of a shell. On each ring the
+    // gap is the arc whose chord is narrower than the slot, so rings narrower
+    // than the slot lose their whole front half. Returns the gap half-angle.
+    float gapHalf(vec4 ap, float lat) {
+      float band = 1.0 - smoothstep(ap.z - 0.04, ap.z, abs(lat - ap.y));
+      return asin(clamp(ap.w / max(cos(lat), 1e-4), 0.0, 1.0)) * band;
+    }
+    float gapDist(vec4 ap, float phi) {
+      return abs(mod(phi - ap.x + PI, 2.0 * PI) - PI);
+    }
+
+    void main() {
+      float lat = aData.x, phi = aData.y;
+      bool outer = aData.z < 0.5;
+      vec4 ap = outer ? uApOuter : uApInner;
+      float R = outer ? 1.0 : uInnerR;
+      float r = cos(lat);
+
+      float w = gapHalf(ap, lat);
+      float edge = gapDist(ap, phi) - w;
+      bool hidden = w > 0.0 && edge < 0.0;
+      float rim = w > 0.0 ? 1.0 - smoothstep(0.0, 0.26, edge) : 0.0;
+
+      vec3 p = vec3(r * cos(phi), sin(lat), r * sin(phi)) * R;
+      p = (outer ? uRotOuter : uRotInner) * p;
+
+      // The inner shell only lights up where the outer cut exposes it: find
+      // the outer-shell point in front of this one and ask if it was cut away.
+      float window = 1.0;
+      if (!outer) {
+        vec2 xy = p.xy;
+        vec3 front = vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
+        vec3 q = transpose(uRotOuter) * front;
+        float latO = asin(clamp(q.y, -1.0, 1.0));
+        float phiO = atan(q.z, q.x);
+        float wO = gapHalf(uApOuter, latO);
+        window = wO > 0.0 ? smoothstep(-0.06, 0.06, wO - gapDist(uApOuter, phiO)) : 0.0;
+      }
+
+      float z = uCamD - p.z;
+      vec2 ndc = p.xy * uFocal / z;
+      ndc.x /= uAspect;
+      ndc *= uScale;
+      gl_Position = vec4(ndc, 0.0, 1.0);
+
+      float near = clamp(p.z / R * 0.5 + 0.5, 0.0, 1.0);
+      float size = uBaseSize * (0.72 + 0.55 * near) * (uCamD / z);
+      float shellMix = outer ? 1.0 : mix(0.14, 0.95, window);
+      gl_PointSize = hidden ? 0.0 : size * uDpr;
+      vAlpha = hidden ? 0.0 : mix(0.22, 1.0, near * near) * shellMix;
+      vRim = rim * (outer ? 1.0 : window);
+    }
+  `;
+  const POINT_FRAG = `#version 300 es
+    precision highp float;
+    in float vAlpha;
+    in float vRim;
+    uniform vec3 uInk;
+    out vec4 fragColor;
+    void main() {
+      vec2 c = gl_PointCoord * 2.0 - 1.0;
+      float d = dot(c, c);
+      if (d > 1.0) discard;
+      float a = (1.0 - smoothstep(0.45, 1.0, d)) * vAlpha * (1.0 + vRim * 0.9);
+      a = min(a, 1.0);
+      fragColor = vec4(uInk * a, a);      // premultiplied
+    }
+  `;
+  const QUAD_VERT = `#version 300 es
+    precision highp float;
+    const vec2 pos[4] = vec2[4](vec2(-1.,-1.), vec2(1.,-1.), vec2(-1.,1.), vec2(1.,1.));
+    const vec2 uvs[4] = vec2[4](vec2(0.,0.), vec2(1.,0.), vec2(0.,1.), vec2(1.,1.));
+    out vec2 vUv;
+    void main() { vUv = uvs[gl_VertexID]; gl_Position = vec4(pos[gl_VertexID], 0., 1.); }
+  `;
+  // Phosphor fade: paints the ground over the previous frame at partial alpha.
+  const FADE_FRAG = `#version 300 es
+    precision highp float;
+    uniform vec4 uColor;
+    out vec4 fragColor;
+    void main() { fragColor = vec4(uColor.rgb * uColor.a, uColor.a); }
+  `;
+  // Serenity CRT (MIT, Matt Sephton) with uPower / uEdge, plus an overlay
+  // texture for the captions so they ride the tube with everything else.
+  const CRT_FRAG = `#version 300 es
+    precision highp float;
+    uniform sampler2D uTexture, uOverlay;
+    uniform bool uEnabled;
+    uniform float scanlineIntensity, scanlineCount, time, yOffset, brightness, contrast,
+                  saturation, bloomIntensity, bloomThreshold, rgbShift, adaptiveIntensity,
+                  vignetteStrength, curvature, flickerStrength, uPower;
+    uniform vec3 uEdge;
+    in vec2 vUv;
+    out vec4 fragColor;
+
+    const float PI = 3.14159265;
+    const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+    const float BLOOM_THRESHOLD_FACTOR = 0.5;
+    const float BLOOM_FACTOR_MULT = 1.5;
+    const float RGB_SHIFT_SCALE = 0.005;
+    const float RGB_SHIFT_INTENSITY = 0.08;
+
+    vec4 scene(vec2 uv) {
+      vec4 s = texture(uTexture, uv);
+      vec4 o = texture(uOverlay, uv);
+      return vec4(mix(s.rgb, o.rgb, o.a), 1.0);
+    }
+    vec2 curveRemapUV(vec2 uv, float c) {
+      vec2 coords = uv * 2.0 - 1.0;
+      float dist = dot(coords, coords);
+      coords = coords * (1.0 + dist * c * 0.25);
+      return coords * 0.5 + 0.5;
+    }
+    vec4 sampleBloom(vec2 uv, float radius, vec4 centre) {
+      vec2 o = vec2(radius);
+      vec4 c = centre * 0.4;
+      vec4 cross = (scene(uv + vec2(o.x, 0.)) + scene(uv - vec2(o.x, 0.)) +
+                    scene(uv + vec2(0., o.y)) + scene(uv - vec2(0., o.y))) * 0.15;
+      return c + cross;
+    }
+    float vignetteApprox(vec2 uv, float s) {
+      vec2 v = uv * 2.0 - 1.0;
+      float d = max(abs(v.x), abs(v.y));
+      return 1.0 - d * d * s;
+    }
+    void main() {
+      if (!uEnabled) { fragColor = scene(vUv); return; }
+      vec2 uv = vUv;
+
+      // Power collapse: 0 = on, 1 = squashed to a line, 2 = gone.
+      if (uPower > 0.001) {
+        float sy = 1.0 - clamp(uPower, 0.0, 1.0) * 0.995;
+        float sx = 1.0 - clamp(uPower - 1.0, 0.0, 1.0) * 0.995;
+        uv = (uv - 0.5) / vec2(sx, sy) + 0.5;
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
+      }
+      if (curvature > 0.001) {
+        uv = curveRemapUV(uv, curvature);
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
+      }
+
+      vec4 pixel = scene(uv);
+
+      if (bloomIntensity > 0.001) {
+        float lum = dot(pixel.rgb, LUMA);
+        if (lum > bloomThreshold * BLOOM_THRESHOLD_FACTOR) {
+          vec4 b = sampleBloom(uv, 0.005, pixel);
+          b.rgb *= brightness;
+          float bl = dot(b.rgb, LUMA);
+          float f = bloomIntensity * max(0.0, (bl - bloomThreshold) * BLOOM_FACTOR_MULT);
+          pixel.rgb += b.rgb * f;
+        }
+      }
+      if (rgbShift > 0.005) {
+        float s = rgbShift * RGB_SHIFT_SCALE;
+        pixel.r += (scene(vec2(uv.x + s, uv.y)).r - pixel.r) * RGB_SHIFT_INTENSITY * 3.0;
+        pixel.b += (scene(vec2(uv.x - s, uv.y)).b - pixel.b) * RGB_SHIFT_INTENSITY * 3.0;
+      }
+      pixel.rgb *= brightness;
+      float luminance = dot(pixel.rgb, LUMA);
+      pixel.rgb = (pixel.rgb - 0.5) * contrast + 0.5;
+      pixel.rgb = mix(vec3(luminance), pixel.rgb, saturation);
+
+      float mask = 1.0;
+      if (scanlineIntensity > 0.001) {
+        float y = (uv.y + yOffset) * scanlineCount;
+        float pattern = abs(sin(y * PI));
+        float adaptive = 1.0;
+        if (adaptiveIntensity > 0.001) {
+          float yp = sin(uv.y * 30.0) * 0.5 + 0.5;
+          adaptive = 1.0 - yp * adaptiveIntensity * 0.2;
+        }
+        mask *= 1.0 - pattern * scanlineIntensity * adaptive;
+      }
+      if (flickerStrength > 0.001) mask *= 1.0 + sin(time * 110.0) * flickerStrength;
+      if (vignetteStrength > 0.001) mask *= vignetteApprox(uv, vignetteStrength);
+      pixel.rgb *= mask;
+      pixel.rgb *= 1.0 + uPower * 1.2;
+      fragColor = vec4(pixel.rgb, 1.0);
+    }
+  `;
+
+  function link(vs, fs) {
+    const compile = (type, src) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+  function uniforms(program, names) {
+    const U = {};
+    names.forEach((n) => { U[n] = gl.getUniformLocation(program, n); });
+    return U;
+  }
+
+  const pointProg = link(POINT_VERT, POINT_FRAG);
+  const PU = uniforms(pointProg, ['uRotOuter', 'uRotInner', 'uApOuter', 'uApInner', 'uInnerR', 'uAspect', 'uScale', 'uBaseSize', 'uDpr', 'uCamD', 'uFocal', 'uInk']);
+  const fadeProg = link(QUAD_VERT, FADE_FRAG);
+  const FU = uniforms(fadeProg, ['uColor']);
+  const crtProg = link(QUAD_VERT, CRT_FRAG);
+  const CU = uniforms(crtProg, ['uTexture', 'uOverlay', 'uEnabled', 'scanlineIntensity', 'scanlineCount', 'time', 'yOffset', 'brightness', 'contrast',
+    'saturation', 'bloomIntensity', 'bloomThreshold', 'rgbShift', 'adaptiveIntensity', 'vignetteStrength', 'curvature', 'flickerStrength', 'uPower', 'uEdge']);
+
+  // ---- geometry: two latitude/longitude lattices ------------------------------
+  function lattice(spec, shell, out) {
+    for (let i = 0; i < spec.rings; i++) {
+      const lat = -PI / 2 + ((i + 0.5) / spec.rings) * PI;
+      const stagger = (i % 2) * 0.5;
+      for (let j = 0; j < spec.perRing; j++) {
+        out.push(lat, ((j + stagger) / spec.perRing) * 2 * PI, shell);
+      }
+    }
+  }
+  const data = [];
+  lattice(OUTER, 0, data);
+  lattice(INNER, 1, data);
+  const POINT_COUNT = data.length / 3;
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const vbo = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+  const aData = gl.getAttribLocation(pointProg, 'aData');
+  gl.enableVertexAttribArray(aData);
+  gl.vertexAttribPointer(aData, 3, gl.FLOAT, false, 0, 0);
+  const quadVao = gl.createVertexArray();
+
+  // ---- render target + overlay texture ------------------------------------
+  const sceneTex = gl.createTexture();
+  const fbo = gl.createFramebuffer();
+  const overlayTex = gl.createTexture();
+  const overlay = document.createElement('canvas');
+  const octx = overlay.getContext('2d');
+  for (const t of [sceneTex, overlayTex]) {
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  }
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+  // ---- theme ----------------------------------------------------------------
+  const params = Object.assign({}, DEFAULTS);
+  let theme = 'dark';
+  let ink = [1, 1, 1], bg = [0, 0, 0];
+  function applyTheme(t) {
+    theme = t;
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('aperture-theme', t); } catch (e) {}
+    Object.assign(params, DEFAULTS, t === 'light' ? LIGHT_ADJUST : {});
+    ink = t === 'light' ? [0, 0, 0] : [1, 1, 1];
+    bg = t === 'light' ? [1, 1, 1] : [0, 0, 0];
+    drawOverlay();
+    clearScene();
+  }
+
+  // ---- sizing -----------------------------------------------------------------
+  let dpr = 1, W = 1, H = 1, targetReady = false;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(1, Math.round(window.innerWidth));
+    H = Math.max(1, Math.round(window.innerHeight));
+    canvas.width = overlay.width = Math.floor(W * dpr);
+    canvas.height = overlay.height = Math.floor(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    targetReady = true;
+    drawOverlay();
+    clearScene();
+  }
+  function clearScene() {
+    if (!targetReady) return;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(bg[0], bg[1], bg[2], 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  // The captions, painted once per theme/resize and composited before the tube.
+  function drawOverlay() {
+    const c = octx;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, W, H);
+    const inkCss = theme === 'light' ? '0,0,0' : '255,255,255';
+    const font = '500 11px "Geist Mono", ui-monospace, Menlo, Consolas, monospace';
+    c.font = font;
+    c.textBaseline = 'alphabetic';
+    if ('letterSpacing' in c) c.letterSpacing = '0.08em';
+    const pad = 20;
+    const safeTop = parseFloat(getComputedStyle(document.documentElement).paddingTop) || 0;
+    const safeBottom = parseFloat(getComputedStyle(document.documentElement).paddingBottom) || 0;
+    // top left: the name
+    c.fillStyle = `rgba(${inkCss},0.92)`;
+    c.fillText('APERTURE', pad, safeTop + pad + 9);
+    // top right: shell spec
+    c.fillStyle = `rgba(${inkCss},0.4)`;
+    c.textAlign = 'right';
+    c.fillText(`${OUTER.rings}×${OUTER.perRing} / ${INNER.rings}×${INNER.perRing}`, W - pad, safeTop + pad + 9);
+    // bottom left: point count and the one thing you can do
+    c.textAlign = 'left';
+    c.fillText(`${POINT_COUNT.toLocaleString('en-US')} PTS · DRAG TO TURN`, pad, H - safeBottom - pad);
+    // bottom right: mirrors the real invert button
+    const r = invertBtn.getBoundingClientRect();
+    c.textAlign = 'right';
+    c.fillStyle = `rgba(${inkCss},0.62)`;
+    c.fillText('INVERT', r.right - 8, r.bottom - 8 - 3);
+    c.textAlign = 'left';
+    gl.bindTexture(gl.TEXTURE_2D, overlayTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, overlay);
+  }
+
+  // ---- motion state -------------------------------------------------------------
+  let t = 0, last = 0, paused = false;
+  let spin = 0.6, spinVel = 0;          // extra yaw from dragging
+  let tiltDrag = 0, tiltVel = 0;         // extra pitch from dragging
+  let power = 0, animating = false;
+  const BASE_SPIN = 0.30;                // rad/s
+
+  function rotY(a) { const c = Math.cos(a), s = Math.sin(a); return [c, 0, s, 0, 1, 0, -s, 0, c]; }
+  function rotX(a) { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, c, -s, 0, s, c]; }
+  function rotZ(a) { const c = Math.cos(a), s = Math.sin(a); return [c, -s, 0, s, c, 0, 0, 0, 1]; }
+  function mul(A, B) {   // row-major 3x3, A*B
+    const o = new Array(9);
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      o[r * 3 + c] = A[r * 3] * B[c] + A[r * 3 + 1] * B[3 + c] + A[r * 3 + 2] * B[6 + c];
+    }
+    return o;
+  }
+  function toGL(M) {     // WebGL wants column-major
+    return new Float32Array([M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]]);
+  }
+
+  // ---- pointer: drag to turn --------------------------------------------------------
+  let drag = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    drag = { x: e.clientX, y: e.clientY, t: performance.now() };
+    spinVel = 0; tiltVel = 0;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const now = performance.now();
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    const k = 2 * PI / Math.min(W, H) * 0.9;
+    spin += dx * k;
+    tiltDrag = clamp(tiltDrag + dy * k, -1.2, 1.2);
+    const dt = Math.max(1, now - drag.t) / 1000;
+    spinVel = dx * k / dt;
+    tiltVel = dy * k / dt;
+    drag = { x: e.clientX, y: e.clientY, t: now };
+  });
+  const endDrag = () => { drag = null; canvas.classList.remove('dragging'); };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  // ---- frame -----------------------------------------------------------------------
+  function frame(ts) {
+    const now = ts / 1000;
+    const dt = Math.min(0.05, last ? now - last : 0.016);
+    last = now;
+    if (!paused) {
+      t += dt;
+      spin += (BASE_SPIN + spinVel) * dt;
+      tiltDrag += tiltVel * dt;
+      tiltDrag = clamp(tiltDrag, -1.2, 1.2);
+      const damp = Math.pow(0.15, dt);
+      spinVel *= damp; tiltVel *= damp;
+      tiltDrag *= Math.pow(0.6, dt);     // ease back toward the resting tilt
+    }
+
+    // Rotations. The outer shell precesses slowly; the inner counter-rotates.
+    const tilt = 0.34 + 0.08 * Math.sin(t * 0.21) + tiltDrag;
+    const prec = 0.16 * Math.sin(t * 0.13);
+    const outerM = mul(rotZ(prec), mul(rotX(tilt), rotY(spin)));
+    const innerM = mul(rotX(-0.5 - tiltDrag * 0.5), rotY(-spin * 1.55 + 0.8));
+
+    // Apertures: [gap azimuth, band centre latitude, band half-height, slot half-width].
+    // The outer cut stays roughly toward the viewer and swings side to side,
+    // so the lattice streams through it and its profile shows at the extremes.
+    const facing = spin + PI / 2;
+    const apOuter = [
+      facing + 1.1 * Math.sin(t * 0.09),
+      0.20 * Math.sin(t * 0.19),
+      0.34 + 0.20 * Math.sin(t * 0.27 + 1.3),
+      0.45 + 0.35 * Math.sin(t * 0.16 + 2.1),
+    ];
+    const innerFacing = -spin * 1.55 + 0.8 + PI / 2;
+    const apInner = [
+      innerFacing + 0.9 * Math.sin(t * 0.14 + 2.0),
+      -0.12 * Math.sin(t * 0.23 + 0.7),
+      0.30 + 0.12 * Math.sin(t * 0.31),
+      0.22 + 0.16 * Math.sin(t * 0.21 + 4.0),
+    ];
+
+    const aspect = W / H;
+    const scale = 0.66 * Math.min(1, aspect);
+    const baseSize = clamp(2.4 * Math.min(W, H) / 700, 1.5, 3.2);
+
+    // 1. Scene: fade the last frame, then draw the points on top.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (!paused) {
+      gl.useProgram(fadeProg);
+      gl.bindVertexArray(quadVao);
+      gl.uniform4f(FU.uColor, bg[0], bg[1], bg[2], 1 - PERSIST);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+      gl.useProgram(pointProg);
+      gl.bindVertexArray(vao);
+      gl.uniformMatrix3fv(PU.uRotOuter, false, toGL(outerM));
+      gl.uniformMatrix3fv(PU.uRotInner, false, toGL(innerM));
+      gl.uniform4fv(PU.uApOuter, apOuter);
+      gl.uniform4fv(PU.uApInner, apInner);
+      gl.uniform1f(PU.uInnerR, INNER.radius);
+      gl.uniform1f(PU.uAspect, aspect);
+      gl.uniform1f(PU.uScale, scale);
+      gl.uniform1f(PU.uBaseSize, baseSize);
+      gl.uniform1f(PU.uDpr, dpr);
+      gl.uniform1f(PU.uCamD, CAM_DIST);
+      gl.uniform1f(PU.uFocal, 1 / Math.tan((FOV_DEG * PI / 180) / 2));
+      gl.uniform3f(PU.uInk, ink[0], ink[1], ink[2]);
+      gl.drawArrays(gl.POINTS, 0, POINT_COUNT);
+    }
+    gl.disable(gl.BLEND);
+
+    // 2. Tube.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.useProgram(crtProg);
+    gl.bindVertexArray(quadVao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.uniform1i(CU.uTexture, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, overlayTex);
+    gl.uniform1i(CU.uOverlay, 1);
+    gl.uniform1i(CU.uEnabled, crtOff ? 0 : 1);
+    gl.uniform1f(CU.scanlineIntensity, params.scanlineIntensity);
+    gl.uniform1f(CU.scanlineCount, params.scanlineCount > 0 ? params.scanlineCount : Math.round(H / 3));
+    gl.uniform1f(CU.time, now);
+    gl.uniform1f(CU.yOffset, 0);
+    gl.uniform1f(CU.brightness, params.brightness);
+    gl.uniform1f(CU.contrast, params.contrast);
+    gl.uniform1f(CU.saturation, params.saturation);
+    gl.uniform1f(CU.bloomIntensity, params.bloomIntensity);
+    gl.uniform1f(CU.bloomThreshold, params.bloomThreshold);
+    gl.uniform1f(CU.rgbShift, params.rgbShift);
+    gl.uniform1f(CU.adaptiveIntensity, params.adaptiveIntensity);
+    gl.uniform1f(CU.vignetteStrength, params.vignetteStrength);
+    gl.uniform1f(CU.curvature, params.curvature);
+    gl.uniform1f(CU.flickerStrength, reduceMotion() ? 0 : params.flickerStrength);
+    gl.uniform1f(CU.uPower, power);
+    gl.uniform3f(CU.uEdge, 0, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---- power cycle (theme switch) ----------------------------------------------------
+  function tween(from, to, ms, ease) {
+    return new Promise((res) => {
+      const start = performance.now();
+      (function step(now) {
+        const k = clamp((now - start) / ms, 0, 1);
+        power = from + (to - from) * ease(k);
+        if (k < 1) requestAnimationFrame(step); else res();
+      })(start);
+    });
+  }
+  const easeIn = (k) => k * k * k;
+  const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+  async function setTheme(next) {
+    if (next === theme || animating) return;
+    if (crtOff || reduceMotion()) { applyTheme(next); return; }
+    animating = true;
+    await tween(0, 1, 260, easeIn);
+    await tween(1, 2, 160, easeIn);
+    applyTheme(next);
+    await new Promise((r) => setTimeout(r, 120));
+    await tween(2, 1, 180, easeOut);
+    await tween(1, 0, 320, easeOut);
+    animating = false;
+  }
+  async function powerOn() {
+    if (crtOff || reduceMotion()) return;
+    power = 2;
+    await new Promise((r) => setTimeout(r, 80));
+    await tween(2, 1, 200, easeOut);
+    await tween(1, 0, 380, easeOut);
+  }
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+  invertBtn.addEventListener('click', toggleTheme);
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'i' || e.key === 'I') toggleTheme();
+    if (e.key === ' ') { e.preventDefault(); paused = !paused; }
+  });
+
+  // ---- go ------------------------------------------------------------------------------
+  let saved = null;
+  try { saved = localStorage.getItem('aperture-theme'); } catch (e) {}
+  const initial = query.get('theme') || saved || 'dark';
+  applyTheme(initial === 'light' ? 'light' : 'dark');
+  window.addEventListener('resize', resize, { passive: true });
+  resize();
+  if (document.fonts) document.fonts.ready.then(drawOverlay);
+  requestAnimationFrame(frame);
+  if (!query.has('theme')) powerOn();
+})();
+</script>
+</body>
+</html>
