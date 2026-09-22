@@ -10,8 +10,8 @@
 html[data-theme="light"] {
   --bg: #fff;
   --fg: #000;
-  --muted: rgba(0, 0, 0, 0.72);
-  --faint: rgba(0, 0, 0, 0.46);
+  --muted: rgba(0, 0, 0, 0.8);
+  --faint: rgba(0, 0, 0, 0.55);
   --line: rgba(0, 0, 0, 0.18);
   color-scheme: light;
 }

@@ -223,7 +223,8 @@
       document.documentElement.dataset.theme = t;
       try { localStorage.setItem('crt-theme', t); } catch (e) {}
       applyThemeParams(t);
-      dirty = true;
+      // Colours may be mid-transition for a while; keep repainting until they settle.
+      invalidate(800);
       if (panel) panel.refresh();
     }
     setThemeAttr(theme);
@@ -472,6 +473,10 @@
     document.addEventListener('scroll', () => invalidate(), { passive: true, capture: true });
     ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout', 'keydown'].forEach((ev) =>
       root.addEventListener(ev, () => invalidate(450), { passive: true }));
+    // CSS transitions change computed colours over time without any DOM event
+    // we would otherwise see, so follow them frame by frame.
+    ['transitionstart', 'transitionend', 'transitioncancel', 'animationstart', 'animationend'].forEach((ev) =>
+      root.addEventListener(ev, () => invalidate(600), { passive: true }));
     new MutationObserver(() => invalidate(50)).observe(root, { subtree: true, childList: true, characterData: true, attributes: true });
     if (document.fonts) {
       document.fonts.ready.then(() => { measureCache.clear(); invalidate(); });
