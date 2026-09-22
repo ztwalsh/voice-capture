@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>contact · zach walsh</title>
+<meta name="description" content="Get in touch with Zach Walsh">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Contact — the Broadcast page's form, monochrome, flat tube. */
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 24px; min-height: 100vh; display: flex; flex-direction: column; }
+  .top { padding: 32px 0 0; }
+  .home { font-size: 18px; font-weight: 500; letter-spacing: -0.01em; color: var(--muted); }
+  .home:hover { color: var(--fg); }
+  .hero { padding: 88px 0 32px; }
+  h1 { font-size: 56px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; }
+  form { display: flex; flex-direction: column; gap: 20px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 13px; font-weight: 500; color: var(--muted); }
+  input, textarea {
+    font: inherit; font-size: 16px; line-height: 1.5; color: var(--fg);
+    background: transparent; border: 1px solid var(--line); border-radius: 6px;
+    padding: 12px 14px; width: 100%; transition: border-color 200ms ease;
+    -webkit-appearance: none; appearance: none;
+  }
+  input::placeholder, textarea::placeholder { color: var(--faint); }
+  input:focus, textarea:focus { outline: none; border-color: var(--fg); }
+  textarea { resize: vertical; min-height: 140px; }
+  .field-error { border-color: var(--fg); border-style: dashed; }
+  .submit {
+    align-self: flex-start; font: inherit; font-size: 15px; font-weight: 500;
+    color: var(--bg); background: var(--fg); border: 0; border-radius: 999px;
+    padding: 12px 22px; cursor: pointer; transition: opacity 200ms ease;
+  }
+  .submit:hover { opacity: 0.85; }
+  .submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error { font-size: 14px; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; }
+  .success { border: 1px solid var(--line); border-radius: 8px; padding: 24px; line-height: 1.5; }
+  .alt { margin-top: 32px; font-size: 14px; color: var(--muted); }
+  .alt a { text-decoration: underline; text-underline-offset: 3px; }
+  .alt a:hover { color: var(--fg); }
+  .honeypot { position: absolute; left: -9999px; }
+  .foot { margin-top: auto; display: flex; gap: 24px; padding: 64px 0 40px; font-size: 14px; color: var(--muted); }
+  .foot a:hover, .foot button:hover { color: var(--fg); }
+  .foot .invert { margin-left: auto; color: var(--faint); }
+  @media (max-width: 600px) {
+    .hero { padding: 56px 0 24px; }
+    h1 { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+<div id="page">
+  <main class="wrap">
+    <div class="top"><a class="home" href="01-broadcast.html" aria-label="Home">zw</a></div>
+
+    <header class="hero">
+      <h1>contact</h1>
+    </header>
+
+    <div id="success" class="success" hidden>Thanks for reaching out. I'll get back to you as soon as I can.</div>
+
+    <form id="form" novalidate>
+      <p id="error" class="error" hidden></p>
+
+      <div class="honeypot" aria-hidden="true">
+        <label for="website">Website</label>
+        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="name">Full name</label>
+        <input type="text" id="name" name="name" required maxlength="100" placeholder="Your name" autocomplete="name">
+      </div>
+      <div class="field">
+        <label for="email">Email address</label>
+        <input type="email" id="email" name="email" required placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="message">Message</label>
+        <textarea id="message" name="message" required rows="6" minlength="10" maxlength="5000" placeholder="What's on your mind?"></textarea>
+      </div>
+
+      <button type="submit" class="submit" id="submit">Send message</button>
+    </form>
+
+    <p class="alt">You can also reach me at <a href="mailto:ztwalsh@gmail.com">ztwalsh@gmail.com</a> or on <a href="https://www.linkedin.com/in/zacharywalsh/" target="_blank" rel="noopener noreferrer">LinkedIn</a>.</p>
+
+    <footer class="foot">
+      <a href="01-broadcast.html">home</a>
+      <a href="https://www.linkedin.com/in/zacharywalsh/" target="_blank" rel="noopener noreferrer">linkedin</a>
+      <button class="invert" type="button" id="invert" aria-label="Invert colours">invert</button>
+    </footer>
+  </main>
+</div>
+<script src="crt.js"></script>
+<script>
+  const crt = CRT.mount({
+    root: '#page',
+    params: { scanlineIntensity: 0.35, bloomIntensity: 0.4, rgbShift: 0.2, curvature: 0, vignetteStrength: 0.35 },
+  });
+  document.getElementById('invert').addEventListener('click', () => crt.toggleTheme());
+
+  // Same validation and request as the live site. The prototype has no
+  // /api/contact behind it, so ?demo=1 simulates a successful send.
+  const form = document.getElementById('form');
+  const error = document.getElementById('error');
+  const success = document.getElementById('success');
+  const submit = document.getElementById('submit');
+  const fields = ['name', 'email', 'message'].map((id) => document.getElementById(id));
+  const demo = new URLSearchParams(location.search).has('demo');
+  fields.forEach((f) => f.addEventListener('input', () => f.classList.remove('field-error')));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    error.hidden = true;
+    const data = Object.fromEntries(new FormData(form));
+    const missing = fields.filter((f) => !data[f.id].trim());
+    fields.forEach((f) => f.classList.toggle('field-error', missing.includes(f)));
+    if (missing.length) { error.textContent = 'Please fill out all fields.'; error.hidden = false; missing[0].focus(); return; }
+    submit.disabled = true; submit.textContent = 'Sending...';
+    try {
+      if (demo) { await new Promise((r) => setTimeout(r, 700)); }
+      else {
+        const res = await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || 'Something went wrong.'); }
+      }
+      form.hidden = true; success.hidden = false;
+    } catch (err) {
+      error.textContent = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      error.hidden = false;
+      submit.disabled = false; submit.textContent = 'Send message';
+    }
+  });
+</script>
+</body>
+</html>

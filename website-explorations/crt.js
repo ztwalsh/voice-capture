@@ -357,7 +357,7 @@
           const r = n.getBoundingClientRect();
           if (r.width <= 0 || r.height <= 0) continue;
           const x = r.left - ox, y = r.top - oy;
-          if (y > H || y + r.height < 0) continue;
+          if (y > H || y + r.height < 0 || x > W || x + r.width < 0) continue;
           const alpha = alphaOf(n);
           const bgc = parseColor(cs.backgroundColor);
           const radius = parseFloat(cs.borderTopLeftRadius) || 0;
@@ -390,7 +390,10 @@
             }
             ctx.stroke();
           }
-          if (n === focused && n.matches(':focus-visible')) {
+          if ((n.tagName === 'INPUT' || n.tagName === 'TEXTAREA') && r.left - ox < W && r.right - ox > 0) {
+            drawField(n, cs, r, x, y, alpha, n === focused);
+          }
+          if (n === focused && n.matches(':focus-visible') && n.tagName !== 'INPUT' && n.tagName !== 'TEXTAREA') {
             ctx.globalAlpha = 1;
             ctx.strokeStyle = cs.color;
             ctx.lineWidth = 1.5;
@@ -440,6 +443,71 @@
       if (opts.draw) opts.draw(ctx, W, H, performance.now() / 1000, theme);
     }
 
+    // Inputs and textareas have no text nodes, so their value, placeholder
+    // and caret are painted by hand inside the element's content box.
+    const TEXT_INPUTS = /^(text|email|search|url|tel|password|number|)$/;
+    function drawField(n, cs, r, x, y, alpha, focused) {
+      if (n.tagName === 'INPUT' && !TEXT_INPUTS.test(n.type)) return;
+      const font = fontOf(cs);
+      const m = metrics(font);
+      const padL = parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth);
+      const padR = parseFloat(cs.paddingRight) + parseFloat(cs.borderRightWidth);
+      const padT = parseFloat(cs.paddingTop) + parseFloat(cs.borderTopWidth);
+      const padB = parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth);
+      const cw = r.width - padL - padR, ch = r.height - padT - padB;
+      let value = n.type === 'password' ? '•'.repeat(n.value.length) : n.value;
+      let color = cs.color;
+      if (!value && n.placeholder) {
+        value = n.placeholder;
+        let pc = null;
+        try { pc = getComputedStyle(n, '::placeholder').color; } catch (e) {}
+        color = pc && pc !== cs.color ? pc : null;
+      }
+      const col = parseColor(color || cs.color);
+      if (!col) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x + padL - 1, y + padT - 1, cw + 2, ch + 2);
+      ctx.clip();
+      ctx.font = font;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+      ctx.fillStyle = `rgb(${col.r},${col.g},${col.b})`;
+      ctx.globalAlpha = alpha * (color ? col.a : col.a * 0.5);
+      const lh = parseFloat(cs.lineHeight) || (m.asc + m.desc) * 1.2;
+      const showCaret = focused && !reduceMotion() ? Math.floor(performance.now() / 530) % 2 === 0 : focused;
+      const caretColor = parseColor(cs.color);
+      let caretX, caretY;
+      if (n.tagName === 'TEXTAREA') {
+        const lines = [];
+        for (const para of value.split('\n')) {
+          let line = '';
+          for (const word of para.split(' ')) {
+            const test = line ? line + ' ' + word : word;
+            if (line && ctx.measureText(test).width > cw) { lines.push(line); line = word; } else line = test;
+          }
+          lines.push(line);
+        }
+        const top = y + padT - n.scrollTop;
+        lines.forEach((line, i) => {
+          const base = top + i * lh + (lh - (m.asc + m.desc)) / 2 + m.asc;
+          ctx.fillText(line, x + padL, base);
+          if (i === lines.length - 1) { caretX = x + padL + ctx.measureText(n.value ? line : '').width; caretY = base; }
+        });
+      } else {
+        const base = y + padT + (ch - (m.asc + m.desc)) / 2 + m.asc;
+        const w = ctx.measureText(value).width;
+        const shift = n.value && w > cw ? cw - w : 0;   // keep the end visible while typing
+        ctx.fillText(value, x + padL + shift, base);
+        caretX = x + padL + (n.value ? w + shift : 0); caretY = base;
+      }
+      if (showCaret && caretColor && caretX !== undefined) {
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = `rgb(${caretColor.r},${caretColor.g},${caretColor.b})`;
+        ctx.fillRect(caretX + 1, caretY - m.asc, 1.5, m.asc + m.desc);
+      }
+      ctx.restore();
+    }
+
     function drawRun(r, str, m, ul, cs) {
       const x = r.left - ox;
       const top = r.top - oy;
@@ -471,13 +539,17 @@
     }
     window.addEventListener('resize', resize, { passive: true });
     document.addEventListener('scroll', () => invalidate(), { passive: true, capture: true });
-    ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout', 'keydown'].forEach((ev) =>
+    ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout', 'keydown', 'input', 'change'].forEach((ev) =>
       root.addEventListener(ev, () => invalidate(450), { passive: true }));
     // CSS transitions change computed colours over time without any DOM event
     // we would otherwise see, so follow them frame by frame.
     ['transitionstart', 'transitionend', 'transitioncancel', 'animationstart', 'animationend'].forEach((ev) =>
       root.addEventListener(ev, () => invalidate(600), { passive: true }));
     new MutationObserver(() => invalidate(50)).observe(root, { subtree: true, childList: true, characterData: true, attributes: true });
+    setInterval(() => {
+      const a = document.activeElement;
+      if (a && root.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) invalidate();
+    }, 265);
     if (document.fonts) {
       document.fonts.ready.then(() => { measureCache.clear(); invalidate(); });
       document.fonts.addEventListener('loadingdone', () => { measureCache.clear(); invalidate(); });
