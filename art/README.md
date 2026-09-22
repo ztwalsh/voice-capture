@@ -35,6 +35,11 @@ drawing buffer. Published as an Artifact it hands the file over through the
 `downloads` capability, since that sandbox makes an ordinary download link
 inert; opened as a local file it falls back to one.
 
+The `dist/` folder is a packaged copy for dropping into a website: the same
+piece with the Artifact-only code removed, the font bundled, a share image and
+a back link. It has no dependencies and makes no outside requests. See
+`solid-state/dist/README.md`.
+
 How it is built:
 
 1. Each point is stored as nothing but a direction, a latitude and an azimuth,

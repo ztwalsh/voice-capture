@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solid State</title>
+<meta name="description" content="A tunable point lattice cycling sphere to cube to pyramid, drawn through a CRT.">
+<meta name="theme-color" content="#000000">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Solid State">
+<meta property="og:description" content="A point lattice cycling sphere to cube to pyramid, drawn through a CRT.">
+<meta property="og:image" content="/solid-state/preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  @font-face {
+    font-family: "Geist Mono"; font-style: normal; font-weight: 100 900;
+    font-display: swap; src: url("./geist-mono.woff2") format("woff2");
+  }
+  /*
+    Solid State — a code-art object with its controls exposed.
+
+    A self-contained directory: this file, one font, one preview image. No
+    build step, no dependencies, no outside requests. Drop the folder onto
+    any static host and open it. See README.md.
+
+    One shell of points. Every point keeps a fixed direction from the centre
+    and only slides along it, so the lattice never tears: it is pushed out to
+    whichever surface that ray hits. Sphere, then cube, then square pyramid,
+    then back, holding on each solid before the next move. Edges and corners
+    light up where two faces meet. The scene is rendered to a texture and
+    pushed through the Serenity CRT shader used on the ztwalsh.com
+    explorations (scanlines, bloom, vignette, flicker, power collapse), with
+    curvature off by default so the screen does not warp.
+
+    Controls
+      the panel     form, colour and tube settings, saved per browser
+      drag / swipe  turn the object (it keeps its momentum)
+      space         pause      i  swap ink and background
+      h             hide the panel and the captions
+      save png      the shape and the background only, no captions, no panel
+      ?crt=off      raw points, no tube
+  */
+  :root {
+    --panel: rgba(13, 13, 15, 0.82);
+    --panel-line: rgba(255, 255, 255, 0.13);
+    --panel-ink: #e9e9ec;
+    --panel-dim: rgba(233, 233, 236, 0.5);
+    --panel-faint: rgba(233, 233, 236, 0.33);
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #000; }
+  body {
+    color: var(--panel-ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #stage { position: fixed; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+  [hidden] { display: none !important; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ── panel ─────────────────────────────────────────────────────── */
+  #toggle {
+    position: fixed; z-index: 4;
+    top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px;
+    font: inherit; letter-spacing: inherit; color: var(--panel-ink);
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 999px;
+    padding: 7px 13px; cursor: pointer; backdrop-filter: blur(14px);
+  }
+  #toggle:hover { border-color: rgba(255,255,255,0.3); }
+  #panel {
+    position: fixed; z-index: 4;
+    top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px; width: 246px;
+    max-height: calc(100% - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+    padding: 13px 14px 13px;
+    background: var(--panel); backdrop-filter: blur(14px) saturate(1.3);
+    border: 1px solid var(--panel-line); border-radius: 11px;
+    box-shadow: 0 22px 54px rgba(0,0,0,0.5);
+  }
+  #panel input[type=range] { touch-action: none; }
+  .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .head b { font-weight: 500; letter-spacing: 0.11em; }
+  .close {
+    font: inherit; color: var(--panel-dim); background: none; border: 0; cursor: pointer;
+    padding: 2px 4px; line-height: 1; font-size: 14px;
+  }
+  .close:hover { color: var(--panel-ink); }
+  .grp {
+    margin-top: 13px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08);
+    color: var(--panel-faint); letter-spacing: 0.14em; font-size: 9.5px;
+  }
+  .grp:first-of-type { border-top: 0; padding-top: 0; }
+  .row { display: grid; grid-template-columns: 62px 1fr 34px; gap: 9px; align-items: center; margin-top: 7px; }
+  .row span { color: var(--panel-dim); letter-spacing: 0.04em; }
+  .row output { text-align: right; color: var(--panel-ink); font-variant-numeric: tabular-nums; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 16px;
+    background: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track { height: 2px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+  input[type=range]::-moz-range-track { height: 2px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--panel-ink); margin-top: -4.5px; border: 0;
+  }
+  input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 50%; background: var(--panel-ink); border: 0; }
+  input[type=range]:focus-visible { outline: 1px dashed var(--panel-ink); outline-offset: 3px; }
+  .seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin-top: 8px; }
+  .seg button {
+    font: inherit; letter-spacing: 0.05em; color: var(--panel-dim);
+    background: rgba(255,255,255,0.05); border: 1px solid transparent; border-radius: 5px;
+    padding: 5px 0; cursor: pointer;
+  }
+  .seg button:hover { color: var(--panel-ink); }
+  .seg button[aria-pressed="true"] { color: #0c0c0e; background: var(--panel-ink); }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin-top: 8px; }
+  .swatches button {
+    aspect-ratio: 1; border-radius: 5px; border: 1px solid rgba(255,255,255,0.18);
+    cursor: pointer; padding: 0; display: grid; place-items: center;
+  }
+  .swatches button::after { content: ""; width: 42%; height: 42%; border-radius: 50%; background: currentColor; }
+  .swatches button[aria-pressed="true"] { outline: 1.5px solid var(--panel-ink); outline-offset: 1.5px; }
+  .colors { display: grid; grid-template-columns: 1fr 1fr auto; gap: 7px; align-items: center; margin-top: 9px; }
+  .pick { display: grid; grid-template-columns: 22px 1fr; gap: 6px; align-items: center; color: var(--panel-dim); }
+  .pick input[type=color] {
+    -webkit-appearance: none; appearance: none; width: 22px; height: 22px;
+    padding: 0; border: 1px solid rgba(255,255,255,0.22); border-radius: 5px; background: none; cursor: pointer;
+  }
+  .pick input[type=color]::-webkit-color-swatch-wrapper { padding: 1px; }
+  .pick input[type=color]::-webkit-color-swatch { border: 0; border-radius: 3px; }
+  .btn {
+    font: inherit; letter-spacing: 0.06em; color: var(--panel-ink);
+    background: rgba(255,255,255,0.07); border: 1px solid var(--panel-line); border-radius: 6px;
+    padding: 7px 10px; cursor: pointer; width: 100%;
+  }
+  .btn:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn.primary { margin-top: 9px; padding: 9px 10px; background: var(--panel-ink); color: #0c0c0e; border-color: transparent; }
+  .btn.primary:hover:not(:disabled) { background: #fff; }
+  .side { width: auto; padding: 7px 11px; }
+  .check { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--panel-dim); cursor: pointer; }
+  .check input { accent-color: var(--panel-ink); width: 13px; height: 13px; }
+  .foot a { color: var(--panel-dim); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.18); }
+  .foot a:hover { color: var(--panel-ink); border-bottom-color: currentColor; }
+  .foot { margin-top: 11px; color: var(--panel-faint); line-height: 1.75; font-size: 9.5px; letter-spacing: 0.05em; }
+  #note { margin-top: 8px; color: var(--panel-dim); min-height: 13px; font-size: 9.5px; }
+  #fallback {
+    position: fixed; inset: 0; display: none; place-items: center; text-align: center;
+    padding: 24px; color: #9a9aa0; line-height: 1.7;
+  }
+  #fallback.show { display: grid; }
+  @media (max-width: 560px) {
+    #panel {
+      top: auto; left: 12px; right: 12px; width: auto;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      max-height: 56%;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<h1 class="sr-only">Solid State</h1>
+<canvas id="stage" aria-label="Solid State: a lattice of points cycling between a sphere, a cube and a pyramid, rendered through a CRT shader"></canvas>
+<p class="sr-only" id="phase" aria-live="polite"></p>
+
+<div id="panel">
+  <div class="head"><b>SOLID STATE</b><button class="close" id="close" type="button" aria-label="Hide controls">&times;</button></div>
+  <div id="build"></div>
+</div>
+<button id="toggle" type="button" hidden>CONTROLS</button>
+
+<div id="fallback">This piece is drawn with WebGL2, which this browser does not offer.<br>Try a current Chrome, Safari, Firefox or Edge.</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Configure ────────────────────────────────────────────────────────
+  // Where the panel's back link points and what it reads. Set HOME_URL to
+  // an empty string to drop the link altogether.
+  const HOME_URL = '/';
+  const HOME_LABEL = '← back';
+  // ─────────────────────────────────────────────────────────────────────
+
+  const PI = Math.PI;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const query = new URLSearchParams(location.search);
+  const $ = (id) => document.getElementById(id);
+
+  const canvas = $('stage');
+  const phaseOut = $('phase');
+  const crtOff = query.get('crt') === 'off';
+  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false });
+  if (!gl) { $('fallback').classList.add('show'); $('panel').hidden = true; return; }
+
+  // ---------------------------------------------------------------------
+  // Settings. Everything the panel touches lives here and is persisted.
+  // ---------------------------------------------------------------------
+  const PRESETS = {
+    MONO:   { ink: '#ffffff', bg: '#000000', scan: 0.35, bloom: 0.40 },
+    PAPER:  { ink: '#12120f', bg: '#f4f2ec', scan: 0.20, bloom: 0.12 },
+    AMBER:  { ink: '#ffb545', bg: '#140c02', scan: 0.42, bloom: 0.55 },
+    P1:     { ink: '#6dff9d', bg: '#04100a', scan: 0.42, bloom: 0.55 },
+    CYAN:   { ink: '#7ee4ff', bg: '#02111a', scan: 0.36, bloom: 0.50 },
+    ROSE:   { ink: '#ff8ec4', bg: '#16040f', scan: 0.36, bloom: 0.50 },
+  };
+  const BASE = {
+    shape: 'CYCLE',        // CYCLE | SPHERE | CUBE | PYRAMID
+    zoom: 0.62,
+    dot: 1.00,
+    density: 1.00,
+    uniform: 100,          // 100 = a perfect lattice, 0 = scattered
+    spin: 0.30,
+    scan: 0.35,
+    bloom: 0.40,
+    curve: 0,
+    trails: 0.42,
+    ink: '#ffffff',
+    bg: '#000000',
+    captions: true,
+    preset: 'MONO',
+  };
+  const S = Object.assign({}, BASE);
+  let hadSaved = false;
+  try {
+    const raw = localStorage.getItem('solid-state');
+    if (raw) { hadSaved = true; const o = JSON.parse(raw); for (const k in BASE) if (k in o) S[k] = o[k]; }
+  } catch (e) {}
+  if (query.get('theme') === 'light') Object.assign(S, PRESETS.PAPER, { preset: 'PAPER' });
+  if (!hadSaved && reduceMotion()) { S.spin = 0; S.shape = 'SPHERE'; }
+  let saveTimer = 0;
+  function persist() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { try { localStorage.setItem('solid-state', JSON.stringify(S)); } catch (e) {} }, 250);
+  }
+
+  // Fixed parts of the treatment; the panel exposes the rest.
+  const ADAPTIVE = 0.3, SATURATION = 1.1, VIGNETTE = 0.35, FLICKER = 0.01, BLOOM_THRESHOLD = 0.5;
+  const CAM_DIST = 3.4, FOV_DEG = 28;
+  const HOLD = 2.4, MORPH = 3.2;
+  const SHAPES = ['SPHERE', 'CUBE', 'PYRAMID'];
+  const RING_BASE = 104, PER_BASE = 208;
+
+  const hexToRgb = (h) => {
+    const n = parseInt(h.slice(1), 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  };
+  const luma = (rgb) => 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
+
+  // ---- the three solids, as half-spaces -----------------------------------
+  // Each solid is a convex body around the origin. For a ray leaving the
+  // centre, the surface it hits is the nearest plane it crosses, so one loop
+  // gives both the radius and how close the point sits to an edge.
+  const CUBE_A = 0.68;                       // half-extent
+  const PYR_H = 1.70, PYR_B = 0.80;          // height, base half-width
+  const PYR_BOT = PYR_H / 4, PYR_TOP = PYR_H - PYR_BOT;   // centroid at the origin
+
+  const planes = [];
+  const pushPlane = (nx, ny, nz, c) => {
+    const L = Math.hypot(nx, ny, nz);
+    planes.push(nx / L, ny / L, nz / L, c / L);
+  };
+  [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+    .forEach(([x, y, z]) => pushPlane(x, y, z, CUBE_A));
+  const CUBE_LO = 0, CUBE_HI = planes.length / 4;
+  pushPlane(0, -1, 0, PYR_BOT);
+  [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([x, z]) =>
+    pushPlane(x * PYR_H, PYR_B, z * PYR_H, PYR_B * PYR_TOP));
+  const PYR_LO = CUBE_HI, PYR_HI = planes.length / 4;
+
+  // ---- shaders ----------------------------------------------------------
+  const POINT_VERT = `#version 300 es
+    precision highp float;
+    in vec4 aData;                 // latitude, azimuth, two per-point randoms
+    uniform mat3 uRot;
+    uniform vec4 uPlanes[${PYR_HI}];
+    uniform int uFrom, uTo;
+    uniform float uK, uAspect, uScale, uBaseSize, uDpr, uCamD, uFocal, uJitter, uLatStep, uPhiStep;
+    out float vAlpha;
+
+    // Nearest plane along the ray, plus how near the two nearest are to
+    // agreeing, which is exactly what it means to sit on an edge or corner.
+    vec2 hitPoly(vec3 d, int lo, int hi) {
+      float best = 1e9, second = 1e9;
+      for (int i = lo; i < hi; i++) {
+        float dn = dot(uPlanes[i].xyz, d);
+        if (dn > 1e-5) {
+          float t = uPlanes[i].w / dn;
+          if (t < best) { second = best; best = t; }
+          else if (t < second) { second = t; }
+        }
+      }
+      float edge = 1.0 - smoothstep(0.0, 0.085, (second - best) / max(best, 1e-4));
+      return vec2(best, edge);
+    }
+    vec2 solid(int id, vec3 d) {
+      if (id == 0) return vec2(1.0, 0.0);                 // sphere: no edges
+      if (id == 1) return hitPoly(d, ${CUBE_LO}, ${CUBE_HI});
+      return hitPoly(d, ${PYR_LO}, ${PYR_HI});
+    }
+
+    void main() {
+      // Uniformity: each point carries two fixed randoms and wanders that
+      // fraction of a lattice cell, so the slider dissolves the grid live.
+      float lat = clamp(aData.x + aData.z * uJitter * uLatStep, -1.5706, 1.5706);
+      float phi = aData.y + aData.w * uJitter * uPhiStep;
+      float r = cos(lat);
+      vec3 d = vec3(r * cos(phi), sin(lat), r * sin(phi));
+
+      // Same ray, two surfaces: the point slides between them.
+      vec2 a = solid(uFrom, d), b = solid(uTo, d);
+      float radius = mix(a.x, b.x, uK);
+      float edge = mix(a.y, b.y, uK);
+
+      vec3 p = uRot * (d * radius);
+      float z = uCamD - p.z;
+      vec2 ndc = p.xy * uFocal / z;
+      ndc.x /= uAspect;
+      ndc *= uScale;
+      gl_Position = vec4(ndc, 0.0, 1.0);
+
+      float near = clamp(p.z / 1.5 * 0.5 + 0.5, 0.0, 1.0);
+      float size = uBaseSize * (0.72 + 0.55 * near) * (uCamD / z) * (1.0 + edge * 0.3);
+      gl_PointSize = size * uDpr;
+      vAlpha = mix(0.22, 1.0, near * near) * (1.0 + edge * 0.85);
+    }
+  `;
+  const POINT_FRAG = `#version 300 es
+    precision highp float;
+    in float vAlpha;
+    uniform vec3 uInk;
+    out vec4 fragColor;
+    void main() {
+      vec2 c = gl_PointCoord * 2.0 - 1.0;
+      float d = dot(c, c);
+      if (d > 1.0) discard;
+      float a = min((1.0 - smoothstep(0.45, 1.0, d)) * vAlpha, 1.0);
+      fragColor = vec4(uInk * a, a);      // premultiplied
+    }
+  `;
+  const QUAD_VERT = `#version 300 es
+    precision highp float;
+    const vec2 pos[4] = vec2[4](vec2(-1.,-1.), vec2(1.,-1.), vec2(-1.,1.), vec2(1.,1.));
+    const vec2 uvs[4] = vec2[4](vec2(0.,0.), vec2(1.,0.), vec2(0.,1.), vec2(1.,1.));
+    out vec2 vUv;
+    void main() { vUv = uvs[gl_VertexID]; gl_Position = vec4(pos[gl_VertexID], 0., 1.); }
+  `;
+  // Phosphor fade: paints the ground over the previous frame at partial alpha.
+  const FADE_FRAG = `#version 300 es
+    precision highp float;
+    uniform vec4 uColor;
+    out vec4 fragColor;
+    void main() { fragColor = vec4(uColor.rgb * uColor.a, uColor.a); }
+  `;
+  // Serenity CRT (MIT, Matt Sephton) with uPower / uEdge, plus an overlay
+  // texture for the captions so they ride the tube with everything else.
+  const CRT_FRAG = `#version 300 es
+    precision highp float;
+    uniform sampler2D uTexture, uOverlay;
+    uniform bool uEnabled;
+    uniform float scanlineIntensity, scanlineCount, time, yOffset, brightness, contrast,
+                  saturation, bloomIntensity, bloomThreshold, rgbShift, adaptiveIntensity,
+                  vignetteStrength, curvature, flickerStrength, uPower;
+    uniform vec3 uEdge;
+    in vec2 vUv;
+    out vec4 fragColor;
+
+    const float PI = 3.14159265;
+    const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+    const float BLOOM_THRESHOLD_FACTOR = 0.5;
+    const float BLOOM_FACTOR_MULT = 1.5;
+    const float RGB_SHIFT_SCALE = 0.005;
+    const float RGB_SHIFT_INTENSITY = 0.08;
+
+    vec4 scene(vec2 uv) {
+      vec4 s = texture(uTexture, uv);
+      vec4 o = texture(uOverlay, uv);
+      return vec4(mix(s.rgb, o.rgb, o.a), 1.0);
+    }
+    vec2 curveRemapUV(vec2 uv, float c) {
+      vec2 coords = uv * 2.0 - 1.0;
+      float dist = dot(coords, coords);
+      coords = coords * (1.0 + dist * c * 0.25);
+      return coords * 0.5 + 0.5;
+    }
+    vec4 sampleBloom(vec2 uv, float radius, vec4 centre) {
+      vec2 o = vec2(radius);
+      vec4 c = centre * 0.4;
+      vec4 cross = (scene(uv + vec2(o.x, 0.)) + scene(uv - vec2(o.x, 0.)) +
+                    scene(uv + vec2(0., o.y)) + scene(uv - vec2(0., o.y))) * 0.15;
+      return c + cross;
+    }
+    float vignetteApprox(vec2 uv, float s) {
+      vec2 v = uv * 2.0 - 1.0;
+      float d = max(abs(v.x), abs(v.y));
+      return 1.0 - d * d * s;
+    }
+    void main() {
+      if (!uEnabled) { fragColor = scene(vUv); return; }
+      vec2 uv = vUv;
+
+      // Power collapse: 0 = on, 1 = squashed to a line, 2 = gone.
+      if (uPower > 0.001) {
+        float sy = 1.0 - clamp(uPower, 0.0, 1.0) * 0.995;
+        float sx = 1.0 - clamp(uPower - 1.0, 0.0, 1.0) * 0.995;
+        uv = (uv - 0.5) / vec2(sx, sy) + 0.5;
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
+      }
+      if (curvature > 0.001) {
+        uv = curveRemapUV(uv, curvature);
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { fragColor = vec4(uEdge, 1.0); return; }
+      }
+
+      vec4 pixel = scene(uv);
+
+      if (bloomIntensity > 0.001) {
+        float lum = dot(pixel.rgb, LUMA);
+        if (lum > bloomThreshold * BLOOM_THRESHOLD_FACTOR) {
+          vec4 b = sampleBloom(uv, 0.005, pixel);
+          b.rgb *= brightness;
+          float bl = dot(b.rgb, LUMA);
+          float f = bloomIntensity * max(0.0, (bl - bloomThreshold) * BLOOM_FACTOR_MULT);
+          pixel.rgb += b.rgb * f;
+        }
+      }
+      if (rgbShift > 0.005) {
+        float s = rgbShift * RGB_SHIFT_SCALE;
+        pixel.r += (scene(vec2(uv.x + s, uv.y)).r - pixel.r) * RGB_SHIFT_INTENSITY * 3.0;
+        pixel.b += (scene(vec2(uv.x - s, uv.y)).b - pixel.b) * RGB_SHIFT_INTENSITY * 3.0;
+      }
+      pixel.rgb *= brightness;
+      float luminance = dot(pixel.rgb, LUMA);
+      pixel.rgb = (pixel.rgb - 0.5) * contrast + 0.5;
+      pixel.rgb = mix(vec3(luminance), pixel.rgb, saturation);
+
+      float mask = 1.0;
+      if (scanlineIntensity > 0.001) {
+        float y = (uv.y + yOffset) * scanlineCount;
+        float pattern = abs(sin(y * PI));
+        float adaptive = 1.0;
+        if (adaptiveIntensity > 0.001) {
+          float yp = sin(uv.y * 30.0) * 0.5 + 0.5;
+          adaptive = 1.0 - yp * adaptiveIntensity * 0.2;
+        }
+        mask *= 1.0 - pattern * scanlineIntensity * adaptive;
+      }
+      if (flickerStrength > 0.001) mask *= 1.0 + sin(time * 110.0) * flickerStrength;
+      if (vignetteStrength > 0.001) mask *= vignetteApprox(uv, vignetteStrength);
+      pixel.rgb *= mask;
+      pixel.rgb *= 1.0 + uPower * 1.2;
+      fragColor = vec4(pixel.rgb, 1.0);
+    }
+  `;
+
+  function link(vs, fs) {
+    const compile = (type, src) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+  const uni = (p, names) => { const U = {}; names.forEach((n) => { U[n] = gl.getUniformLocation(p, n); }); return U; };
+
+  const pointProg = link(POINT_VERT, POINT_FRAG);
+  const PU = uni(pointProg, ['uRot', 'uPlanes', 'uFrom', 'uTo', 'uK', 'uAspect', 'uScale', 'uBaseSize',
+    'uDpr', 'uCamD', 'uFocal', 'uJitter', 'uLatStep', 'uPhiStep', 'uInk']);
+  const fadeProg = link(QUAD_VERT, FADE_FRAG);
+  const FU = uni(fadeProg, ['uColor']);
+  const crtProg = link(QUAD_VERT, CRT_FRAG);
+  const CU = uni(crtProg, ['uTexture', 'uOverlay', 'uEnabled', 'scanlineIntensity', 'scanlineCount', 'time',
+    'yOffset', 'brightness', 'contrast', 'saturation', 'bloomIntensity', 'bloomThreshold', 'rgbShift',
+    'adaptiveIntensity', 'vignetteStrength', 'curvature', 'flickerStrength', 'uPower', 'uEdge']);
+
+  // ---- geometry: a lattice of directions, rebuilt when density changes -------
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const vbo = gl.createBuffer();
+  const aData = gl.getAttribLocation(pointProg, 'aData');
+  let RINGS = 0, PER_RING = 0, POINT_COUNT = 0;
+  function buildLattice() {
+    RINGS = Math.max(8, Math.round(RING_BASE * S.density));
+    PER_RING = Math.max(16, Math.round(PER_BASE * S.density));
+    POINT_COUNT = RINGS * PER_RING;
+    const arr = new Float32Array(POINT_COUNT * 4);
+    let k = 0;
+    for (let i = 0; i < RINGS; i++) {
+      const lat = -PI / 2 + ((i + 0.5) / RINGS) * PI;
+      const stagger = (i % 2) * 0.5;
+      for (let j = 0; j < PER_RING; j++) {
+        arr[k++] = lat;
+        arr[k++] = ((j + stagger) / PER_RING) * 2 * PI;
+        arr[k++] = Math.random() * 2 - 1;
+        arr[k++] = Math.random() * 2 - 1;
+      }
+    }
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(aData);
+    gl.vertexAttribPointer(aData, 4, gl.FLOAT, false, 0, 0);
+  }
+  buildLattice();
+  const quadVao = gl.createVertexArray();
+  gl.useProgram(pointProg);
+  gl.uniform4fv(PU.uPlanes, new Float32Array(planes));
+
+  // ---- render target, caption overlay, and a blank stand-in for export ------
+  const sceneTex = gl.createTexture();
+  const fbo = gl.createFramebuffer();
+  const overlayTex = gl.createTexture();
+  const blankTex = gl.createTexture();
+  const overlay = document.createElement('canvas');
+  const octx = overlay.getContext('2d');
+  for (const t of [sceneTex, overlayTex, blankTex]) {
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  }
+  gl.bindTexture(gl.TEXTURE_2D, blankTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+  // ---- colour ----------------------------------------------------------------
+  let ink = hexToRgb(S.ink), bg = hexToRgb(S.bg);
+  // Brightness, contrast and fringing follow the ground rather than a theme
+  // flag: white phosphor needs less push or it just clips.
+  function tone() {
+    const bright = luma(bg) > 0.5;
+    return { brightness: bright ? 1.0 : 1.25, contrast: bright ? 1.08 : 1.05, rgbShift: bright ? 0.15 : 0.20 };
+  }
+  function applyColour() {
+    ink = hexToRgb(S.ink); bg = hexToRgb(S.bg);
+    document.body.style.background = S.bg;
+    drawOverlay();
+    clearScene();
+  }
+
+  // ---- sizing ------------------------------------------------------------------
+  let dpr = 1, W = 1, H = 1, targetReady = false;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(1, Math.round(window.innerWidth));
+    H = Math.max(1, Math.round(window.innerHeight));
+    canvas.width = overlay.width = Math.floor(W * dpr);
+    canvas.height = overlay.height = Math.floor(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    targetReady = true;
+    drawOverlay();
+    clearScene();
+  }
+  function clearScene() {
+    if (!targetReady) return;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(bg[0], bg[1], bg[2], 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  // The captions, repainted when something they name changes. They are
+  // composited before the tube, and left out of an exported PNG.
+  let label = SHAPES[0];
+  function drawOverlay() {
+    const c = octx;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, W, H);
+    if (!S.captions) { uploadOverlay(); return; }
+    const k = hexToRgb(S.ink).map((v) => Math.round(v * 255)).join(',');
+    c.font = '500 11px "Geist Mono", ui-monospace, Menlo, Consolas, monospace';
+    c.textBaseline = 'alphabetic';
+    if ('letterSpacing' in c) c.letterSpacing = '0.08em';
+    const pad = 20;
+    const cs = getComputedStyle(document.documentElement);
+    const safeTop = parseFloat(cs.paddingTop) || 0;
+    const safeBottom = parseFloat(cs.paddingBottom) || 0;
+    c.fillStyle = `rgba(${k},0.92)`;
+    c.fillText('SOLID STATE', pad, safeTop + pad + 9);
+    c.fillStyle = `rgba(${k},0.42)`;
+    c.textAlign = 'right';
+    c.fillText(label, W - pad, safeTop + pad + 9);
+    c.textAlign = 'left';
+    c.fillText(`${POINT_COUNT.toLocaleString('en-US')} PTS · DRAG TO TURN`, pad, H - safeBottom - pad);
+    uploadOverlay();
+  }
+  function uploadOverlay() {
+    gl.bindTexture(gl.TEXTURE_2D, overlayTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, overlay);
+  }
+
+  // ---- motion state ---------------------------------------------------------------
+  let t = 0, last = 0, paused = false;
+  let spin = 0.6, spinVel = 0, tiltDrag = 0, tiltVel = 0;
+  let power = 0, animating = false;
+
+  const rotY = (a) => { const c = Math.cos(a), s = Math.sin(a); return [c, 0, s, 0, 1, 0, -s, 0, c]; };
+  const rotX = (a) => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, c, -s, 0, s, c]; };
+  const rotZ = (a) => { const c = Math.cos(a), s = Math.sin(a); return [c, -s, 0, s, c, 0, 0, 0, 1]; };
+  function mul(A, B) {
+    const o = new Array(9);
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      o[r * 3 + c] = A[r * 3] * B[c] + A[r * 3 + 1] * B[3 + c] + A[r * 3 + 2] * B[6 + c];
+    }
+    return o;
+  }
+  const toGL = (M) => new Float32Array([M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]]);
+
+  // ---- the morph cycle -------------------------------------------------------------
+  const STEP = HOLD + MORPH;
+  const smoother = (k) => k * k * k * (k * (k * 6 - 15) + 10);
+  function phase(time) {
+    const pinned = SHAPES.indexOf(S.shape);
+    if (pinned >= 0) return { from: pinned, to: pinned, k: 0, moving: false };
+    const u = (time % (SHAPES.length * STEP)) / STEP;
+    const seg = Math.floor(u);
+    const local = u - seg;
+    const holdFrac = HOLD / STEP;
+    const raw = local <= holdFrac ? 0 : (local - holdFrac) / (1 - holdFrac);
+    const k = smoother(clamp(raw, 0, 1));
+    return { from: seg, to: (seg + 1) % SHAPES.length, k, moving: k > 0.02 };
+  }
+
+  // ---- pointer: drag to turn ----------------------------------------------------------
+  let drag = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    drag = { x: e.clientX, y: e.clientY, t: performance.now() };
+    spinVel = 0; tiltVel = 0;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const now = performance.now();
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    const k = 2 * PI / Math.min(W, H) * 0.9;
+    spin += dx * k;
+    tiltDrag = clamp(tiltDrag + dy * k, -1.2, 1.2);
+    const dt = Math.max(1, now - drag.t) / 1000;
+    spinVel = dx * k / dt;
+    tiltVel = dy * k / dt;
+    drag = { x: e.clientX, y: e.clientY, t: now };
+  });
+  const endDrag = () => { drag = null; canvas.classList.remove('dragging'); };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  // ---- drawing ------------------------------------------------------------------------
+  function drawScene() {
+    const ph = phase(t);
+    const next = ph.moving ? `${SHAPES[ph.from]} → ${SHAPES[ph.to]}` : SHAPES[ph.from];
+    if (next !== label) { label = next; phaseOut.textContent = label; drawOverlay(); }
+
+    const tilt = 0.30 + 0.10 * Math.sin(t * 0.21) + tiltDrag;
+    const prec = 0.16 * Math.sin(t * 0.13);
+    const rot = mul(rotZ(prec), mul(rotX(tilt), rotY(spin)));
+    const aspect = W / H;
+    const baseSize = clamp(2.4 * Math.min(W, H) / 700, 1.5, 3.2) * S.dot;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.useProgram(fadeProg);
+    gl.bindVertexArray(quadVao);
+    gl.uniform4f(FU.uColor, bg[0], bg[1], bg[2], 1 - S.trails);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    gl.useProgram(pointProg);
+    gl.bindVertexArray(vao);
+    gl.uniformMatrix3fv(PU.uRot, false, toGL(rot));
+    gl.uniform1i(PU.uFrom, ph.from);
+    gl.uniform1i(PU.uTo, ph.to);
+    gl.uniform1f(PU.uK, ph.k);
+    gl.uniform1f(PU.uAspect, aspect);
+    gl.uniform1f(PU.uScale, S.zoom * Math.min(1, aspect));
+    gl.uniform1f(PU.uBaseSize, baseSize);
+    gl.uniform1f(PU.uDpr, dpr);
+    gl.uniform1f(PU.uCamD, CAM_DIST);
+    gl.uniform1f(PU.uFocal, 1 / Math.tan((FOV_DEG * PI / 180) / 2));
+    gl.uniform1f(PU.uJitter, (1 - S.uniform / 100) * 1.7);
+    gl.uniform1f(PU.uLatStep, PI / RINGS);
+    gl.uniform1f(PU.uPhiStep, 2 * PI / PER_RING);
+    gl.uniform3f(PU.uInk, ink[0], ink[1], ink[2]);
+    gl.drawArrays(gl.POINTS, 0, POINT_COUNT);
+
+    gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  function drawTube(now, withCaptions) {
+    const tn = tone();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.useProgram(crtProg);
+    gl.bindVertexArray(quadVao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.uniform1i(CU.uTexture, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, withCaptions ? overlayTex : blankTex);
+    gl.uniform1i(CU.uOverlay, 1);
+    gl.uniform1i(CU.uEnabled, crtOff ? 0 : 1);
+    gl.uniform1f(CU.scanlineIntensity, S.scan);
+    gl.uniform1f(CU.scanlineCount, Math.round(H / 3));
+    gl.uniform1f(CU.time, now);
+    gl.uniform1f(CU.yOffset, 0);
+    gl.uniform1f(CU.brightness, tn.brightness);
+    gl.uniform1f(CU.contrast, tn.contrast);
+    gl.uniform1f(CU.saturation, SATURATION);
+    gl.uniform1f(CU.bloomIntensity, S.bloom);
+    gl.uniform1f(CU.bloomThreshold, BLOOM_THRESHOLD);
+    gl.uniform1f(CU.rgbShift, tn.rgbShift);
+    gl.uniform1f(CU.adaptiveIntensity, ADAPTIVE);
+    gl.uniform1f(CU.vignetteStrength, VIGNETTE);
+    gl.uniform1f(CU.curvature, S.curve);
+    gl.uniform1f(CU.flickerStrength, reduceMotion() ? 0 : FLICKER);
+    gl.uniform1f(CU.uPower, power);
+    gl.uniform3f(CU.uEdge, 0, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  function frame(ts) {
+    const now = ts / 1000;
+    const dt = Math.min(0.05, last ? now - last : 0.016);
+    last = now;
+    if (!paused) {
+      t += dt;
+      spin += (S.spin + spinVel) * dt;
+      tiltDrag = clamp(tiltDrag + tiltVel * dt, -1.2, 1.2);
+      const damp = Math.pow(0.15, dt);
+      spinVel *= damp; tiltVel *= damp;
+      tiltDrag *= Math.pow(0.6, dt);
+      drawScene();
+    }
+    drawTube(now, true);
+    requestAnimationFrame(frame);
+  }
+
+  // ---- power cycle (used by the ink/background swap) ---------------------------------
+  function tween(from, to, ms, ease) {
+    return new Promise((res) => {
+      const start = performance.now();
+      (function step(now) {
+        const k = clamp((now - start) / ms, 0, 1);
+        power = from + (to - from) * ease(k);
+        if (k < 1) requestAnimationFrame(step); else res();
+      })(start);
+    });
+  }
+  const easeIn = (k) => k * k * k;
+  const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+  async function swap() {
+    if (animating) return;
+    const next = { ink: S.bg, bg: S.ink };
+    if (crtOff || reduceMotion()) { Object.assign(S, next); syncColourUI(); applyColour(); persist(); return; }
+    animating = true;
+    await tween(0, 1, 260, easeIn);
+    await tween(1, 2, 160, easeIn);
+    Object.assign(S, next);
+    S.preset = matchPreset();
+    syncColourUI(); applyColour(); persist();
+    drawScene();
+    await new Promise((r) => setTimeout(r, 120));
+    await tween(2, 1, 180, easeOut);
+    await tween(1, 0, 320, easeOut);
+    animating = false;
+  }
+
+  // ---- PNG export ----------------------------------------------------------------------
+  // Draw one frame with the captions suppressed and read the pixels straight
+  // back out of the drawing buffer. The panel is DOM, so it is never in it.
+  function grabPNG() {
+    drawTube(performance.now() / 1000, false);
+    const w = canvas.width, h = canvas.height;
+    const px = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    const out = document.createElement('canvas');
+    out.width = w; out.height = h;
+    const o = out.getContext('2d');
+    const img = o.createImageData(w, h);
+    for (let y = 0; y < h; y++) {                     // GL reads bottom-up
+      const src = (h - 1 - y) * w * 4;
+      img.data.set(px.subarray(src, src + w * 4), y * w * 4);
+    }
+    o.putImageData(img, 0, 0);
+    return new Promise((res) => out.toBlob(res, 'image/png'));
+  }
+  async function savePNG() {
+    const btn = $('save');
+    const name = `solid-state-${label.toLowerCase().replace(/[^a-z]+/g, '-')}-${Date.now()}.png`;
+    btn.disabled = true;
+    note('rendering…');
+    try {
+      const blob = await grabPNG();
+      if (!blob) throw new Error('could not encode');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      note('saved');
+    } catch (e) {
+      note('could not save: ' + ((e && e.message) || 'unknown'));
+    }
+    btn.disabled = false;
+    setTimeout(() => note(''), 2600);
+  }
+  const note = (s) => { $('note').textContent = s; };
+
+  // ---- panel --------------------------------------------------------------------------
+  const SLIDERS = [
+    ['form', 'zoom', 'Zoom', 0.25, 1.5, 0.01, (v) => v.toFixed(2)],
+    ['form', 'dot', 'Dot size', 0.3, 4, 0.05, (v) => v.toFixed(2)],
+    ['form', 'density', 'Density', 0.25, 1.6, 0.05, (v) => v.toFixed(2)],
+    ['form', 'uniform', 'Uniformity', 0, 100, 1, (v) => Math.round(v) + '%'],
+    ['form', 'spin', 'Spin', 0, 1.5, 0.01, (v) => v.toFixed(2)],
+    ['tube', 'scan', 'Scanlines', 0, 1, 0.01, (v) => v.toFixed(2)],
+    ['tube', 'bloom', 'Bloom', 0, 1.5, 0.01, (v) => v.toFixed(2)],
+    ['tube', 'curve', 'Curve', 0, 0.5, 0.005, (v) => v.toFixed(3)],
+    ['tube', 'trails', 'Trails', 0, 0.92, 0.01, (v) => v.toFixed(2)],
+  ];
+  const rowsFor = (g) => SLIDERS.filter((d) => d[0] === g).map(([, key, lab, min, max, step]) =>
+    `<label class="row"><span>${lab}</span><input type="range" id="s-${key}" min="${min}" max="${max}" step="${step}"><output id="o-${key}"></output></label>`
+  ).join('');
+
+  $('build').innerHTML =
+    `<div class="grp">FORM</div>
+     <div class="seg" id="shapes">` +
+    ['CYCLE'].concat(SHAPES).map((n) => `<button type="button" data-shape="${n}">${n}</button>`).join('') +
+    `</div>${rowsFor('form')}
+     <div class="grp">COLOUR</div>
+     <div class="swatches" id="swatches">` +
+    Object.keys(PRESETS).map((n) => `<button type="button" data-preset="${n}" title="${n}" aria-label="${n}" style="background:${PRESETS[n].bg};color:${PRESETS[n].ink}"></button>`).join('') +
+    `</div>
+     <div class="colors">
+       <label class="pick"><input type="color" id="ink"><span>Ink</span></label>
+       <label class="pick"><input type="color" id="bgc"><span>Ground</span></label>
+       <button class="btn side" id="swap" type="button">SWAP</button>
+     </div>
+     <div class="grp">TUBE</div>${rowsFor('tube')}
+     <div class="grp">EXPORT</div>
+     <label class="check"><input type="checkbox" id="caps"><span>Show captions on screen</span></label>
+     <button class="btn primary" id="save" type="button">SAVE PNG</button>
+     <div id="note" role="status"></div>
+     <div class="foot"><a id="home" href="/"></a><br>Drag to turn · Space pause<br>I swap · H hide panel</div>`;
+
+  if (HOME_URL) { $('home').href = HOME_URL; $('home').textContent = HOME_LABEL; }
+  else { const h = $('home'); h.nextSibling && h.nextSibling.remove(); h.remove(); }
+
+  SLIDERS.forEach(([, key, , , , , fmt]) => {
+    const input = $('s-' + key), out = $('o-' + key);
+    input.value = S[key];
+    out.textContent = fmt(S[key]);
+    input.addEventListener('input', () => {
+      S[key] = parseFloat(input.value);
+      out.textContent = fmt(S[key]);
+      if (key === 'density') { buildLattice(); drawOverlay(); }
+      if (key === 'trails') clearScene();
+      persist();
+    });
+  });
+
+  const shapeBtns = Array.from($('shapes').querySelectorAll('button'));
+  function syncShapeUI() { shapeBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.shape === S.shape))); }
+  shapeBtns.forEach((b) => b.addEventListener('click', () => {
+    S.shape = b.dataset.shape; syncShapeUI(); persist();
+    const ph = phase(t);
+    label = ph.moving ? label : SHAPES[ph.from];
+    phaseOut.textContent = label; drawOverlay();
+  }));
+  syncShapeUI();
+
+  function matchPreset() {
+    for (const n in PRESETS) if (PRESETS[n].ink === S.ink && PRESETS[n].bg === S.bg) return n;
+    return '';
+  }
+  const swatchBtns = Array.from($('swatches').querySelectorAll('button'));
+  function syncColourUI() {
+    $('ink').value = S.ink; $('bgc').value = S.bg;
+    swatchBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.preset === S.preset)));
+    SLIDERS.forEach(([, key, , , , , fmt]) => {
+      const input = $('s-' + key);
+      if (input && parseFloat(input.value) !== S[key]) { input.value = S[key]; $('o-' + key).textContent = fmt(S[key]); }
+    });
+  }
+  swatchBtns.forEach((b) => b.addEventListener('click', () => {
+    Object.assign(S, PRESETS[b.dataset.preset], { preset: b.dataset.preset });
+    syncColourUI(); applyColour(); persist();
+  }));
+  $('ink').addEventListener('input', (e) => { S.ink = e.target.value; S.preset = matchPreset(); syncColourUI(); applyColour(); persist(); });
+  $('bgc').addEventListener('input', (e) => { S.bg = e.target.value; S.preset = matchPreset(); syncColourUI(); applyColour(); persist(); });
+  $('swap').addEventListener('click', swap);
+  $('save').addEventListener('click', savePNG);
+  const caps = $('caps');
+  caps.checked = S.captions;
+  caps.addEventListener('change', () => { S.captions = caps.checked; drawOverlay(); persist(); });
+
+  const panel = $('panel'), toggle = $('toggle');
+  function setPanel(open) {
+    panel.hidden = !open;
+    toggle.hidden = open;
+    if (open) panel.scrollTop = 0;
+  }
+  $('close').addEventListener('click', () => setPanel(false));
+  toggle.addEventListener('click', () => setPanel(true));
+  setPanel(window.innerWidth > 560);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' && e.key === ' ') return;
+    const k = e.key.toLowerCase();
+    if (k === 'i') swap();
+    if (k === 'h') {                       // one gesture for a clean view
+      const show = panel.hidden;
+      setPanel(show);
+      S.captions = show; caps.checked = show;
+      drawOverlay(); persist();
+    }
+    if (e.key === ' ') { e.preventDefault(); paused = !paused; }
+  });
+
+  // ---- go --------------------------------------------------------------------------------
+  syncColourUI();
+  applyColour();
+  window.addEventListener('resize', resize, { passive: true });
+  resize();
+  if (document.fonts) document.fonts.ready.then(drawOverlay);
+  requestAnimationFrame(frame);
+  (async function powerOn() {
+    if (crtOff || reduceMotion()) return;
+    power = 2;
+    await new Promise((r) => setTimeout(r, 80));
+    await tween(2, 1, 200, easeOut);
+    await tween(1, 0, 380, easeOut);
+  })();
+})();
+</script>
+</body>
+</html>
