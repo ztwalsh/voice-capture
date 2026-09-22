@@ -208,6 +208,10 @@
 
     let dirty = true, dirtyUntil = 0, power = 0, animating = false;
     let panel = null;
+    let alive = true;
+    const cleanups = [];
+    const listen = (target, ev, fn, o) => { target.addEventListener(ev, fn, o); cleanups.push(() => target.removeEventListener(ev, fn, o)); };
+    injectStyles();
 
     // ---- theme ------------------------------------------------------------
     let saved = null;
@@ -244,7 +248,7 @@
       // Graceful fallback: just show the real page.
       root.classList.remove('crt-source');
       canvas.remove();
-      return { setTheme: setThemeAttr, toggleTheme: () => setThemeAttr(theme === 'dark' ? 'light' : 'dark'), params, get theme() { return theme; } };
+      return { setTheme: setThemeAttr, toggleTheme: () => setThemeAttr(theme === 'dark' ? 'light' : 'dark'), invalidate: () => {}, params, get theme() { return theme; }, destroy() {} };
     }
 
     const scene = document.createElement('canvas');
@@ -537,27 +541,31 @@
       dirty = true;
       if (ms) dirtyUntil = Math.max(dirtyUntil, performance.now() + ms);
     }
-    window.addEventListener('resize', resize, { passive: true });
-    document.addEventListener('scroll', () => invalidate(), { passive: true, capture: true });
+    listen(window, 'resize', resize, { passive: true });
+    listen(document, 'scroll', () => invalidate(), { passive: true, capture: true });
     ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout', 'keydown', 'input', 'change'].forEach((ev) =>
-      root.addEventListener(ev, () => invalidate(450), { passive: true }));
+      listen(root, ev, () => invalidate(450), { passive: true }));
     // CSS transitions change computed colours over time without any DOM event
     // we would otherwise see, so follow them frame by frame.
     ['transitionstart', 'transitionend', 'transitioncancel', 'animationstart', 'animationend'].forEach((ev) =>
-      root.addEventListener(ev, () => invalidate(600), { passive: true }));
-    new MutationObserver(() => invalidate(50)).observe(root, { subtree: true, childList: true, characterData: true, attributes: true });
-    setInterval(() => {
+      listen(root, ev, () => invalidate(600), { passive: true }));
+    const mo = new MutationObserver(() => invalidate(50));
+    mo.observe(root, { subtree: true, childList: true, characterData: true, attributes: true });
+    cleanups.push(() => mo.disconnect());
+    const caretTimer = setInterval(() => {
       const a = document.activeElement;
       if (a && root.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) invalidate();
     }, 265);
+    cleanups.push(() => clearInterval(caretTimer));
     if (document.fonts) {
       document.fonts.ready.then(() => { measureCache.clear(); invalidate(); });
-      document.fonts.addEventListener('loadingdone', () => { measureCache.clear(); invalidate(); });
+      listen(document.fonts, 'loadingdone', () => { measureCache.clear(); invalidate(); });
     }
 
     // ---- render loop -------------------------------------------------------
     let last = 0;
     function frame(ts) {
+      if (!alive) return;
       const t = ts / 1000;
       if (dirty || ts < dirtyUntil) {
         paint();
@@ -676,7 +684,7 @@
       document.body.appendChild(el);
       return { el, refresh };
     }
-    document.addEventListener('keydown', (e) => {
+    listen(document, 'keydown', (e) => {
       if (e.key.toLowerCase() === 't' && !e.metaKey && !e.ctrlKey && !e.altKey && !/input|textarea/i.test(document.activeElement.tagName)) {
         if (!panel) panel = buildPanel(); else panel.el.hidden = !panel.el.hidden;
       }
@@ -694,6 +702,15 @@
       invalidate,
       params,
       get theme() { return theme; },
+      destroy() {
+        alive = false;
+        cleanups.forEach((fn) => fn());
+        canvas.remove();
+        if (panel) panel.el.remove();
+        root.classList.remove('crt-source');
+        if (container) container.classList.remove('crt-container');
+        try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) {}
+      },
     };
     return api;
   }
@@ -715,8 +732,11 @@
   }
 
   // Base styles the engine needs. Pages add their own on top.
-  const style = document.createElement('style');
-  style.textContent = `
+  function injectStyles() {
+    if (document.getElementById('crt-base-style')) return;
+    const style = document.createElement('style');
+    style.id = 'crt-base-style';
+    style.textContent = `
     .crt-source { opacity: 0 !important; }
     .crt-source ::selection { background: transparent; }
     .crt-canvas { position: fixed; inset: 0; display: block; pointer-events: none; z-index: 5; }
@@ -734,7 +754,8 @@
     .crt-panel-btns button { flex: 1; font: inherit; color: #ddd; background: #333; border: 1px solid #555; border-radius: 4px; padding: 4px 6px; cursor: pointer; }
     .crt-panel-btns button:hover { background: #444; }
   `;
-  document.head.appendChild(style);
+    document.head.appendChild(style);
+  }
 
   window.CRT = { mount, DEFAULTS };
 })();

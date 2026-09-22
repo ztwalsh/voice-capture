@@ -12,10 +12,7 @@
 <style>
   /* Contact — the Broadcast page's form, monochrome, flat tube. */
   .wrap { max-width: 640px; margin: 0 auto; padding: 0 24px; min-height: 100vh; display: flex; flex-direction: column; }
-  .top { padding: 32px 0 0; }
-  .home { font-size: 18px; font-weight: 500; letter-spacing: -0.01em; color: var(--muted); }
-  .home:hover { color: var(--fg); }
-  .hero { padding: 88px 0 32px; }
+  .hero { padding: 112px 0 32px; }
   h1 { font-size: 56px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; }
   form { display: flex; flex-direction: column; gap: 20px; }
   .field { display: flex; flex-direction: column; gap: 6px; }
@@ -29,7 +26,7 @@
   input::placeholder, textarea::placeholder { color: var(--faint); }
   input:focus, textarea:focus { outline: none; border-color: var(--fg); }
   textarea { resize: vertical; min-height: 140px; }
-  .field-error { border-color: var(--fg); border-style: dashed; }
+  .field-error { border-color: var(--error); }
   .submit {
     align-self: flex-start; font: inherit; font-size: 15px; font-weight: 500;
     color: var(--bg); background: var(--fg); border: 0; border-radius: 999px;
@@ -37,7 +34,7 @@
   }
   .submit:hover { opacity: 0.85; }
   .submit:disabled { opacity: 0.5; cursor: not-allowed; }
-  .error { font-size: 14px; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; }
+  .error { font-size: 14px; color: var(--error); border: 1px solid var(--error); border-radius: 6px; padding: 10px 14px; }
   .success { border: 1px solid var(--line); border-radius: 8px; padding: 24px; line-height: 1.5; }
   .alt { margin-top: 32px; font-size: 14px; color: var(--muted); }
   .alt a { text-decoration: underline; text-underline-offset: 3px; }
@@ -47,7 +44,7 @@
   .foot a:hover, .foot button:hover { color: var(--fg); }
   .foot .invert { margin-left: auto; color: var(--faint); }
   @media (max-width: 600px) {
-    .hero { padding: 56px 0 24px; }
+    .hero { padding: 72px 0 24px; }
     h1 { font-size: 40px; }
   }
 </style>
@@ -55,8 +52,6 @@
 <body>
 <div id="page">
   <main class="wrap">
-    <div class="top"><a class="home" href="01-broadcast.html" aria-label="Home">zw</a></div>
-
     <header class="hero">
       <h1>contact</h1>
     </header>

@@ -5,6 +5,7 @@
   --muted: rgba(255, 255, 255, 0.62);
   --faint: rgba(255, 255, 255, 0.36);
   --line: rgba(255, 255, 255, 0.18);
+  --error: #ff5a4f;
   color-scheme: dark;
 }
 html[data-theme="light"] {
@@ -13,6 +14,7 @@ html[data-theme="light"] {
   --muted: rgba(0, 0, 0, 0.8);
   --faint: rgba(0, 0, 0, 0.55);
   --line: rgba(0, 0, 0, 0.18);
+  --error: #d7261a;
   color-scheme: light;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
