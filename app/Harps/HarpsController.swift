@@ -95,6 +95,10 @@ final class HarpsController {
         // `prepare()` is a no-op on every call after the first (see its own
         // comment), so this only ever does real work once per launch.
         Task { try? await transcriber.prepare() }
+        // Same idea for the Foundation Models session `TransformEngine`
+        // uses for enabled transforms — see its own comment on `warmSession`
+        // for why a cold session was the real source of "slow transcription".
+        Task { await TransformEngine.warmUp() }
     }
 
     /// design.md §5: the menu bar click toggles a capture — start on the

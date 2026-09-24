@@ -4,7 +4,24 @@ import FoundationModels
 /// raw transcript, in order, entirely on-device via Apple's Foundation
 /// Models framework — the app already requires macOS 26 for
 /// SpeechAnalyzer, so this adds no new minimum version.
+///
+/// `@MainActor`: `warmSession` is mutable state read and written across
+/// `apply(_:to:)` calls; every call site is already on the main actor (the
+/// `Task { @MainActor in ... }` in `HarpsController.endCapture()`), so this
+/// just makes that explicit instead of leaving the class racy on paper.
+@MainActor
 enum TransformEngine {
+    /// A `LanguageModelSession` that has already paid its session-creation
+    /// cost, ready for the next capture. Measured live: creating a fresh
+    /// `LanguageModelSession` and calling `respond(to:)` on it costs
+    /// ~4-10s regardless of prompt length — reusing an already-warm session
+    /// for a second call on the same instance dropped that to ~0.7s. This
+    /// was the actual source of "transcription feels slow" once the Speech
+    /// side was already fast: `apply` used to build a brand-new session
+    /// per transform per capture, paying that cold-session cost every
+    /// single time.
+    private static var warmSession: LanguageModelSession?
+
     /// Never blocks a capture on this feature: unavailable Apple
     /// Intelligence, or any one transform failing, just passes the text
     /// through unchanged rather than losing it or hanging the insertion.
@@ -12,15 +29,17 @@ enum TransformEngine {
     /// it previously returned silently, which is indistinguishable from
     /// "nothing enabled" or a real bug from the outside.
     static func apply(_ transforms: [Transform], to text: String) async -> String {
+        guard !transforms.isEmpty else { return text }
         guard case .available = SystemLanguageModel.default.availability else {
-            await AppLog.shared.error("Transforms skipped — \(availabilityDescription())")
+            AppLog.shared.error("Transforms skipped — \(availabilityDescription())")
             return text
         }
+
+        let session = warmSession ?? LanguageModelSession(instructions: Self.systemInstructions)
 
         var current = text
         for transform in transforms {
             do {
-                let session = LanguageModelSession(instructions: Self.systemInstructions)
                 let prompt = """
                 Rule: \(transform.instructions)
 
@@ -30,13 +49,36 @@ enum TransformEngine {
                 let response = try await session.respond(to: prompt)
                 current = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
             } catch {
-                await AppLog.shared.error("Transform \"\(transform.name)\" failed: \(error.localizedDescription)")
+                AppLog.shared.error("Transform \"\(transform.name)\" failed: \(error.localizedDescription)")
                 // Keep `current` as it was going into this transform and
                 // move on to the next one — one bad transform should never
                 // lose the whole capture.
             }
         }
+
+        // This session now carries this capture's transcript(s) as
+        // conversation history. Rather than let that grow unbounded across
+        // every future capture for as long as Harps stays open (the whole
+        // point of this app) — or bleed one capture's content into how the
+        // model treats an unrelated later one — retire it and warm its
+        // replacement now, off the critical path, so it's already ready
+        // before the next capture needs it instead of paying the cold-
+        // session cost again on the next `apply` call.
+        warmSession = nil
+        Task { await Self.warmUp() }
+
         return current
+    }
+
+    /// Builds and pre-warms a fresh session, then publishes it for the next
+    /// `apply(_:to:)` call to pick up. Called once at launch (mirroring
+    /// `Transcriber.prepare()`) and again after every capture that used a
+    /// transform.
+    static func warmUp() async {
+        guard case .available = SystemLanguageModel.default.availability else { return }
+        let session = LanguageModelSession(instructions: Self.systemInstructions)
+        session.prewarm()
+        warmSession = session
     }
 
     /// Confirmed live that `LanguageModelSession(instructions:)` alone,
