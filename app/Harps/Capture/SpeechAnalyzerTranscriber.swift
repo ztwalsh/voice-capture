@@ -75,8 +75,23 @@ final class SpeechAnalyzerTranscriber: Transcriber, @unchecked Sendable {
         // `finishAfterFile: true` drives the whole file through and closes
         // `transcriber.results` when it reaches the end — no manual
         // analyze/finalize bookkeeping needed for a batch, non-live file.
+        //
+        // `modelRetention: .processLifetime` matters a lot here: each
+        // capture now gets its own `SpeechTranscriber`/`SpeechAnalyzer`
+        // pair (see the comment on `modelReady` above), but the default
+        // retention (`.whileInUse`) releases the underlying acoustic model
+        // the moment an analyzer is done with it — so every capture paid a
+        // full model-load cost regardless of instance reuse, measured live
+        // at a ~12-15s *fixed* overhead even for a one-word capture.
+        // `modelRetention` is a process-wide cache keyed by model config,
+        // not by analyzer/transcriber identity, so keeping the model
+        // resident for the app's lifetime is safe to combine with a fresh
+        // transcriber per call — the model isn't touched by whichever
+        // reuse-across-generations path was crashing.
+        let options = SpeechAnalyzer.Options(priority: .userInitiated, modelRetention: .processLifetime)
         let analyzer = try await SpeechAnalyzer(inputAudioFile: audioFile,
                                                  modules: [transcriber],
+                                                 options: options,
                                                  finishAfterFile: true)
 
         var text = ""

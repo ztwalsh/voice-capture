@@ -72,8 +72,8 @@ targets:
         GENERATE_INFOPLIST_FILE: "NO"
         CODE_SIGN_ENTITLEMENTS: Harps/Harps.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "0.4.2"
-        CURRENT_PROJECT_VERSION: "6"
+        MARKETING_VERSION: "0.4.3"
+        CURRENT_PROJECT_VERSION: "7"
         # PLAN.md: the App Sandbox and the Accessibility API do not coexist
         # usefully. Off means simply not adding the entitlement.
         ENABLE_APP_SANDBOX: "NO"
