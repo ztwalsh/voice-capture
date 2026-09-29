@@ -8,6 +8,11 @@ import SwiftUI
 /// rather than a system checkbox. Centered with the same 700px measure as
 /// the Document reading view, per direct request — design.md's own 620px
 /// wasn't matched here on purpose.
+///
+/// Rows are now grouped into `SettingsCard`s (the iOS grouped-list
+/// container, matching the cardio-tracking sibling app) with a mono
+/// section label above each group, per direct request once this screen
+/// grew past a single flat list of a dozen-plus rows.
 struct SettingsView: View {
     @ObservedObject var model: HistoryViewModel
     let theme: WindowTheme
@@ -16,7 +21,31 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 28) {
+                dictationSection
+                storageSection
+                generalSection
+
+                if !log.recentEntries.isEmpty {
+                    activitySection
+                }
+            }
+            .frame(maxWidth: 700)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 26)
+            .padding(.bottom, 60)
+            .padding(.horizontal, 22)
+            .background(ScrollbarHider())
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    // MARK: - Dictation
+
+    private var dictationSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionLabel(text: "DICTATION", theme: theme)
+            SettingsCard(theme: theme) {
                 row(label: "Hotkey", explanation: "Push-to-talk trigger, held anywhere in macOS.") {
                     HarpsDropdown(
                         titles: ModifierHotkey.allCases.map(\.label),
@@ -33,14 +62,6 @@ struct SettingsView: View {
                     SegmentedPicker(options: HotkeyInvocationMode.allCases, label: \.label,
                                      selection: $settings.invocationMode, theme: theme)
                 }
-                row(label: "Appearance", explanation: "Light, dark, or match the system.") {
-                    SegmentedPicker(options: AppAppearance.allCases, label: \.label,
-                                     selection: $settings.appearance, theme: theme)
-                }
-                row(label: "Auto-delete", explanation: "Remove day files older than this, checked at launch.") {
-                    SegmentedPicker(options: RetentionPeriod.allCases, label: \.label,
-                                     selection: $settings.retention, theme: theme)
-                }
                 row(label: "Model", explanation: "Runs on device. Nothing leaves this Mac.") {
                     SettingsValueChip(text: "SpeechAnalyzer", theme: theme)
                 }
@@ -52,11 +73,16 @@ struct SettingsView: View {
                         .labelsHidden()
                         .toggleStyle(HarpsToggleStyle(theme: theme))
                 }
-                row(label: "Launch at login", explanation: nil) {
-                    Toggle("", isOn: $settings.launchAtLogin)
-                        .labelsHidden()
-                        .toggleStyle(HarpsToggleStyle(theme: theme))
-                }
+            }
+        }
+    }
+
+    // MARK: - Storage
+
+    private var storageSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionLabel(text: "STORAGE", theme: theme)
+            SettingsCard(theme: theme) {
                 row(label: "Transcript folder", explanation: model.transcriptsDirectory.path) {
                     HStack(spacing: 6) {
                         Button("Change…", action: chooseTranscriptsDirectory)
@@ -67,39 +93,56 @@ struct SettingsView: View {
                         .buttonStyle(HarpsSecondaryButtonStyle(theme: theme))
                     }
                 }
+                row(label: "Auto-delete", explanation: "Remove day files older than this, checked at launch.") {
+                    SegmentedPicker(options: RetentionPeriod.allCases, label: \.label,
+                                     selection: $settings.retention, theme: theme)
+                }
+            }
+        }
+    }
+
+    // MARK: - General
+
+    private var generalSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionLabel(text: "GENERAL", theme: theme)
+            SettingsCard(theme: theme) {
+                row(label: "Appearance", explanation: "Light, dark, or match the system.") {
+                    SegmentedPicker(options: AppAppearance.allCases, label: \.label,
+                                     selection: $settings.appearance, theme: theme)
+                }
+                row(label: "Launch at login", explanation: nil) {
+                    Toggle("", isOn: $settings.launchAtLogin)
+                        .labelsHidden()
+                        .toggleStyle(HarpsToggleStyle(theme: theme))
+                }
                 row(label: "Permissions", explanation: "Microphone, Speech Recognition, and Accessibility.") {
                     Button("Review…", action: model.onOpenSetup)
                         .buttonStyle(HarpsSecondaryButtonStyle(theme: theme))
                 }
+            }
+        }
+    }
 
-                if !log.recentEntries.isEmpty {
-                    Text("RECENT ACTIVITY")
-                        .harpsType(HarpsType.section)
-                        .foregroundColor(theme.textFaint)
-                        .padding(.top, 30)
-                        .padding(.bottom, 10)
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(log.recentEntries.prefix(20)) { entry in
-                            HStack(alignment: .top, spacing: 8) {
-                                Text(Self.timeFormatter.string(from: entry.date))
-                                    .harpsType(HarpsType.meta)
-                                    .foregroundColor(theme.textFaint)
-                                Text(entry.message)
-                                    .harpsType(HarpsType.caption)
-                                    .foregroundColor(entry.level == .error ? theme.live : theme.textMuted)
-                            }
-                        }
+    // MARK: - Recent activity
+
+    private var activitySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionLabel(text: "RECENT ACTIVITY", theme: theme)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(log.recentEntries.prefix(20)) { entry in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(Self.timeFormatter.string(from: entry.date))
+                            .harpsType(HarpsType.meta)
+                            .foregroundColor(theme.textFaint)
+                        Text(entry.message)
+                            .harpsType(HarpsType.caption)
+                            .foregroundColor(entry.level == .error ? theme.live : theme.textMuted)
                     }
                 }
             }
-            .frame(maxWidth: 700)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 26)
-            .padding(.bottom, 60)
-            .padding(.horizontal, 22)
-            .background(ScrollbarHider())
+            .padding(.horizontal, 4)
         }
-        .scrollIndicators(.hidden)
     }
 
     private static let timeFormatter: DateFormatter = {
@@ -125,6 +168,9 @@ struct SettingsView: View {
         model.reload()
     }
 
+    /// A single row inside a `SettingsCard` — label + optional one-line
+    /// explanation on the leading side, a control trailing. No divider of
+    /// its own; `SettingsCard` draws the hairline between rows.
     private func row<Control: View>(label: String, explanation: String?,
                                      @ViewBuilder control: () -> Control) -> some View {
         HStack(alignment: .top, spacing: 16) {
@@ -141,8 +187,8 @@ struct SettingsView: View {
             Spacer()
             control()
         }
-        .padding(.vertical, 15)
-        .overlay(Rectangle().frame(height: 1).foregroundColor(theme.hairline), alignment: .bottom)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 }
 
@@ -183,6 +229,6 @@ private struct SegmentedPicker<Option: Identifiable & Hashable>: View {
             }
         }
         .padding(3)
-        .background(theme.trough, in: Capsule())
+        .background(theme.bg, in: Capsule())
     }
 }

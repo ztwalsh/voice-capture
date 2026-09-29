@@ -53,12 +53,11 @@ struct TransformsView: View {
                 .buttonStyle(HarpsPrimaryButtonStyle(theme: theme))
             }
 
-            // Matches SettingsView's own row pattern: a flat, uncarded list
-            // separated by a bottom hairline on every row (including the
-            // last) — not the bordered `theme.trough` card this used to be,
-            // per direct feedback that Transforms and Settings should share
-            // one list style.
-            VStack(spacing: 0) {
+            // Matches SettingsView's own grouped-list container — both
+            // pages moved to the `SettingsCard` treatment (rounded, bordered,
+            // hairline between rows only) once the flat page-wide list
+            // stopped reading as a single scannable group.
+            SettingsCard(theme: theme) {
                 ForEach(store.transforms) { transform in
                     row(for: transform)
                 }
@@ -155,8 +154,8 @@ private struct TransformRow: View {
                 .frame(width: 10, height: 10)
                 .rotationEffect(.degrees(-90))
         }
-        .padding(.vertical, 15)
-        .overlay(Rectangle().frame(height: 1).foregroundColor(theme.hairline), alignment: .bottom)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         .onHover { hovering in
