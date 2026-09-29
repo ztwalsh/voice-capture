@@ -158,6 +158,6 @@ echo "Sanity check before shipping:"
 echo "  spctl -a -vv --type execute \"$STAGED_APP\""
 echo "  spctl -a -vv --type open --context context:primary-signature \"$DMG_PATH\""
 echo
-echo "This script only builds the DMG. To ship it (copy to the website,"
+echo "This script only builds the DMG. To ship it (publish a GitHub release,"
 echo "add a changelog.json entry, commit + push both repos), use the"
 echo "ship-harps-release skill."

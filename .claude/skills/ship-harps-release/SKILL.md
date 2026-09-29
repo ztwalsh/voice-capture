@@ -1,6 +1,6 @@
 ---
 name: ship-harps-release
-description: Package a new signed/notarized Harps.app release, ship the DMG to the harps-website repo with a changelog entry, and commit+push both repos. Use whenever the user asks to "package this up into a DMG", "ship a release", "cut a new version", or similar for the Harps app — this is the standing, repeatable version of that whole flow so it never has to be re-specified.
+description: Package a new signed/notarized Harps.app release, publish the DMG as a GitHub release on ztwalsh/voice-capture, add a changelog entry to the harps-website repo, and commit+push both repos. Use whenever the user asks to "package this up into a DMG", "ship a release", "cut a new version", or similar for the Harps app — this is the standing, repeatable version of that whole flow so it never has to be re-specified.
 ---
 
 # Ship a Harps release
@@ -13,18 +13,24 @@ release:
   DMG work. This skill does not replace that script; it wraps it with the
   version bump before and the shipping steps after.
 - `~/sites/personal-projects/harps-website` — the marketing site.
-  `downloads/Harps.dmg` is the one stable download link both `index.html`
-  CTAs point at (do not rename it — that would break those links).
-  `changelog.json` is a flat array the `changelog.html` page renders
-  directly; each entry is `{ version, date, highlights: [...] }`, newest
-  first.
+  `changelog.json` is a flat array the changelog page renders at build
+  time; each entry is `{ version, date, highlights: [...] }`, newest first.
+  The DMG is **not** in that repo: the site's Download buttons point at
+  `https://github.com/ztwalsh/voice-capture/releases/latest/download/Harps.dmg`,
+  which GitHub resolves to the newest release on this repo. So the asset
+  must always be named exactly `Harps.dmg`, and every release must be a
+  normal published release (not a draft or prerelease), or "latest" won't
+  move to it.
 
 ## Steps
 
 1. **Decide the version.** Look at the current `MARKETING_VERSION` in
    `app/project.yml` and at the most recent entry in
-   `harps-website/changelog.json` (they should already agree — if they
-   don't, something went wrong in a prior run; reconcile before continuing).
+   `harps-website/changelog.json`, and at the latest published release
+   (`gh release view --repo ztwalsh/voice-capture --json tagName`). All three
+   should agree — if they don't, a prior run stopped partway (e.g. the
+   version was bumped but the release never published); reconcile before
+   continuing.
    Bump per semver-ish judgment based on what actually shipped since last
    time: a new user-facing feature → bump the minor (0.2 → 0.3); pure bug
    fixes/polish → bump the patch if you're using three-part versions, or
@@ -60,12 +66,7 @@ release:
    ```
    Both should say `accepted`. Don't ship a DMG that fails either check.
 
-5. **Copy the DMG into the website repo**, overwriting the stable path:
-   ```
-   cp app/build/Harps.dmg ../harps-website/downloads/Harps.dmg
-   ```
-
-6. **Add a changelog entry** to `harps-website/changelog.json` — prepend
+5. **Add a changelog entry** to `harps-website/changelog.json` — prepend
    (newest-first) an object with the version from step 2, today's date
    (`YYYY-MM-DD`), and 3-6 `highlights` written for an end user, not a
    commit log: plain language, no file names or internal component names,
@@ -76,7 +77,7 @@ release:
    `app/` since the last version-bump commit, is the source of truth for
    this — don't guess).
 
-7. **Commit and push the app repo**:
+6. **Commit and push the app repo**:
    ```
    cd app
    git add project.yml Harps/Info.plist scripts/release.sh   # plus any feature files from this session, if not already committed
@@ -88,19 +89,42 @@ release:
    preceding commit) — don't ship a DMG built from code that was never
    committed.
 
-8. **Commit and push the website repo**:
+7. **Publish the GitHub release** from the pushed version-bump commit, with
+   the DMG attached and the changelog highlights as notes:
    ```
-   cd ../harps-website
-   git add downloads/Harps.dmg changelog.json
+   cd ~/sites/personal-projects/voice-capture
+   cat > /tmp/harps-release-notes.md <<'NOTES'
+   - <each highlight from step 5, one bullet per line>
+   NOTES
+   gh release create v<version> app/build/Harps.dmg \
+     --repo ztwalsh/voice-capture \
+     --target "$(git rev-parse HEAD)" \
+     --title "Harps <version>" \
+     --notes-file /tmp/harps-release-notes.md \
+     --latest
+   ```
+   Notes go through a quoted heredoc so quotes, `$`, or backticks in the
+   copy can't break the command. `--target` needs the full SHA (a short SHA
+   is rejected), and the commit must already be pushed (step 6). Then verify the public link serves the
+   new build — it should redirect to `/download/v<version>/Harps.dmg`:
+   ```
+   curl -sI https://github.com/ztwalsh/voice-capture/releases/latest/download/Harps.dmg | grep -i location
+   ```
+   This is the moment the new build goes live for downloads.
+
+8. **Commit and push the website repo** (changelog only):
+   ```
+   cd ~/sites/personal-projects/harps-website
+   git add changelog.json
    git commit -m "Ship Harps v<version>"
    git push
    ```
-   Pushing this repo triggers its normal Vercel deploy — nothing extra to
-   do for that.
+   Pushing triggers the normal Vercel deploy, which rebuilds the changelog
+   page with the new entry.
 
 9. **Confirm to the user** what shipped: the version, a one-line summary of
-   the changelog highlights, and that both repos are pushed (link to the
-   live changelog page if you know the deployed URL).
+   the changelog highlights, the GitHub release URL, and that both repos are
+   pushed (the live changelog is https://www.getharps.app/changelog.html).
 
 ## Things that have gone wrong before, worth checking
 
